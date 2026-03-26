@@ -21,6 +21,8 @@ This PRD defines a **Software MVP spec** for day-to-day creator financial manage
 mobile-first. The goal is to specify workflows, evidence handling, and UX constraints clearly enough to hand
 off into technical design and implementation after user confirmation.
 
+MVP OS priority: iOS-first.
+
 ## Goals
 
 - Define an MVP that helps a US solo creator keep finances clean daily/weekly so month-end and year-end are straightforward.
@@ -38,9 +40,11 @@ off into technical design and implementation after user confirmation.
 - Building a full accounting system (QuickBooks replacement).
 - Providing personalized tax/legal advice or computing a creator’s actual tax liability.
 - Filing/submitting taxes on the user’s behalf (e-file) in MVP.
+- OCR/auto-extraction of receipt fields in MVP (amount/vendor can be entered manually).
 - State-by-state tax rules, sales tax complexity, or international tax flows.
 - Payroll and employee management (contractor tracking may be included; full payroll is out of scope).
 - Solving OS-specific implementation choices in PRD (e.g., iOS vs Android details); those are deferred to technical design.
+- Allowing the LLM to read raw evidence files (images/PDFs) from storage in MVP.
 
 ## Users And Use Cases
 
@@ -70,6 +74,7 @@ Functional requirements (MVP):
   - Allow users to take a photo using the device camera, or upload an existing image/PDF as evidence.
   - Store the original evidence file and associate it with exactly one financial record (with support for multiple evidence files per record if needed).
   - Support creating a record without evidence (e.g., cash tip, no receipt) but flag it as “no evidence”.
+  - MVP does not require OCR/auto-extraction; user can enter amount/vendor/details manually.
 
 - Classification
   - Automatically classify new records by time and category using available metadata and content signals.
@@ -90,8 +95,8 @@ Functional requirements (MVP):
   - Support refunds/chargebacks as reversing entries linked to the original transaction.
   - Track reimbursable expenses and reimbursement status.
 
-- Evidence storage location (local or cloud)
-  - Allow the user to configure where evidence files are stored: local (on-device) or cloud-backed storage.
+- Evidence storage location (cloud-backed)
+  - During setup, allow the user to select a cloud storage target: iCloud Drive or Google Drive.
   - Store evidence in a user-specified folder structure, keeping file names stable and linkable to ledger records.
   - The record retains a durable pointer to the stored evidence plus metadata (capture date, original filename/type).
   - Handle missing/moved evidence gracefully (record remains, evidence is flagged as unavailable).
@@ -109,7 +114,8 @@ Functional requirements (MVP):
 
 - Month-end close and export
   - Define a reconciliation workflow that can mark items as matched/unmatched against a statement or import batch (manual).
-  - Export a ledger for any selected time range (at minimum: CSV; add a nicely formatted human-readable report as required by acceptance criteria).
+  - Export a ledger for any selected time range as a CSV.
+  - The CSV field set is dynamic based on what the user requests through the assistant (within a supported field catalog), but the export must remain a true transaction ledger: one row per record, with clear status columns.
   - Export a zipped evidence package for the same time range, containing:
     - all evidence files referenced by the ledger
     - a manifest that maps ledger record IDs to evidence filenames and metadata
@@ -120,11 +126,14 @@ LLM/API requirements:
 - In-app assistant and API integration
   - Provide an in-app “assistant” experience backed by an LLM API.
   - The assistant can access statistics and summaries from the local database (spend totals, category breakdowns, time-series).
+  - The assistant can access redacted record-level fields needed for analysis (e.g., date, amount, category, and status), but not vendor/memo details by default.
   - The assistant can generate analyses (trends, anomalies, missing evidence checks) and draft “tax package” outputs.
   - The assistant must include clear disclaimers that outputs are informational and require user review.
+  - Data minimization: the LLM must not receive evidence files and must not receive sensitive/free-form details by default; users can type details into chat if needed.
 
 - Tax form assistance (drafting, not filing)
-  - Provide a workflow to generate draft summaries intended to help the user fill US tax forms (e.g., totals by category for Schedule C readiness).
+  - Provide a workflow to generate draft summaries intended to help the user fill US tax forms, optimized for Schedule C.
+  - Allow the assistant to generate a 1099 checklist (e.g., expected forms and reconciliation categories) inferred from the user’s income stream records.
   - Outputs must be exportable and traceable back to underlying ledger entries and evidence where available.
 
 UX/workflow requirements:
@@ -154,7 +163,7 @@ PRD deliverable “done” conditions for this request:
 
 - MVP friction risk: capture is too slow, users stop using it.
 - Trust risk: creators may avoid entering finances into a tool without clear privacy posture.
-- Misclassification risk: automated classification (OCR/LLM/rules) produces wrong categories unless review UX is strong.
+- Misclassification risk: automated classification (rules/ML/LLM) produces wrong categories unless review UX is strong.
 - Evidence loss risk: user-configured storage can lead to moved/deleted files; export and manifest must be resilient.
 - LLM risk: hallucinations or incorrect tax-form guidance; outputs must be framed as drafts and traceable to data.
 - Category drift: inconsistent categorization reduces reporting value.
@@ -163,7 +172,4 @@ PRD deliverable “done” conditions for this request:
 
 ## Open Questions
 
-1. Evidence extraction: is OCR/auto-extract of amount/vendor required for MVP, or is classification + manual entry sufficient?
-2. Storage targets: which cloud storage options must be supported (generic “Files picker”, iCloud Drive, Google Drive, Dropbox, etc.)?
-3. Tax targets: which tax forms/outputs should the “tax help” optimize for first (e.g., Schedule C category totals, 1099 reconciliation checklist)?
-4. Export format: what is the required “nicely created ledger” format for MVP (PDF, CSV, both), and what structure should the evidence zip use?
+None (as of 2026-03-26). PRD is ready for confirmation and handoff to technical design.
