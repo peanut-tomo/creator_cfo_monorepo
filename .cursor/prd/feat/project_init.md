@@ -24,5 +24,5 @@
 3. 是否符合指南标准
 
 ## 需求完结后
-- [ ] 需求完成后统一更新 `/Users/peanut-tomo/Desktop/Tomo-project/creator_cfo_monorepo/.cursor/context/main.md` 主线程的上下文，目的是为了多人协作同步上下文问题，必须使用agent理解的规范来写入上下文，可以通过版本等一个可控的规范来限制上下文
+- [ ] 需求完成后统一更新 `/Users/peanut-tomo/Desktop/Tomo-project/creator_cfo_monorepo/.cursor/context/main.md` 主线程的上下文，目的是为了多人协作同步上下文问题，必须使用agent理解的规范来写入上下文，可以通过版本等一个可控的规范来限制上下文，最重要的是精简扼要，不需要赘述过多
 
