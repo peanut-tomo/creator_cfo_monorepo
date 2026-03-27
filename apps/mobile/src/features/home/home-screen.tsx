@@ -1,23 +1,24 @@
 import { useEffect, useState } from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SectionCard, StatPill, surfaceTokens } from "@creator-cfo/ui";
+import { SectionCard, StatPill } from "@creator-cfo/ui";
 
 import { buildHomeSections } from "./sections";
 import { bootstrapLocalStorage } from "../../storage/bootstrap";
 import type { BootstrapStatus } from "../../storage/status";
-
-const sections = buildHomeSections();
+import { useAppShell } from "../app-shell/provider";
 
 export function HomeScreen() {
+  const { copy, palette, session, sessionDisplayName } = useAppShell();
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>({
     databaseName: "booting",
     fileCollectionCount: 0,
     fileVaultRoot: "booting",
-    platformCount: sections.platforms.length,
+    platformCount: 0,
     status: "idle",
     structuredTableCount: 0,
     summary: "Preparing local SQLite and file-vault contracts...",
   });
+  const sections = buildHomeSections(copy, session);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,23 +49,40 @@ export function HomeScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [sections.platforms.length]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.shell }]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Creator CFO mobile foundation</Text>
-          <Text style={styles.title}>Finance control for creators, now local-first.</Text>
-          <Text style={styles.summary}>
-            This phase replaces the previous web and backend starter with an Expo / React Native
-            app that owns structured finance data and document storage directly on device.
+        <View
+          style={[
+            styles.hero,
+            {
+              backgroundColor: palette.heroEnd,
+              borderColor: palette.border,
+              shadowColor: palette.shadow,
+            },
+          ]}
+        >
+          <Text style={[styles.eyebrow, { color: palette.accent }]}>{sections.sessionTitle}</Text>
+          <Text style={[styles.title, { color: palette.inkOnAccent }]}>{copy.home.focusTitle}</Text>
+          <Text style={[styles.summary, { color: palette.inkOnAccent }]}>
+            {sessionDisplayName}. {copy.login.body}
           </Text>
 
           <View style={styles.pills}>
-            <StatPill label="Product modules" value={sections.modules.length.toString()} />
-            <StatPill label="Supported platforms" value={sections.platforms.length.toString()} />
             <StatPill
+              label="Product modules"
+              palette={palette}
+              value={sections.modules.length.toString()}
+            />
+            <StatPill
+              label="Supported platforms"
+              palette={palette}
+              value={sections.platforms.length.toString()}
+            />
+            <StatPill
+              palette={palette}
               label={bootstrapStatus.status === "ready" ? "Tables ready" : "Bootstrap state"}
               value={
                 bootstrapStatus.status === "ready"
@@ -77,49 +95,76 @@ export function HomeScreen() {
 
         <View style={styles.sectionStack}>
           <SectionCard
-            eyebrow="Product scope"
-            title="Operating modules"
-            footer={<Text style={styles.footerText}>Shared via @creator-cfo/schemas.</Text>}
+            eyebrow={copy.tabs.home}
+            footer={<Text style={[styles.footerText, { color: palette.inkMuted }]}>{copy.home.moduleFooter}</Text>}
+            palette={palette}
+            title={copy.home.moduleTitle}
           >
+            <View style={styles.focusGrid}>
+              {sections.focusCards.map((card) => (
+                <View
+                  key={card.title}
+                  style={[
+                    styles.focusCard,
+                    {
+                      backgroundColor: palette.accentSoft,
+                      borderColor: palette.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.focusTitle, { color: palette.ink }]}>{card.title}</Text>
+                  <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>{card.summary}</Text>
+                </View>
+              ))}
+            </View>
+
             {sections.modules.map((module) => (
-              <View key={module.slug} style={styles.listRow}>
-                <Text style={styles.rowTitle}>{module.title}</Text>
-                <Text style={styles.rowSummary}>{module.summary}</Text>
+              <View key={module.slug} style={[styles.listRow, { borderTopColor: palette.divider }]}>
+                <Text style={[styles.rowTitle, { color: palette.ink }]}>{module.title}</Text>
+                <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>{module.summary}</Text>
               </View>
             ))}
           </SectionCard>
 
           <SectionCard
             eyebrow="Persistence"
-            title="Local storage model"
-            footer={<Text style={styles.footerText}>{bootstrapStatus.summary}</Text>}
+            footer={<Text style={[styles.footerText, { color: palette.inkMuted }]}>{bootstrapStatus.summary}</Text>}
+            palette={palette}
+            title={copy.home.storageTitle}
           >
             {sections.storageCards.map((card) => (
               <View key={card.title} style={styles.storageMetric}>
-                <Text style={styles.storageTitle}>{card.title}</Text>
-                <Text style={styles.storageValue}>{card.value}</Text>
-                <Text style={styles.rowSummary}>{card.label}</Text>
+                <Text style={[styles.storageTitle, { color: palette.accent }]}>{card.title}</Text>
+                <Text style={[styles.storageValue, { color: palette.ink }]}>{card.value}</Text>
+                <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>{card.label}</Text>
               </View>
             ))}
 
-            <Text style={styles.subheading}>Document vault collections</Text>
+            <Text style={[styles.subheading, { color: palette.ink }]}>{copy.home.collectionsTitle}</Text>
             {sections.storageCollections.map((collection) => (
-              <View key={collection.slug} style={styles.listRow}>
-                <Text style={styles.rowTitle}>{collection.title}</Text>
-                <Text style={styles.rowSummary}>{collection.summary}</Text>
+              <View
+                key={collection.slug}
+                style={[styles.listRow, { borderTopColor: palette.divider }]}
+              >
+                <Text style={[styles.rowTitle, { color: palette.ink }]}>{collection.title}</Text>
+                <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>{collection.summary}</Text>
               </View>
             ))}
           </SectionCard>
 
           <SectionCard
             eyebrow="Workflow"
-            title="Guardrails for future slices"
-            footer={<Text style={styles.footerText}>No backend until a later PRD says so.</Text>}
+            footer={<Text style={[styles.footerText, { color: palette.inkMuted }]}>{copy.home.workflowFooter}</Text>}
+            palette={palette}
+            title={copy.home.workflowTitle}
           >
             {sections.workflowPrinciples.map((principle) => (
-              <View key={principle.title} style={styles.listRow}>
-                <Text style={styles.rowTitle}>{principle.title}</Text>
-                <Text style={styles.rowSummary}>{principle.summary}</Text>
+              <View
+                key={principle.title}
+                style={[styles.listRow, { borderTopColor: palette.divider }]}
+              >
+                <Text style={[styles.rowTitle, { color: palette.ink }]}>{principle.title}</Text>
+                <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>{principle.summary}</Text>
               </View>
             ))}
           </SectionCard>
@@ -136,27 +181,40 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   eyebrow: {
-    color: "#79d7cd",
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   footerText: {
-    color: "#61717d",
     fontSize: 13,
   },
+  focusCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    padding: 14,
+  },
+  focusGrid: {
+    gap: 10,
+  },
+  focusTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
   hero: {
+    borderRadius: 30,
+    borderWidth: 1,
     gap: 14,
     padding: 22,
-    borderRadius: 30,
-    backgroundColor: surfaceTokens.shell,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
   },
   listRow: {
     gap: 6,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "rgba(20, 33, 61, 0.08)",
   },
   pills: {
     flexDirection: "row",
@@ -165,18 +223,15 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   rowSummary: {
-    color: "#61717d",
     fontSize: 14,
     lineHeight: 20,
   },
   rowTitle: {
-    color: "#14213d",
     fontSize: 16,
     fontWeight: "700",
   },
   safeArea: {
     flex: 1,
-    backgroundColor: surfaceTokens.shell,
   },
   sectionStack: {
     gap: 16,
@@ -186,31 +241,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   storageTitle: {
-    color: "#0f766e",
     fontSize: 14,
     fontWeight: "700",
   },
   storageValue: {
-    color: "#14213d",
     fontSize: 28,
     fontWeight: "700",
   },
   subheading: {
     paddingTop: 8,
-    color: "#14213d",
     fontSize: 15,
     fontWeight: "700",
   },
   summary: {
-    color: "#d9efec",
     fontSize: 16,
     lineHeight: 24,
   },
   title: {
-    color: "#fffdf9",
     fontSize: 34,
     fontWeight: "800",
     lineHeight: 38,
   },
 });
-

@@ -1,6 +1,14 @@
-import { HomeScreen } from "../src/features/home/home-screen";
+import { Redirect } from "expo-router";
+
+import { LaunchScreen } from "../src/features/app-shell/launch-screen";
+import { useAppShell } from "../src/features/app-shell/provider";
 
 export default function IndexScreen() {
-  return <HomeScreen />;
-}
+  const { isHydrated, session } = useAppShell();
 
+  if (!isHydrated) {
+    return <LaunchScreen />;
+  }
+
+  return <Redirect href={session ? "/(tabs)" : "/login"} />;
+}

@@ -1,0 +1,44 @@
+---
+description: Creator CFO monorepo — always-on agent baseline (local-first Expo, PRD workflow)
+alwaysApply: true
+---
+
+# 仓库 Agent 基线（始终生效）
+
+## 真源与阶段
+
+- 实现与阶段边界以根目录 **`AGENTS.md`**、**`.cursor/context/main.md`** 为准。
+- **当前默认**：Expo + React Native + Expo Router；本地 SQLite + 文件仓；**无独立后端**（除非某 PRD 明确引入）。
+- 契约真源：`docs/contracts/`、`packages/storage/src/contracts.ts`、`packages/schemas/src/index.ts`。存储变更须 **schema-first**，并更新文档与测试。
+
+## PRD / feat 与角色
+
+- 处理 **`.cursor/prd/`**（含 `feat/*.md`）或用户提出的版本需求时：按 **`.cursor/rules/work_flow.md`** 使用 **Harness → Testor → Dev** 三角分工；声明当前角色或 handoff，勿单人自封「已完成」。
+- 公用门禁与摘要：**`.cursor/prd/agent-dev-guide-summary.md`**（含 **Feat PRD 公用约定**）。新 PRD 结构见 **`.cursor/prd/TEMPLATE.md`**。
+
+## 验证命令（改动交付前）
+
+与 `AGENTS.md` 一致，并建议跑冒烟：
+
+```text
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm contract:check
+pnpm smoke
+```
+
+- **自动化冒烟**：`pnpm smoke`（Turbo：`build` 后各包 `smoke`，移动端当前为 `vitest run tests`）。
+- **设备/模拟器手工冒烟清单**：`tests/smoke/README.md`。
+
+## Skill 选用（避免与阶段冲突）
+
+- **`apps/mobile` 与 RN/Expo**：优先 **`.cursor/skills/project/expo`**；通用栈说明可参考同目录 **`create-expo-stack`**、**`ignite`**（按需，勿一次挂载过多）。
+- **勿默认**同时引用 Next.js、FastAPI、全栈模板等 skill，以免与「无后端」阶段假设冲突；仅当 **PRD 明确** 后端/Next 阶段时再启用对应 skill。
+- **`.cursor/skills/project/cursorrules-collection`**：体量极大，仅在为**特定框架/实践**查模板时使用；不要整目录当作项目默认规则。
+
+## 详细角色说明
+
+- Harness / Testor / Dev 全文：**`.cursor/agent/harness.md`**、**`testor.md`**、**`dev.md`**。
+- **勿随意改动**上述角色文档：对照开发指南或做单次需求时，默认不改 `.cursor/agent/*.md`；维护约定见 **`.cursor/agent/README.md`**。

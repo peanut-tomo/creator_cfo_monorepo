@@ -11,6 +11,12 @@ export interface FileVaultCollectionContract {
   defaultExtension: string;
 }
 
+export interface KeyValueRecordContract {
+  key: string;
+  summary: string;
+  valueShape: string;
+}
+
 export const structuredStoreContract = {
   databaseName: "creator-cfo-local.db",
   version: 1,
@@ -112,7 +118,38 @@ export const fileVaultContract = {
   collections: FileVaultCollectionContract[];
 };
 
+export const deviceStateContract = {
+  storageEngine: "AsyncStorage",
+  namespace: "@creator-cfo/mobile",
+  version: 1,
+  records: [
+    {
+      key: "theme_preference",
+      summary: "Persist the user's chosen light, dark, or system theme mode.",
+      valueShape: '"system" | "light" | "dark"',
+    },
+    {
+      key: "locale_preference",
+      summary: "Persist the user's preferred display language for the mobile shell.",
+      valueShape: '"system" | "en" | "zh-CN"',
+    },
+    {
+      key: "auth_session",
+      summary:
+        "Persist the locally trusted session summary for guest mode or on-device Apple sign-in.",
+      valueShape:
+        '{ kind: "guest" | "apple"; appleUserId?: string; email?: string | null; displayName?: string | null }',
+    },
+  ],
+} as const satisfies {
+  storageEngine: string;
+  namespace: string;
+  version: number;
+  records: KeyValueRecordContract[];
+};
+
 export type FileVaultCollectionSlug = (typeof fileVaultContract.collections)[number]["slug"];
+export type DeviceStateRecordKey = (typeof deviceStateContract.records)[number]["key"];
 
 export function sanitizeVaultFileName(fileName: string): string {
   return fileName.trim().toLowerCase().replace(/[^a-z0-9.-]+/g, "-");
@@ -125,3 +162,6 @@ export function buildVaultRelativePath(
   return `${collection}/${sanitizeVaultFileName(fileName)}`;
 }
 
+export function buildDeviceStateStorageKey(key: DeviceStateRecordKey): string {
+  return `${deviceStateContract.namespace}/${key}`;
+}
