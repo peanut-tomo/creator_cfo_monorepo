@@ -45,7 +45,7 @@ pnpm smoke
 ## PRD 与上下文
 
 - 新需求建议使用 `.cursor/prd/TEMPLATE.md`，并填写 **存储与契约影响**。
-- 需求闭环后更新 `.cursor/context/main.md`（版本号、`updated_at`、精简变更摘要），便于协作同步。
+- 需求闭环后更新 `.cursor/context/main.md`：**按版本叠加**——在 **History** 中 **新增** `### 0.x.0` 一节（次版本递增，如 `0.3.0` → `0.4.0`），写入本需求的 `updated_at`、scope、决策与结构增量；**勿删、勿改写**已有历史节。同步更新顶部 **Current** 的版本号、日期与一行摘要。细则见该文件内 **维护约定**。
 
 ## Feat PRD 公用约定（单点引用）
 
