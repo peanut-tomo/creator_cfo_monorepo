@@ -48,6 +48,8 @@ export interface AppCopy {
     storageDeviceTitle: string;
     storageLabel: string;
     storageTitle: string;
+    storageViewsLabel: string;
+    storageViewsTitle: string;
     workflowEyebrow: string;
     workflowFooter: string;
     workflowTitle: string;
@@ -158,6 +160,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       storageDeviceTitle: "Device state",
       storageLabel: "Structured tables + local preference keys",
       storageTitle: "Storage contract pulse",
+      storageViewsLabel: "SQLite compatibility views ready",
+      storageViewsTitle: "Derived views",
       workflowEyebrow: "Workflow",
       workflowFooter: "No backend until a later PRD says so.",
       workflowTitle: "Guardrails for the next slice",
@@ -275,6 +279,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       storageDeviceTitle: "设备状态",
       storageLabel: "结构化表 + 本地偏好键位",
       storageTitle: "本地契约状态",
+      storageViewsLabel: "SQLite 兼容视图已就绪",
+      storageViewsTitle: "派生视图",
       workflowEyebrow: "流程守则",
       workflowFooter: "后续 PRD 未明确前，不引入后端。",
       workflowTitle: "下一阶段守则",
