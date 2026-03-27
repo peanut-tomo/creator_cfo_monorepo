@@ -20,3 +20,4 @@
 - `pnpm test`
 - `pnpm build`
 - `pnpm contract:check`
+- `pnpm smoke` (Turbo smoke after build; see `tests/smoke/README.md` for manual device steps)

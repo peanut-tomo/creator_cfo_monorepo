@@ -1,15 +1,18 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { surfaceTokens, type SurfaceTokens } from "./tokens";
+
 interface StatPillProps {
   label: string;
   value: string;
+  palette?: SurfaceTokens;
 }
 
-export function StatPill({ label, value }: StatPillProps) {
+export function StatPill({ label, palette = surfaceTokens, value }: StatPillProps) {
   return (
-    <View style={styles.pill}>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.pill, { backgroundColor: palette.accentSoft }]}>
+      <Text style={[styles.value, { color: palette.accent }]}>{value}</Text>
+      <Text style={[styles.label, { color: palette.inkMuted }]}>{label}</Text>
     </View>
   );
 }
@@ -33,4 +36,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

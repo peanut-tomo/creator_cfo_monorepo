@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDeviceStateStorageKey,
   buildVaultRelativePath,
+  deviceStateContract,
   fileVaultContract,
   structuredStoreContract,
 } from "../src/contracts";
@@ -22,5 +24,15 @@ describe("storage contracts", () => {
       "tax-support",
     );
   });
-});
 
+  it("documents the persisted device state keys", () => {
+    expect(deviceStateContract.records.map((record) => record.key)).toEqual([
+      "theme_preference",
+      "locale_preference",
+      "auth_session",
+    ]);
+    expect(buildDeviceStateStorageKey("auth_session")).toBe(
+      "@creator-cfo/mobile/auth_session",
+    );
+  });
+});

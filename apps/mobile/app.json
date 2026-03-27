@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "creatorcfo",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -29,7 +29,9 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-apple-authentication",
+      "expo-sqlite",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": false
