@@ -3,6 +3,7 @@ import { useSQLiteContext } from "expo-sqlite";
 
 import {
   buildDatabaseDemoFieldUpdate,
+  buildDatabaseDemoReportState,
   buildDatabaseDemoSummary,
   createDatabaseDemoFixture,
   createDatabaseDemoRecordDraft,
@@ -14,6 +15,7 @@ import {
   getNextDatabaseDemoRecordSequence,
 } from "./demo-data";
 import type {
+  DatabaseDemoAccountingRow,
   DatabaseDemoDoubleEntryPreview,
   DatabaseDemoEditableField,
   DatabaseDemoEditableFieldOption,
@@ -262,14 +264,44 @@ async function loadSnapshot(
         resolvedSelectedRecordId,
       )
     : [];
+  const accountingRows = await database.getAllAsync<DatabaseDemoAccountingRow>(
+    `SELECT
+      record_id AS recordId,
+      description,
+      posting_on AS postingOn,
+      line_no AS lineNo,
+      account_role AS accountRole,
+      account_code AS accountCode,
+      account_name AS accountName,
+      account_type AS accountType,
+      normal_balance AS normalBalance,
+      statement_section AS statementSection,
+      debit_amount_cents AS debitAmountCents,
+      credit_amount_cents AS creditAmountCents,
+      normalized_balance_delta_cents AS normalizedBalanceDeltaCents,
+      currency
+    FROM accounting_posting_lines_v
+    WHERE source_system = ? AND record_id LIKE ?
+    ORDER BY posting_on ASC, record_id ASC, line_no ASC;`,
+    databaseDemoSourceSystem,
+    createDatabaseDemoRecordLikePattern(),
+  );
+  const reportState = buildDatabaseDemoReportState(accountingRows);
 
   const snapshot: DatabaseDemoSnapshot = {
+    balanceSheetSections: reportState.balanceSheetSections,
     counts: {
-      derivedLineCount: doubleEntryRows.length,
+      journalEntryCount: reportState.journalEntries.length,
+      ledgerAccountCount: reportState.ledgerAccounts.length,
       recordCount: recentRecords.length,
+      selectedLineCount: doubleEntryRows.length,
     },
-    doubleEntryLines: buildDoubleEntryPreview(doubleEntryRows),
+    journalEntries: reportState.journalEntries,
+    ledgerAccounts: reportState.ledgerAccounts,
+    ledgerHealth: reportState.ledgerHealth,
+    profitAndLossSections: reportState.profitAndLossSections,
     recentRecords: buildRecentRecordPreview(recentRecords),
+    selectedPostingLines: buildDoubleEntryPreview(doubleEntryRows),
     summary: "",
   };
 

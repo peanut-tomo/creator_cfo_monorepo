@@ -34,16 +34,23 @@ export function DatabaseHooksDemo({ isBootstrapped }: DatabaseHooksDemoProps) {
         <Text style={styles.rowTitle}>2. Query with a custom hook</Text>
         <Text style={styles.rowSummary}>
           `useDatabaseDemo()` wraps `useSQLiteContext()` and returns multi-record CRUD actions,
-          selected-record state, selected-field state, and a read of the derived double-entry
-          view.
+          selected-record state, selected-field state, and current-database report previews built
+          from the accounting reporting view.
         </Text>
       </View>
       <View style={styles.listRow}>
-        <Text style={styles.rowTitle}>3. Read derived rows back</Text>
+        <Text style={styles.rowTitle}>3. Switch report tabs</Text>
         <Text style={styles.rowSummary}>
           The native demo lets you create multiple demo `records`, select one record, update one
-          chosen field, delete the selected record, and read the selected record's
-          `record_double_entry_lines_v` rows back into the UI.
+          chosen field, delete the selected record, and switch across postings, journal, general
+          ledger, balance sheet, and profit/loss views for the current demo database.
+        </Text>
+      </View>
+      <View style={styles.listRow}>
+        <Text style={styles.rowTitle}>4. Surface ledger health</Text>
+        <Text style={styles.rowSummary}>
+          The native card also shows a warning if the current demo ledger is unbalanced, using the
+          same accounting posting surface as the report tabs.
         </Text>
       </View>
       <Text style={styles.summary}>

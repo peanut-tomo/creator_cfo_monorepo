@@ -48,6 +48,7 @@ Implemented tables:
 Implemented views:
 
 - `record_double_entry_lines_v`
+- `accounting_posting_lines_v`
 - `income_snapshots_v`
 - `invoice_records_v`
 - `expense_records_v`
@@ -71,6 +72,19 @@ Legal owners or reporting units for local books.
 
 Chart-of-accounts rows used by derived accounting views and future reporting.
 
+Reporting semantics:
+
+- `account_type` is expected to use the reporting-safe set:
+  - `asset`
+  - `liability`
+  - `equity`
+  - `income`
+  - `expense`
+- `normal_balance` is expected to use:
+  - `debit`
+  - `credit`
+- These semantics are what let the contract derive balance-sheet and profit/loss outputs from one posting surface without parsing account names.
+
 ### `counterparties`
 
 Platforms, clients, vendors, banks, owners, and tax agencies tied to records.
@@ -91,6 +105,13 @@ It replaces the version-1 split across feature tables and stores:
 - amount components such as gross, fees, withholding, adjustments, and net cash
 - posting-account references for the derived double-entry view
 - invoice and reversal linkage through `related_record_id` and `related_record_role`
+
+Postable accounting statuses:
+
+- `posted`
+- `reconciled`
+
+Records with other statuses can still exist operationally, but they are not part of the canonical accounting-reporting surface until they reach a postable status.
 
 ### `evidences`
 
@@ -115,7 +136,7 @@ This supersedes the older monorepo assumption that one evidence belongs to exact
 
 ### `record_double_entry_lines_v`
 
-The first accounting layer stays records-first and derives posting lines from each record.
+This is the raw per-record posting expansion layer. It stays records-first and derives debit and credit lines from each record.
 
 Supported posting patterns:
 
@@ -137,6 +158,51 @@ Output columns include:
 - `credit_amount_cents`
 - `currency`
 - `description`
+
+### `accounting_posting_lines_v`
+
+This is the canonical accounting-reporting surface for journal book, general ledger, balance sheet, and profit/loss derivation.
+
+It extends `record_double_entry_lines_v` by:
+
+- joining each posting line back to `records`
+- joining account metadata from `accounts`
+- filtering to postable accounting statuses:
+  - `posted`
+  - `reconciled`
+- exposing deterministic reporting fields such as:
+  - `entity_id`
+  - `record_id`
+  - `record_kind`
+  - `posting_pattern`
+  - `record_status`
+  - `posting_on`
+  - `line_no`
+  - `account_id`
+  - `account_code`
+  - `account_name`
+  - `account_type`
+  - `normal_balance`
+  - `statement_section`
+  - `debit_amount_cents`
+  - `credit_amount_cents`
+  - `normalized_balance_delta_cents`
+
+Derivation rules:
+
+- Journal book:
+  - filter `accounting_posting_lines_v` by period
+  - order by `posting_on`, `record_id`, `line_no`
+  - group lines by `record_id`
+- General ledger:
+  - filter the same view by account and period
+  - order by `posting_on`, `record_id`, `line_no`
+  - sum `normalized_balance_delta_cents` for account balances
+- Balance sheet:
+  - sum `normalized_balance_delta_cents` for `statement_section = 'balance_sheet'` as of the selected date
+  - if books are unclosed, add current earnings derived from income and expense accounts into equity
+- Profit and loss:
+  - sum `normalized_balance_delta_cents` for `statement_section = 'profit_and_loss'` over the selected date range
 
 ### Compatibility views
 
@@ -214,6 +280,9 @@ Primary helpers:
   - exposes counts for tables, views, indexes, and vault collections
 - `createLocalStorageBootstrapManifest()`
   - generates a JSON-friendly manifest of schema objects and collection sample paths
+- `accountingPostableRecordStatuses`
+- `accountingReportAccountTypes`
+- `accountingStatementSectionsByAccountType`
 - `LocalStorageBootstrapPlan`
 - `LocalStorageBootstrapManifest`
 - `buildEvidenceObjectPath()`
@@ -251,3 +320,5 @@ Version `2` replaces those primary shapes with:
 - evidence-centric vault storage
 
 The runtime contract is now version `2`. Future data-migration work can decide whether any legacy version-1 tables need explicit cleanup for upgraded local databases.
+
+This reporting-contract hardening keeps version `2` because it adds an accounting-reporting view and explicit semantics on top of the existing records-first schema without changing table or vault shapes.

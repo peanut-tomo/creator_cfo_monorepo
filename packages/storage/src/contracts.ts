@@ -66,6 +66,33 @@ export interface LocalStorageBootstrapPlan {
 
 const structuredStorePragmas = ["PRAGMA journal_mode = WAL;", "PRAGMA foreign_keys = ON;"] as const;
 
+export const accountingPostableRecordStatuses = ["posted", "reconciled"] as const;
+export type AccountingPostableRecordStatus = (typeof accountingPostableRecordStatuses)[number];
+
+export const accountingReportAccountTypes = [
+  "asset",
+  "liability",
+  "equity",
+  "income",
+  "expense",
+] as const;
+export type AccountingReportAccountType = (typeof accountingReportAccountTypes)[number];
+
+export const accountingStatementSections = ["balance_sheet", "profit_and_loss"] as const;
+export type AccountingStatementSection = (typeof accountingStatementSections)[number];
+
+export const accountingStatementSectionsByAccountType = {
+  asset: "balance_sheet",
+  liability: "balance_sheet",
+  equity: "balance_sheet",
+  income: "profit_and_loss",
+  expense: "profit_and_loss",
+} as const satisfies Record<AccountingReportAccountType, AccountingStatementSection>;
+
+const accountingPostableRecordStatusSqlList = accountingPostableRecordStatuses
+  .map((status) => `'${status}'`)
+  .join(", ");
+
 const structuredTables = [
   {
     name: "entities",
@@ -431,6 +458,48 @@ const structuredViews = [
       FROM records
       WHERE posting_pattern = 'owner_draw'
         AND primary_amount_cents <> 0;`,
+  },
+  {
+    name: "accounting_posting_lines_v",
+    summary:
+      "Canonical accounting-reporting surface for postable record lines with account semantics.",
+    createStatement: `CREATE VIEW IF NOT EXISTS accounting_posting_lines_v AS
+      SELECT
+        records.entity_id,
+        records.record_id,
+        records.record_kind,
+        records.posting_pattern,
+        records.record_status,
+        records.source_system,
+        records.counterparty_id,
+        records.platform_account_id,
+        lines.posting_on,
+        lines.line_no,
+        lines.account_id,
+        accounts.account_code,
+        accounts.account_name,
+        accounts.account_type,
+        accounts.normal_balance,
+        CASE
+          WHEN accounts.account_type IN ('asset', 'liability', 'equity') THEN 'balance_sheet'
+          WHEN accounts.account_type IN ('income', 'expense') THEN 'profit_and_loss'
+          ELSE 'unclassified'
+        END AS statement_section,
+        lines.account_role,
+        lines.debit_amount_cents,
+        lines.credit_amount_cents,
+        lines.debit_amount_cents - lines.credit_amount_cents AS net_amount_cents,
+        CASE
+          WHEN accounts.normal_balance = 'debit'
+            THEN lines.debit_amount_cents - lines.credit_amount_cents
+          ELSE lines.credit_amount_cents - lines.debit_amount_cents
+        END AS normalized_balance_delta_cents,
+        lines.currency,
+        lines.description
+      FROM record_double_entry_lines_v AS lines
+      INNER JOIN records ON records.record_id = lines.record_id
+      INNER JOIN accounts ON accounts.account_id = lines.account_id
+      WHERE records.record_status IN (${accountingPostableRecordStatusSqlList});`,
   },
   {
     name: "income_snapshots_v",

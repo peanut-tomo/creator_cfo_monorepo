@@ -12,11 +12,23 @@ export const databaseDemoIds = {
 export const databaseDemoSourceSystem = "demo-hooks" as const;
 
 export type DatabaseDemoEditableField = "description" | "recordStatus";
+export type DatabaseDemoReportTab =
+  | "postings"
+  | "journal"
+  | "generalLedger"
+  | "balanceSheet"
+  | "profitAndLoss";
 
 export interface DatabaseDemoEditableFieldOption {
   description: string;
   label: string;
   value: DatabaseDemoEditableField;
+}
+
+export interface DatabaseDemoReportTabOption {
+  description: string;
+  label: string;
+  value: DatabaseDemoReportTab;
 }
 
 export const databaseDemoEditableFields: readonly DatabaseDemoEditableFieldOption[] = [
@@ -32,9 +44,39 @@ export const databaseDemoEditableFields: readonly DatabaseDemoEditableFieldOptio
   },
 ];
 
+export const databaseDemoReportTabs: readonly DatabaseDemoReportTabOption[] = [
+  {
+    description: "Inspect the selected record's derived posting lines directly.",
+    label: "Postings",
+    value: "postings",
+  },
+  {
+    description: "Group current demo rows into journal-style entries ordered by record and line.",
+    label: "Journal",
+    value: "journal",
+  },
+  {
+    description: "Review account-by-account activity and balances from the current demo ledger.",
+    label: "General ledger",
+    value: "generalLedger",
+  },
+  {
+    description: "See current balance-sheet sections for the demo database, including current earnings.",
+    label: "Balance sheet",
+    value: "balanceSheet",
+  },
+  {
+    description: "See current revenue, expense, and net-result totals from the demo database.",
+    label: "P&L",
+    value: "profitAndLoss",
+  },
+] as const;
+
 export interface DatabaseDemoCounts {
-  derivedLineCount: number;
+  journalEntryCount: number;
+  ledgerAccountCount: number;
   recordCount: number;
+  selectedLineCount: number;
 }
 
 export interface DatabaseDemoRecordPreview {
@@ -55,16 +97,102 @@ export interface DatabaseDemoDoubleEntryPreview {
   lineNo: number;
 }
 
+export interface DatabaseDemoJournalLinePreview {
+  accountLabel: string;
+  accountRole: string;
+  amountLabel: string;
+  direction: "credit" | "debit";
+  lineNo: number;
+}
+
+export interface DatabaseDemoJournalEntryPreview {
+  creditTotalLabel: string;
+  debitTotalLabel: string;
+  description: string;
+  lines: DatabaseDemoJournalLinePreview[];
+  postingOn: string;
+  recordId: string;
+}
+
+export interface DatabaseDemoLedgerLinePreview {
+  amountLabel: string;
+  direction: "credit" | "debit";
+  postingOn: string;
+  recordId: string;
+  summary: string;
+}
+
+export interface DatabaseDemoLedgerAccountPreview {
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  activityLines: DatabaseDemoLedgerLinePreview[];
+  balanceDirection: "credit" | "debit";
+  balanceLabel: string;
+  creditTotalLabel: string;
+  debitTotalLabel: string;
+  normalBalance: string;
+}
+
+export interface DatabaseDemoStatementLinePreview {
+  amountLabel: string;
+  label: string;
+}
+
+export interface DatabaseDemoStatementSectionPreview {
+  lines: DatabaseDemoStatementLinePreview[];
+  title: string;
+  totalLabel: string;
+}
+
+export interface DatabaseDemoLedgerHealth {
+  creditTotalLabel: string;
+  debitTotalLabel: string;
+  imbalanceLabel: string | null;
+  isBalanced: boolean;
+  warningText: string | null;
+}
+
+export interface DatabaseDemoAccountingRow {
+  accountCode: string;
+  accountName: string | null;
+  accountRole: string;
+  accountType: string;
+  creditAmountCents: number;
+  currency: string;
+  debitAmountCents: number;
+  description: string;
+  lineNo: number;
+  normalBalance: string;
+  normalizedBalanceDeltaCents: number;
+  postingOn: string;
+  recordId: string;
+  statementSection: string;
+}
+
 export interface DatabaseDemoSnapshot {
+  balanceSheetSections: DatabaseDemoStatementSectionPreview[];
   counts: DatabaseDemoCounts;
-  doubleEntryLines: DatabaseDemoDoubleEntryPreview[];
+  journalEntries: DatabaseDemoJournalEntryPreview[];
+  ledgerAccounts: DatabaseDemoLedgerAccountPreview[];
+  ledgerHealth: DatabaseDemoLedgerHealth;
+  profitAndLossSections: DatabaseDemoStatementSectionPreview[];
   recentRecords: DatabaseDemoRecordPreview[];
+  selectedPostingLines: DatabaseDemoDoubleEntryPreview[];
   summary: string;
 }
 
 export interface DatabaseDemoMetric {
   label: string;
   value: string;
+}
+
+export interface DatabaseDemoReportState {
+  balanceSheetSections: DatabaseDemoStatementSectionPreview[];
+  journalEntries: DatabaseDemoJournalEntryPreview[];
+  ledgerAccounts: DatabaseDemoLedgerAccountPreview[];
+  ledgerHealth: DatabaseDemoLedgerHealth;
+  profitAndLossSections: DatabaseDemoStatementSectionPreview[];
 }
 
 interface DatabaseDemoEntityFixture {
@@ -335,14 +463,27 @@ export function buildDatabaseDemoFieldUpdate(
 
 export function createEmptyDatabaseDemoSnapshot(): DatabaseDemoSnapshot {
   return {
+    balanceSheetSections: [],
     counts: {
-      derivedLineCount: 0,
+      journalEntryCount: 0,
+      ledgerAccountCount: 0,
       recordCount: 0,
+      selectedLineCount: 0,
     },
-    doubleEntryLines: [],
+    journalEntries: [],
+    ledgerAccounts: [],
+    ledgerHealth: {
+      creditTotalLabel: formatAmountLabel(0, "USD"),
+      debitTotalLabel: formatAmountLabel(0, "USD"),
+      imbalanceLabel: null,
+      isBalanced: true,
+      warningText: null,
+    },
+    profitAndLossSections: [],
     recentRecords: [],
+    selectedPostingLines: [],
     summary:
-      "No demo records exist yet. Use Create record to insert one or more deterministic rows, then inspect the selected record's derived posting lines.",
+      "No demo records exist yet. Use Create record to insert one or more deterministic rows, then inspect journal, general ledger, balance sheet, and profit/loss tabs.",
   };
 }
 
@@ -353,8 +494,16 @@ export function buildDatabaseDemoMetrics(snapshot: DatabaseDemoSnapshot): Databa
       value: snapshot.counts.recordCount.toString(),
     },
     {
-      label: "Derived lines",
-      value: snapshot.counts.derivedLineCount.toString(),
+      label: "Selected lines",
+      value: snapshot.counts.selectedLineCount.toString(),
+    },
+    {
+      label: "Journal entries",
+      value: snapshot.counts.journalEntryCount.toString(),
+    },
+    {
+      label: "Ledger accounts",
+      value: snapshot.counts.ledgerAccountCount.toString(),
     },
   ];
 }
@@ -364,17 +513,20 @@ export function buildDatabaseDemoSummary(
   selectedRecordId: string | null,
 ): string {
   if (snapshot.counts.recordCount === 0) {
-    return "No demo records exist yet. Use Create record to insert one or more deterministic rows, then inspect the selected record's derived posting lines.";
+    return "No demo records exist yet. Use Create record to insert one or more deterministic rows, then inspect journal, general ledger, balance sheet, and profit/loss tabs.";
   }
 
   const recordLabel = snapshot.counts.recordCount === 1 ? "record is" : "records are";
-  const derivedLineLabel = snapshot.counts.derivedLineCount === 1 ? "line" : "lines";
+  const selectedLineLabel = snapshot.counts.selectedLineCount === 1 ? "line" : "lines";
+  const healthSentence = snapshot.ledgerHealth.isBalanced
+    ? "Ledger is balanced."
+    : `Ledger warning: difference ${snapshot.ledgerHealth.imbalanceLabel}.`;
 
   if (!selectedRecordId) {
-    return `${snapshot.counts.recordCount} demo ${recordLabel} present. Select a record to inspect its derived double-entry lines through the hook.`;
+    return `${snapshot.counts.recordCount} demo ${recordLabel} present. Switch tabs to inspect journal, general ledger, balance sheet, and profit/loss from the current demo database. ${healthSentence}`;
   }
 
-  return `${snapshot.counts.recordCount} demo ${recordLabel} present. Selected record ${selectedRecordId} exposes ${snapshot.counts.derivedLineCount} derived double-entry ${derivedLineLabel} through the hook.`;
+  return `${snapshot.counts.recordCount} demo ${recordLabel} present. Selected record ${selectedRecordId} exposes ${snapshot.counts.selectedLineCount} posting ${selectedLineLabel}. Switch tabs to inspect the current database reports. ${healthSentence}`;
 }
 
 export function formatAmountLabel(amountCents: number, currency: string): string {
@@ -384,6 +536,209 @@ export function formatAmountLabel(amountCents: number, currency: string): string
   const sign = amountCents < 0 ? "-" : "";
 
   return `${sign}${currency} ${wholeUnits}.${minorUnits}`;
+}
+
+export function buildDatabaseDemoReportState(
+  rows: readonly DatabaseDemoAccountingRow[],
+): DatabaseDemoReportState {
+  const currency = rows[0]?.currency ?? "USD";
+  let totalCreditsCents = 0;
+  let totalDebitsCents = 0;
+  let totalExpenseCents = 0;
+  let totalIncomeCents = 0;
+
+  const journalEntries = new Map<
+    string,
+    {
+      creditTotalCents: number;
+      debitTotalCents: number;
+      description: string;
+      lines: DatabaseDemoJournalLinePreview[];
+      postingOn: string;
+      recordId: string;
+    }
+  >();
+  const ledgerAccounts = new Map<
+    string,
+    {
+      accountCode: string;
+      accountName: string;
+      accountType: string;
+      activityLines: DatabaseDemoLedgerLinePreview[];
+      balanceCents: number;
+      creditTotalCents: number;
+      debitTotalCents: number;
+      normalBalance: string;
+    }
+  >();
+  const balanceSheetAccounts = new Map<
+    string,
+    {
+      accountName: string;
+      accountType: string;
+      balanceCents: number;
+    }
+  >();
+  const profitAndLossAccounts = new Map<
+    string,
+    {
+      accountName: string;
+      accountType: string;
+      balanceCents: number;
+    }
+  >();
+
+  for (const row of rows) {
+    totalDebitsCents += row.debitAmountCents;
+    totalCreditsCents += row.creditAmountCents;
+
+    const amountCents = row.debitAmountCents > 0 ? row.debitAmountCents : row.creditAmountCents;
+    const direction = row.debitAmountCents > 0 ? "debit" : "credit";
+    const accountLabel = buildDatabaseDemoAccountLabel(row.accountCode, row.accountName);
+
+    const journalEntry =
+      journalEntries.get(row.recordId) ??
+      {
+        creditTotalCents: 0,
+        debitTotalCents: 0,
+        description: row.description,
+        lines: [],
+        postingOn: row.postingOn,
+        recordId: row.recordId,
+      };
+    journalEntry.debitTotalCents += row.debitAmountCents;
+    journalEntry.creditTotalCents += row.creditAmountCents;
+    journalEntry.lines.push({
+      accountLabel,
+      accountRole: row.accountRole,
+      amountLabel: formatAmountLabel(amountCents, row.currency),
+      direction,
+      lineNo: row.lineNo,
+    });
+    journalEntries.set(row.recordId, journalEntry);
+
+    const ledgerAccountKey = `${row.accountCode}:${row.accountName ?? "account"}`;
+    const ledgerAccount =
+      ledgerAccounts.get(ledgerAccountKey) ??
+      {
+        accountCode: row.accountCode,
+        accountName: row.accountName ?? "Unassigned account",
+        accountType: row.accountType,
+        activityLines: [],
+        balanceCents: 0,
+        creditTotalCents: 0,
+        debitTotalCents: 0,
+        normalBalance: row.normalBalance,
+      };
+    ledgerAccount.debitTotalCents += row.debitAmountCents;
+    ledgerAccount.creditTotalCents += row.creditAmountCents;
+    ledgerAccount.balanceCents += row.normalizedBalanceDeltaCents;
+    ledgerAccount.activityLines.push({
+      amountLabel: formatAmountLabel(amountCents, row.currency),
+      direction,
+      postingOn: row.postingOn,
+      recordId: row.recordId,
+      summary: row.description,
+    });
+    ledgerAccounts.set(ledgerAccountKey, ledgerAccount);
+
+    if (row.statementSection === "balance_sheet") {
+      const balanceSheetAccount =
+        balanceSheetAccounts.get(ledgerAccountKey) ??
+        {
+          accountName: accountLabel,
+          accountType: row.accountType,
+          balanceCents: 0,
+        };
+      balanceSheetAccount.balanceCents += row.normalizedBalanceDeltaCents;
+      balanceSheetAccounts.set(ledgerAccountKey, balanceSheetAccount);
+    }
+
+    if (row.statementSection === "profit_and_loss") {
+      const profitAndLossAccount =
+        profitAndLossAccounts.get(ledgerAccountKey) ??
+        {
+          accountName: accountLabel,
+          accountType: row.accountType,
+          balanceCents: 0,
+        };
+      profitAndLossAccount.balanceCents += row.normalizedBalanceDeltaCents;
+      profitAndLossAccounts.set(ledgerAccountKey, profitAndLossAccount);
+
+      if (row.accountType === "income") {
+        totalIncomeCents += row.normalizedBalanceDeltaCents;
+      }
+
+      if (row.accountType === "expense") {
+        totalExpenseCents += row.normalizedBalanceDeltaCents;
+      }
+    }
+  }
+
+  const currentEarningsCents = totalIncomeCents - totalExpenseCents;
+  const imbalanceCents = totalDebitsCents - totalCreditsCents;
+  const balanceSheetSections = buildDatabaseDemoBalanceSheetSections(
+    balanceSheetAccounts,
+    currentEarningsCents,
+    currency,
+  );
+  const profitAndLossSections = buildDatabaseDemoProfitAndLossSections(
+    profitAndLossAccounts,
+    totalIncomeCents,
+    totalExpenseCents,
+    currency,
+  );
+
+  return {
+    balanceSheetSections,
+    journalEntries: Array.from(journalEntries.values())
+      .sort((left, right) => {
+        if (left.postingOn === right.postingOn) {
+          return left.recordId.localeCompare(right.recordId);
+        }
+
+        return left.postingOn.localeCompare(right.postingOn);
+      })
+      .map((entry) => ({
+        creditTotalLabel: formatAmountLabel(entry.creditTotalCents, currency),
+        debitTotalLabel: formatAmountLabel(entry.debitTotalCents, currency),
+        description: entry.description,
+        lines: entry.lines.sort((left, right) => left.lineNo - right.lineNo),
+        postingOn: entry.postingOn,
+        recordId: entry.recordId,
+      })),
+    ledgerAccounts: Array.from(ledgerAccounts.values())
+      .sort((left, right) => left.accountCode.localeCompare(right.accountCode))
+      .map((account) => ({
+        accountCode: account.accountCode,
+        accountName: account.accountName,
+        accountType: account.accountType,
+        activityLines: account.activityLines,
+        balanceDirection: resolveDatabaseDemoBalanceDirection(
+          account.balanceCents,
+          account.normalBalance,
+        ),
+        balanceLabel: formatAmountLabel(Math.abs(account.balanceCents), currency),
+        creditTotalLabel: formatAmountLabel(account.creditTotalCents, currency),
+        debitTotalLabel: formatAmountLabel(account.debitTotalCents, currency),
+        normalBalance: account.normalBalance,
+      })),
+    ledgerHealth: {
+      creditTotalLabel: formatAmountLabel(totalCreditsCents, currency),
+      debitTotalLabel: formatAmountLabel(totalDebitsCents, currency),
+      imbalanceLabel:
+        imbalanceCents === 0 ? null : formatAmountLabel(Math.abs(imbalanceCents), currency),
+      isBalanced: imbalanceCents === 0,
+      warningText:
+        imbalanceCents === 0
+          ? null
+          : `Warning: the current demo ledger is unbalanced by ${formatAmountLabel(
+              Math.abs(imbalanceCents),
+              currency,
+            )}.`,
+    },
+    profitAndLossSections,
+  };
 }
 
 function createDemoBaseDate(sequence: number): Date {
@@ -406,4 +761,142 @@ function createIsoTimestamp(date: Date, hour: number, minuteOffset: number): str
       0,
     ),
   ).toISOString();
+}
+
+function buildDatabaseDemoAccountLabel(accountCode: string, accountName: string | null): string {
+  if (accountCode && accountName) {
+    return `${accountCode} · ${accountName}`;
+  }
+
+  return accountName ?? accountCode ?? "Unassigned account";
+}
+
+function resolveDatabaseDemoBalanceDirection(
+  balanceCents: number,
+  normalBalance: string,
+): "credit" | "debit" {
+  if (balanceCents === 0) {
+    return normalBalance === "credit" ? "credit" : "debit";
+  }
+
+  if (balanceCents > 0) {
+    return normalBalance === "credit" ? "credit" : "debit";
+  }
+
+  return normalBalance === "credit" ? "debit" : "credit";
+}
+
+function buildDatabaseDemoBalanceSheetSections(
+  accounts: Map<
+    string,
+    {
+      accountName: string;
+      accountType: string;
+      balanceCents: number;
+    }
+  >,
+  currentEarningsCents: number,
+  currency: string,
+): DatabaseDemoStatementSectionPreview[] {
+  const sectionOrder = [
+    { accountType: "asset", title: "Assets" },
+    { accountType: "liability", title: "Liabilities" },
+    { accountType: "equity", title: "Equity" },
+  ] as const;
+  const sections: DatabaseDemoStatementSectionPreview[] = [];
+
+  for (const section of sectionOrder) {
+    const lines = Array.from(accounts.values())
+      .filter((account) => account.accountType === section.accountType)
+      .sort((left, right) => left.accountName.localeCompare(right.accountName))
+      .map((account) => ({
+        amountLabel: formatAmountLabel(account.balanceCents, currency),
+        balanceCents: account.balanceCents,
+        label: account.accountName,
+      }));
+
+    if (section.accountType === "equity" && currentEarningsCents !== 0) {
+      lines.push({
+        amountLabel: formatAmountLabel(currentEarningsCents, currency),
+        balanceCents: currentEarningsCents,
+        label: "Current earnings",
+      });
+    }
+
+    if (lines.length === 0) {
+      continue;
+    }
+
+    const totalCents = lines.reduce((sum, line) => sum + line.balanceCents, 0);
+    sections.push({
+      lines: lines.map((line) => ({
+        amountLabel: line.amountLabel,
+        label: line.label,
+      })),
+      title: section.title,
+      totalLabel: formatAmountLabel(totalCents, currency),
+    });
+  }
+
+  return sections;
+}
+
+function buildDatabaseDemoProfitAndLossSections(
+  accounts: Map<
+    string,
+    {
+      accountName: string;
+      accountType: string;
+      balanceCents: number;
+    }
+  >,
+  totalIncomeCents: number,
+  totalExpenseCents: number,
+  currency: string,
+): DatabaseDemoStatementSectionPreview[] {
+  const sectionOrder = [
+    { accountType: "income", title: "Income" },
+    { accountType: "expense", title: "Expenses" },
+  ] as const;
+  const sections: DatabaseDemoStatementSectionPreview[] = [];
+
+  for (const section of sectionOrder) {
+    const lines = Array.from(accounts.values())
+      .filter((account) => account.accountType === section.accountType)
+      .sort((left, right) => left.accountName.localeCompare(right.accountName))
+      .map((account) => ({
+        amountLabel: formatAmountLabel(account.balanceCents, currency),
+        label: account.accountName,
+      }));
+
+    if (lines.length === 0) {
+      continue;
+    }
+
+    const totalCents = section.accountType === "income" ? totalIncomeCents : totalExpenseCents;
+    sections.push({
+      lines,
+      title: section.title,
+      totalLabel: formatAmountLabel(totalCents, currency),
+    });
+  }
+
+  const netIncomeCents = totalIncomeCents - totalExpenseCents;
+
+  if (sections.length === 0) {
+    return sections;
+  }
+
+  sections.push({
+    lines: [
+      {
+        amountLabel: formatAmountLabel(netIncomeCents, currency),
+        label: "Current period result",
+      },
+    ],
+    title: netIncomeCents >= 0 ? "Net income" : "Net loss",
+    totalLabel: formatAmountLabel(netIncomeCents, currency),
+  });
+
+  return sections;
 }
