@@ -16,6 +16,7 @@ export interface AppCopy {
     zhCN: string;
   };
   discover: {
+    calculatedBadge: string;
     cards: Array<{ summary: string; title: string }>;
     eyebrow: string;
     form1099Nec: {
@@ -32,6 +33,26 @@ export interface AppCopy {
       openPreview: string;
       recipientPickerHint: string;
       recipientPickerTitle: string;
+      sourceLabel: string;
+      slotGuideTitle: string;
+      title: string;
+      unlockNote: string;
+      webPreviewLabel: string;
+    };
+    formScheduleC: {
+      acknowledge: string;
+      closePreview: string;
+      databaseBadge: string;
+      disclaimerTitle: string;
+      footerNative: string;
+      footerWeb: string;
+      intro: string;
+      launcherHint: string;
+      noInstructionNote: string;
+      openPreview: string;
+      pageOneLabel: string;
+      pageSwitcherTitle: string;
+      pageTwoLabel: string;
       sourceLabel: string;
       slotGuideTitle: string;
       title: string;
@@ -126,6 +147,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       zhCN: "Chinese",
     },
     discover: {
+      calculatedBadge: "Calculated from the form",
       cards: [
         {
           title: "Creator benchmarks",
@@ -162,6 +184,31 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         slotGuideTitle: "Slot guidance",
         title: "Form 1099-NEC exact-layout preview",
         unlockNote: "Acknowledge the disclaimer to reveal the official-form preview.",
+        webPreviewLabel: "Static web preview",
+      },
+      formScheduleC: {
+        acknowledge: "I understand",
+        closePreview: "Close preview",
+        databaseBadge: "Database-backed",
+        disclaimerTitle: "Schedule C disclaimer",
+        footerNative:
+          "Native preview reads only the narrow local fields currently stored in SQLite and leaves unsupported Schedule C slots manual.",
+        footerWeb:
+          "Web preview keeps the exact two-page layout, but static export does not mount live SQLite reads.",
+        intro:
+          "This preview keeps the official IRS Schedule C layout visible, draws the form directly in the frontend, and shows which slots are database-backed, calculated, or still manual.",
+        launcherHint:
+          "Open the popup to review the disclaimer first, then inspect the rendered Schedule C pages and field-by-field guidance.",
+        noInstructionNote:
+          "No dedicated paragraph for this labeled line was found in the downloaded i1040sc page, so this slot stays tied to the official form label and current schema coverage.",
+        openPreview: "Open recommended Schedule C",
+        pageOneLabel: "Page 1",
+        pageSwitcherTitle: "Rendered form pages",
+        pageTwoLabel: "Page 2",
+        sourceLabel: "Instruction source",
+        slotGuideTitle: "Field guidance",
+        title: "Schedule C exact-layout preview",
+        unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Schedule C preview.",
         webPreviewLabel: "Static web preview",
       },
       manualBadge: "Manual input required",
@@ -274,6 +321,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       zhCN: "中文",
     },
     discover: {
+      calculatedBadge: "由表内公式计算",
       cards: [
         {
           title: "创作者经营雷达",
@@ -310,6 +358,31 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         slotGuideTitle: "栏位说明",
         title: "Form 1099-NEC 官方版式预览",
         unlockNote: "先确认免责声明，之后才会显示官方表单预览。",
+        webPreviewLabel: "静态 Web 预览",
+      },
+      formScheduleC: {
+        acknowledge: "我已了解",
+        closePreview: "关闭预览",
+        databaseBadge: "来自数据库",
+        disclaimerTitle: "Schedule C 免责声明",
+        footerNative:
+          "原生端只会读取当前 SQLite 里真实存在的少量字段，其余不受支持的 Schedule C 栏位会保持为手动填写。",
+        footerWeb:
+          "Web 预览会保留这份双页官方版式，但静态导出不会挂载实时 SQLite 读取。",
+        intro:
+          "这个预览直接保留 IRS 官方 Schedule C 的双页结构，并由前端直接绘制表单，让栏位高亮、预览值和说明始终贴合版式。",
+        launcherHint:
+          "点击按钮后会先弹出免责声明，再显示渲染后的 Schedule C 页面与逐栏说明。",
+        noInstructionNote:
+          "在下载的 i1040sc 页面里没有找到这个标签栏位的专门段落，因此这里只能依赖官方表单标签与当前数据契约覆盖范围。",
+        openPreview: "打开推荐的 Schedule C",
+        pageOneLabel: "第 1 页",
+        pageSwitcherTitle: "渲染后的表单页",
+        pageTwoLabel: "第 2 页",
+        sourceLabel: "说明来源",
+        slotGuideTitle: "栏位说明",
+        title: "Schedule C 官方版式预览",
+        unlockNote: "先确认免责声明，之后才会显示由前端绘制的 Schedule C 预览。",
         webPreviewLabel: "静态 Web 预览",
       },
       manualBadge: "需要手动填写",

@@ -234,7 +234,9 @@ export function HomeScreen() {
           </SectionCard>
 
           <DatabaseHooksDemo
+            calculatedBadge={copy.discover.calculatedBadge}
             form1099NecCopy={copy.discover.form1099Nec}
+            formScheduleCCopy={copy.discover.formScheduleC}
             isBootstrapped={bootstrapStatus.status === "ready"}
             manualBadge={copy.discover.manualBadge}
             palette={palette}

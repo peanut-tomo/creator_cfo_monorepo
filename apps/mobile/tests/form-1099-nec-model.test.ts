@@ -11,6 +11,7 @@ describe("form 1099-nec slot model", () => {
     const slots = buildForm1099NecSlots(createEmptyForm1099NecSnapshot());
     const correctedCheckbox = slots.find((slot) => slot.id === "correctedCheckbox");
     const payerTin = slots.find((slot) => slot.id === "payerTin");
+    const payerName = slots.find((slot) => slot.id === "payerName");
     const box1 = slots.find((slot) => slot.id === "box1");
     const voidCheckbox = slots.find((slot) => slot.id === "voidCheckbox");
     const recipientName = slots.find((slot) => slot.id === "recipientName");
@@ -22,6 +23,15 @@ describe("form 1099-nec slot model", () => {
     expect(voidCheckbox?.source).toBe("manual");
     expect(recipientName?.previewValue).toBeNull();
     expect(recipientStreetAddress?.previewValue).toBeNull();
+    expect(voidCheckbox?.highlight.widthPct).toBeLessThan(3);
+    expect(box1?.highlight.widthPct).toBeLessThan(20);
+    expect(recipientName?.highlight.widthPct).toBeLessThan(45);
+    expect(voidCheckbox?.highlight.widthPct).toBeLessThan(1.55);
+    expect(payerTin?.highlight.heightPct).toBeLessThan(1.45);
+    expect(payerName?.highlight.topPct).toBeLessThan(8);
+    expect(payerName?.highlight.heightPct).toBeLessThan(2.3);
+    expect(box1?.highlight.heightPct).toBeLessThan(2.55);
+    expect(recipientName?.highlight.heightPct).toBeLessThan(3);
   });
 
   it("uses stored names and linked record totals where the current schema supports them", () => {

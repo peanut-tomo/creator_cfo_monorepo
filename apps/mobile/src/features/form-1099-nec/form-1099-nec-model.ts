@@ -1,7 +1,12 @@
+import {
+  form1099NecLayoutAspectRatio,
+  parsedForm1099NecHighlights,
+} from "./form-1099-nec-layout";
+
 export const form1099NecDisclaimerText =
   "the form is based on data provided in the database, it might be insufficient if some records are not provided, please take your own responsibility to ensure the completeness of tax information need to be reported";
 
-export const form1099NecPageAspectRatio = 1545 / 2000;
+export const form1099NecPageAspectRatio = form1099NecLayoutAspectRatio;
 
 export type Form1099NecSlotSource = "database" | "manual";
 
@@ -394,25 +399,25 @@ export function buildForm1099NecSlots(
 
   return [
     {
-      ...withInstructionFallback(baseSlotDefinitions.correctedCheckbox, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.correctedCheckbox), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not track whether this filing is a correction.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.voidCheckbox, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.voidCheckbox), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not track VOID-form handling or correction state.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.payerTin, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.payerTin), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not store a full payer TIN.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.payerName, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.payerName), noInstructionNote),
       previewValue: snapshot.payerLegalName,
       source: snapshot.payerLegalName ? "database" : "manual",
       sourceNote: snapshot.payerLegalName
@@ -420,31 +425,31 @@ export function buildForm1099NecSlots(
         : "No payer legal name exists in the local entity table.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.payerStreetAddress, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.payerStreetAddress), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not store payer street-address lines.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.payerCityStateZip, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.payerCityStateZip), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not store payer city/state/ZIP reporting lines.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.payerTelephone, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.payerTelephone), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not store payer telephone numbers for this form.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.secondTinNotice, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.secondTinNotice), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not store second-TIN-notice history.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.recipientTin, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.recipientTin), noInstructionNote),
       previewValue: snapshot.recipientTinMasked ? `Masked in DB: ${snapshot.recipientTinMasked}` : null,
       source: "manual",
       sourceNote: snapshot.recipientTinMasked
@@ -452,7 +457,7 @@ export function buildForm1099NecSlots(
         : "Current local schema does not store a full recipient TIN.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.recipientName, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.recipientName), noInstructionNote),
       previewValue: snapshot.recipientLegalName,
       source: snapshot.recipientLegalName ? "database" : "manual",
       sourceNote: snapshot.recipientLegalName
@@ -460,25 +465,25 @@ export function buildForm1099NecSlots(
         : "No recipient legal name exists in the local counterparty table.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.recipientStreetAddress, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.recipientStreetAddress), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not store recipient street-address lines.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.recipientCityStateZip, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.recipientCityStateZip), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "Current local schema does not store recipient city/state/ZIP reporting lines.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.accountNumber, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.accountNumber), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "The current schema does not store a dedicated 1099-NEC account-number field.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.box1, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.box1), noInstructionNote),
       previewValue: hasRecipientRecords
         ? formatCurrencyLabel(snapshot.grossAmountCents ?? 0, currency)
         : null,
@@ -488,19 +493,19 @@ export function buildForm1099NecSlots(
         : "No linked record totals are available for the selected recipient preview.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.box2, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.box2), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "The current schema does not identify direct-sales checkbox eligibility.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.box3, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.box3), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "The current schema does not track golden-parachute calculations.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.box4, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.box4), noInstructionNote),
       previewValue: hasRecipientRecords
         ? formatCurrencyLabel(snapshot.withholdingAmountCents ?? 0, currency)
         : null,
@@ -510,19 +515,19 @@ export function buildForm1099NecSlots(
         : "No linked withholding total is available for the selected recipient preview.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.box5, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.box5), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "The current schema does not store state withholding amounts for Form 1099-NEC.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.box6, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.box6), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "The current schema does not store payer state IDs or state abbreviations for this form.",
     },
     {
-      ...withInstructionFallback(baseSlotDefinitions.box7, noInstructionNote),
+      ...withInstructionFallback(withParsedHighlight(baseSlotDefinitions.box7), noInstructionNote),
       previewValue: null,
       source: "manual",
       sourceNote: "The current schema does not store state payment amounts for this form.",
@@ -538,6 +543,19 @@ export function formatCurrencyLabel(amountCents: number, currency: string): stri
   });
 
   return formatter.format(amountCents / 100);
+}
+
+function withParsedHighlight(definition: BaseSlotDefinition): BaseSlotDefinition {
+  const parsedHighlight = parsedForm1099NecHighlights[definition.id];
+
+  if (!parsedHighlight) {
+    return definition;
+  }
+
+  return {
+    ...definition,
+    highlight: parsedHighlight,
+  };
 }
 
 function withInstructionFallback(

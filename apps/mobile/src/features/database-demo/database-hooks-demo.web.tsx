@@ -4,9 +4,12 @@ import { SectionCard, type SurfaceTokens } from "@creator-cfo/ui";
 
 import type { AppCopy } from "../app-shell/copy";
 import { Form1099NecSection } from "../form-1099-nec/form-1099-nec-section";
+import { FormScheduleCSection } from "../form-schedule-c/form-schedule-c-section";
 
 interface DatabaseHooksDemoProps {
+  calculatedBadge: string;
   form1099NecCopy: AppCopy["discover"]["form1099Nec"];
+  formScheduleCCopy: AppCopy["discover"]["formScheduleC"];
   isBootstrapped: boolean;
   manualBadge: string;
   palette: SurfaceTokens;
@@ -15,7 +18,9 @@ interface DatabaseHooksDemoProps {
 const storagePlan = getLocalStorageBootstrapPlan();
 
 export function DatabaseHooksDemo({
+  calculatedBadge,
   form1099NecCopy,
+  formScheduleCCopy,
   isBootstrapped,
   manualBadge,
   palette,
@@ -72,6 +77,17 @@ export function DatabaseHooksDemo({
           renderLauncher={(openPreview) => (
             <Pressable accessibilityRole="button" onPress={openPreview} style={styles.button}>
               <Text style={styles.buttonLabel}>{form1099NecCopy.openPreview}</Text>
+            </Pressable>
+          )}
+        />
+        <FormScheduleCSection
+          calculatedBadge={calculatedBadge}
+          copy={formScheduleCCopy}
+          manualBadge={manualBadge}
+          palette={palette}
+          renderLauncher={(openPreview) => (
+            <Pressable accessibilityRole="button" onPress={openPreview} style={styles.button}>
+              <Text style={styles.buttonLabel}>{formScheduleCCopy.openPreview}</Text>
             </Pressable>
           )}
         />

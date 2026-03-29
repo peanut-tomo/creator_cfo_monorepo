@@ -7,6 +7,7 @@ import { SectionCard, surfaceTokens, type SurfaceTokens } from "@creator-cfo/ui"
 import type { AppCopy } from "../app-shell/copy";
 import { initializeLocalDatabase } from "../../storage/database";
 import { Form1099NecSection } from "../form-1099-nec/form-1099-nec-section";
+import { FormScheduleCSection } from "../form-schedule-c/form-schedule-c-section";
 import { buildDatabaseDemoMetrics, databaseDemoReportTabs } from "./demo-data";
 import type {
   DatabaseDemoJournalEntryPreview,
@@ -18,7 +19,9 @@ import type {
 import { useDatabaseDemo } from "./use-database-demo.native";
 
 interface DatabaseHooksDemoProps {
+  calculatedBadge: string;
   form1099NecCopy: AppCopy["discover"]["form1099Nec"];
+  formScheduleCCopy: AppCopy["discover"]["formScheduleC"];
   isBootstrapped: boolean;
   manualBadge: string;
   palette: SurfaceTokens;
@@ -27,7 +30,9 @@ interface DatabaseHooksDemoProps {
 const storagePlan = getLocalStorageBootstrapPlan();
 
 export function DatabaseHooksDemo({
+  calculatedBadge,
   form1099NecCopy,
+  formScheduleCCopy,
   isBootstrapped,
   manualBadge,
   palette,
@@ -50,7 +55,9 @@ export function DatabaseHooksDemo({
   return (
     <SQLiteProvider databaseName={storagePlan.databaseName} onInit={initializeLocalDatabase}>
       <DatabaseHooksDemoCard
+        calculatedBadge={calculatedBadge}
         form1099NecCopy={form1099NecCopy}
+        formScheduleCCopy={formScheduleCCopy}
         manualBadge={manualBadge}
         palette={palette}
       />
@@ -59,10 +66,15 @@ export function DatabaseHooksDemo({
 }
 
 function DatabaseHooksDemoCard({
+  calculatedBadge,
   form1099NecCopy,
+  formScheduleCCopy,
   manualBadge,
   palette,
-}: Pick<DatabaseHooksDemoProps, "form1099NecCopy" | "manualBadge" | "palette">) {
+}: Pick<
+  DatabaseHooksDemoProps,
+  "calculatedBadge" | "form1099NecCopy" | "formScheduleCCopy" | "manualBadge" | "palette"
+>) {
   const [selectedReportTab, setSelectedReportTab] = useState<DatabaseDemoReportTab>("postings");
   const {
     createRecord,
@@ -197,6 +209,20 @@ function DatabaseHooksDemoCard({
             <DemoButton
               disabled={false}
               label={form1099NecCopy.openPreview}
+              onPress={openPreview}
+              tone="neutral"
+            />
+          )}
+        />
+        <FormScheduleCSection
+          calculatedBadge={calculatedBadge}
+          copy={formScheduleCCopy}
+          manualBadge={manualBadge}
+          palette={palette}
+          renderLauncher={(openPreview) => (
+            <DemoButton
+              disabled={false}
+              label={formScheduleCCopy.openPreview}
               onPress={openPreview}
               tone="neutral"
             />
