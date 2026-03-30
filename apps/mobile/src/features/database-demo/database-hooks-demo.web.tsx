@@ -3,13 +3,15 @@ import { getLocalStorageBootstrapPlan } from "@creator-cfo/storage";
 import { SectionCard, type SurfaceTokens } from "@creator-cfo/ui";
 
 import type { AppCopy } from "../app-shell/copy";
-import { Form1099NecSection } from "../form-1099-nec/form-1099-nec-section";
+import { Form1040Section } from "../form-1040/form-1040-section";
 import { FormScheduleCSection } from "../form-schedule-c/form-schedule-c-section";
+import { FormScheduleSESection } from "../form-schedule-se/form-schedule-se-section";
 
 interface DatabaseHooksDemoProps {
   calculatedBadge: string;
-  form1099NecCopy: AppCopy["discover"]["form1099Nec"];
+  form1040Copy: AppCopy["discover"]["form1040"];
   formScheduleCCopy: AppCopy["discover"]["formScheduleC"];
+  formScheduleSECopy: AppCopy["discover"]["formScheduleSE"];
   isBootstrapped: boolean;
   manualBadge: string;
   palette: SurfaceTokens;
@@ -19,8 +21,9 @@ const storagePlan = getLocalStorageBootstrapPlan();
 
 export function DatabaseHooksDemo({
   calculatedBadge,
-  form1099NecCopy,
+  form1040Copy,
   formScheduleCCopy,
+  formScheduleSECopy,
   isBootstrapped,
   manualBadge,
   palette,
@@ -71,8 +74,9 @@ export function DatabaseHooksDemo({
         </Text>
       </View>
       <View style={styles.buttonRow}>
-        <Form1099NecSection
-          copy={form1099NecCopy}
+        <Form1040Section
+          calculatedBadge={calculatedBadge}
+          copy={form1040Copy}
           manualBadge={manualBadge}
           palette={palette}
           renderLauncher={(openPreview) => (
@@ -84,7 +88,25 @@ export function DatabaseHooksDemo({
                 { backgroundColor: palette.paperMuted, borderColor: palette.border },
               ]}
             >
-              <Text style={[styles.buttonLabel, { color: palette.ink }]}>{form1099NecCopy.openPreview}</Text>
+              <Text style={[styles.buttonLabel, { color: palette.ink }]}>{form1040Copy.openPreview}</Text>
+            </Pressable>
+          )}
+        />
+        <FormScheduleSESection
+          calculatedBadge={calculatedBadge}
+          copy={formScheduleSECopy}
+          manualBadge={manualBadge}
+          palette={palette}
+          renderLauncher={(openPreview) => (
+            <Pressable
+              accessibilityRole="button"
+              onPress={openPreview}
+              style={[
+                styles.button,
+                { backgroundColor: palette.paperMuted, borderColor: palette.border },
+              ]}
+            >
+              <Text style={[styles.buttonLabel, { color: palette.ink }]}>{formScheduleSECopy.openPreview}</Text>
             </Pressable>
           )}
         />

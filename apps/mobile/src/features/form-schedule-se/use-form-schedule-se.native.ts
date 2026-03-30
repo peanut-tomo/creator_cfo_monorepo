@@ -1,36 +1,36 @@
 import { useEffect, useState } from "react";
 import { useSQLiteContext } from "expo-sqlite";
 
-import { buildScheduleCAggregation, type ScheduleCCandidateRecord } from "@creator-cfo/storage";
+import {
+  buildScheduleCAggregation,
+  buildSupportedScheduleCNetProfitPreview,
+  type ScheduleCCandidateRecord,
+} from "@creator-cfo/storage";
 
 import {
-  buildFormScheduleCSnapshot,
-  createEmptyFormScheduleCSnapshot,
-  type FormScheduleCDatabaseSnapshot,
-} from "./form-schedule-c-model";
-
-interface EntityRow {
-  legalName: string;
-}
+  buildFormScheduleSESnapshot,
+  createEmptyFormScheduleSESnapshot,
+  type FormScheduleSEDatabaseSnapshot,
+} from "./form-schedule-se-model";
 
 type ScheduleCCandidateRecordRow = ScheduleCCandidateRecord;
 
-export interface UseFormScheduleCResult {
+export interface UseFormScheduleSEResult {
   error: string | null;
   isLoaded: boolean;
-  snapshot: FormScheduleCDatabaseSnapshot;
+  snapshot: FormScheduleSEDatabaseSnapshot;
 }
 
-export function useFormScheduleC(): UseFormScheduleCResult {
+export function useFormScheduleSE(): UseFormScheduleSEResult {
   const database = useSQLiteContext();
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [snapshot, setSnapshot] = useState<FormScheduleCDatabaseSnapshot>(createEmptyFormScheduleCSnapshot());
+  const [snapshot, setSnapshot] = useState<FormScheduleSEDatabaseSnapshot>(createEmptyFormScheduleSESnapshot());
 
   useEffect(() => {
     let isMounted = true;
 
-    loadFormScheduleCData(database)
+    loadFormScheduleSEData(database)
       .then((nextSnapshot) => {
         if (!isMounted) {
           return;
@@ -44,7 +44,7 @@ export function useFormScheduleC(): UseFormScheduleCResult {
           return;
         }
 
-        setError(nextError instanceof Error ? nextError.message : "Unable to load Schedule C preview.");
+        setError(nextError instanceof Error ? nextError.message : "Unable to load Schedule SE preview.");
         setIsLoaded(true);
       });
 
@@ -60,15 +60,9 @@ export function useFormScheduleC(): UseFormScheduleCResult {
   };
 }
 
-async function loadFormScheduleCData(
+async function loadFormScheduleSEData(
   database: ReturnType<typeof useSQLiteContext>,
-): Promise<FormScheduleCDatabaseSnapshot> {
-  const proprietorRow = await database.getFirstAsync<EntityRow>(
-    `SELECT legal_name AS legalName
-    FROM entities
-    ORDER BY created_at ASC
-    LIMIT 1;`,
-  );
+): Promise<FormScheduleSEDatabaseSnapshot> {
   const candidateRows = await database.getAllAsync<ScheduleCCandidateRecordRow>(
     `SELECT
       record_id AS recordId,
@@ -90,18 +84,9 @@ async function loadFormScheduleCData(
       AND COALESCE(tax_line_code, '') <> '';`,
   );
   const aggregation = buildScheduleCAggregation(candidateRows);
-  const hasScheduleCData =
-    Object.keys(aggregation.lineAmounts).length > 0 ||
-    Object.keys(aggregation.lineReviewNotes).length > 0 ||
-    aggregation.partVRows.length > 0 ||
-    aggregation.partVReviewNote !== null;
+  const preview = buildSupportedScheduleCNetProfitPreview(aggregation);
 
-  return buildFormScheduleCSnapshot({
-    currency: hasScheduleCData ? "USD" : null,
-    lineAmounts: aggregation.lineAmounts,
-    lineReviewNotes: aggregation.lineReviewNotes,
-    partVReviewNote: aggregation.partVReviewNote,
-    partVRows: aggregation.partVRows,
-    proprietorName: proprietorRow?.legalName ?? null,
+  return buildFormScheduleSESnapshot({
+    supportedScheduleCNetProfitPreview: preview.netProfitCents !== null ? preview : null,
   });
 }

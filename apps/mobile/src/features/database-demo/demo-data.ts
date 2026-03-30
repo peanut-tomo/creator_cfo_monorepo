@@ -255,6 +255,7 @@ export interface DatabaseDemoRecordDraft {
   recordKind: string;
   recordStatus: string;
   sourceSystem: string;
+  taxLineCode: string | null;
   updatedAt: string;
   withholdingAccountId: string;
   withholdingAmountCents: number;
@@ -378,6 +379,7 @@ export function createDatabaseDemoRecordDraft(sequence: number): DatabaseDemoRec
     recordKind: "platform_payout",
     recordStatus: "posted",
     sourceSystem: databaseDemoSourceSystem,
+    taxLineCode: "line1",
     updatedAt: createIsoTimestamp(baseDate, 10, normalizedSequence),
     withholdingAccountId: databaseDemoIds.withholdingAccountId,
     withholdingAmountCents,

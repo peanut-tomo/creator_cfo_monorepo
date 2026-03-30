@@ -1,3 +1,5 @@
+import type { ScheduleCSupportedLineCode } from "@creator-cfo/storage";
+
 import { parsedScheduleCHighlights, scheduleCPageAspectRatio } from "./form-schedule-c-layout";
 
 export const formScheduleCDisclaimerText =
@@ -11,13 +13,26 @@ export type FormScheduleCSlotId = string;
 export type FormScheduleCSlotKind = "amount" | "checkbox" | "text";
 export type FormScheduleCTaxYear = number;
 
+export interface FormScheduleCQueryBackedLineAmount {
+  amountCents: number;
+  currency: string;
+  matchedRecordCount: number;
+  readableCategoryLabels: string[];
+}
+
+export interface FormScheduleCPartVRowSnapshot {
+  amountCents: number;
+  currency: string;
+  label: string;
+  matchedRecordCount: number;
+}
+
 export interface FormScheduleCDatabaseSnapshot {
   currency: string | null;
-  grossReceiptsCents: number | null;
-  incomeRecordCount: number;
-  partVOtherExpenseAmountCents: number | null;
-  partVOtherExpenseCurrency: string | null;
-  partVOtherExpenseLabel: string | null;
+  lineAmounts: Partial<Record<ScheduleCSupportedLineCode, FormScheduleCQueryBackedLineAmount>>;
+  lineReviewNotes: Partial<Record<ScheduleCSupportedLineCode, string>>;
+  partVReviewNote: string | null;
+  partVRows: FormScheduleCPartVRowSnapshot[];
   proprietorName: string | null;
 }
 
@@ -68,6 +83,25 @@ const calculatedSlotIds = new Set<FormScheduleCSlotId>([
   "line42CostOfGoodsSold",
   "line48TotalOtherExpenses",
 ]);
+
+const queryBackedSlotLineCodes = {
+  line1GrossReceiptsOrSales: "line1",
+  line8Advertising: "line8",
+  line10CommissionsAndFees: "line10",
+  line11ContractLabor: "line11",
+  line15InsuranceOtherThanHealth: "line15",
+  line16bOtherInterest: "line16b",
+  line17LegalAndProfessionalServices: "line17",
+  line18OfficeExpense: "line18",
+  line20aRentOrLeaseVehicles: "line20a",
+  line20bRentOrLeaseOtherProperty: "line20b",
+  line21RepairsAndMaintenance: "line21",
+  line22Supplies: "line22",
+  line23TaxesAndLicenses: "line23",
+  line24aTravel: "line24a",
+  line25Utilities: "line25",
+  line27aOtherExpenses: "line27a",
+} as const satisfies Partial<Record<FormScheduleCSlotId, ScheduleCSupportedLineCode>>;
 
 const page1ExpenseLeftRows = [
   {
@@ -1002,31 +1036,28 @@ const baseSlotDefinitions: BaseSlotDefinition[] = [
 export function createEmptyFormScheduleCSnapshot(): FormScheduleCDatabaseSnapshot {
   return {
     currency: null,
-    grossReceiptsCents: null,
-    incomeRecordCount: 0,
-    partVOtherExpenseAmountCents: null,
-    partVOtherExpenseCurrency: null,
-    partVOtherExpenseLabel: null,
+    lineAmounts: {},
+    lineReviewNotes: {},
+    partVReviewNote: null,
+    partVRows: [],
     proprietorName: null,
   };
 }
 
 export function buildFormScheduleCSnapshot(input: {
   currency: string | null;
-  grossReceiptsCents: number | null;
-  incomeRecordCount: number;
-  partVOtherExpenseAmountCents: number | null;
-  partVOtherExpenseCurrency: string | null;
-  partVOtherExpenseLabel: string | null;
+  lineAmounts: Partial<Record<ScheduleCSupportedLineCode, FormScheduleCQueryBackedLineAmount>>;
+  lineReviewNotes: Partial<Record<ScheduleCSupportedLineCode, string>>;
+  partVReviewNote: string | null;
+  partVRows: FormScheduleCPartVRowSnapshot[];
   proprietorName: string | null;
 }): FormScheduleCDatabaseSnapshot {
   return {
     currency: input.currency,
-    grossReceiptsCents: input.grossReceiptsCents,
-    incomeRecordCount: input.incomeRecordCount,
-    partVOtherExpenseAmountCents: input.partVOtherExpenseAmountCents,
-    partVOtherExpenseCurrency: input.partVOtherExpenseCurrency,
-    partVOtherExpenseLabel: input.partVOtherExpenseLabel,
+    lineAmounts: input.lineAmounts,
+    lineReviewNotes: input.lineReviewNotes,
+    partVReviewNote: input.partVReviewNote,
+    partVRows: input.partVRows,
     proprietorName: input.proprietorName,
   };
 }
@@ -1041,10 +1072,8 @@ export function buildFormScheduleCSlots(
   const noInstructionNote = options?.noInstructionNote ?? defaultNoInstructionNote;
   const taxYear = options?.taxYear ?? getCurrentFormScheduleCTaxYear();
   const currency = snapshot.currency ?? "USD";
-  const hasIncomePreview =
-    snapshot.grossReceiptsCents !== null && snapshot.incomeRecordCount > 0;
-  const hasPartVOtherExpensePreview =
-    snapshot.partVOtherExpenseLabel !== null && snapshot.partVOtherExpenseAmountCents !== null;
+  const firstPartVRow = snapshot.partVRows[0] ?? null;
+  const hasPartVOtherExpensePreview = firstPartVRow !== null;
 
   return baseSlotDefinitions.flatMap<FormScheduleCSlotState>((definition): FormScheduleCSlotState[] => {
     const normalizedDefinition = withTaxYearText(
@@ -1063,27 +1092,33 @@ export function buildFormScheduleCSlots(
       }];
     }
 
-    if (definition.id === "line1GrossReceiptsOrSales") {
+    const queryBackedLineCode = queryBackedSlotLineCodes[definition.id as keyof typeof queryBackedSlotLineCodes];
+
+    if (queryBackedLineCode) {
+      const lineAmount = snapshot.lineAmounts[queryBackedLineCode];
+      const lineReviewNote = snapshot.lineReviewNotes[queryBackedLineCode];
+
       return [{
         ...normalizedDefinition,
-        previewValue: hasIncomePreview
-          ? formatCurrencyLabel(snapshot.grossReceiptsCents ?? 0, currency)
+        previewValue: lineAmount
+          ? formatCurrencyLabel(lineAmount.amountCents, lineAmount.currency || currency)
           : null,
-        source: hasIncomePreview ? "database" : "manual",
-        sourceNote: hasIncomePreview
-          ? "Preview is derived from posted or reconciled income-like record gross totals."
-          : "No posted or reconciled income-like record totals are available for line 1 yet.",
+        source: lineAmount ? "database" : "manual",
+        sourceNote: lineAmount
+          ? buildQueryBackedSourceNote(queryBackedLineCode, lineAmount)
+          : lineReviewNote ?? getMissingQueryBackedLineSourceNote(queryBackedLineCode),
       }];
     }
 
     if (definition.id === "line47OtherExpenseRow1") {
       return [{
         ...normalizedDefinition,
-        previewValue: snapshot.partVOtherExpenseLabel,
+        previewValue: firstPartVRow?.label ?? null,
         source: hasPartVOtherExpensePreview ? "database" : "manual",
         sourceNote: hasPartVOtherExpensePreview
-          ? "Preview comes from the most recent posted expense-like record with no explicit Schedule C line mapping. Review whether it belongs in Part V."
-          : "No unmapped expense-like record is available locally, so this Part V item stays manual.",
+          ? buildPartVSourceNote(snapshot.partVRows)
+          : snapshot.partVReviewNote ??
+            "No cash-basis USD records mapped to line27a are available locally, so this Part V item stays manual.",
       }];
     }
 
@@ -1095,12 +1130,12 @@ export function buildFormScheduleCSlots(
       return [{
         ...normalizedDefinition,
         previewValue: formatCurrencyLabel(
-          snapshot.partVOtherExpenseAmountCents ?? 0,
-          snapshot.partVOtherExpenseCurrency ?? currency,
+          firstPartVRow?.amountCents ?? 0,
+          firstPartVRow?.currency ?? currency,
         ),
         source: "database",
         sourceNote:
-          "Preview amount comes from the same unmapped expense-like record shown for the Part V item. Review whether it belongs in Part V before filing.",
+          buildPartVSourceNote(snapshot.partVRows),
       }];
     }
 
@@ -1246,6 +1281,36 @@ function withTaxYearText(
 
 function replaceScheduleCTaxYear(value: string, taxYear: FormScheduleCTaxYear) {
   return value.replaceAll(/\b2025\b/g, String(taxYear));
+}
+
+function buildQueryBackedSourceNote(
+  lineCode: ScheduleCSupportedLineCode,
+  lineAmount: FormScheduleCQueryBackedLineAmount,
+): string {
+  const categoryFragment =
+    lineAmount.readableCategoryLabels.length > 0
+      ? ` Readability labels: ${lineAmount.readableCategoryLabels.join(", ")}.`
+      : "";
+
+  return `Preview is derived from ${lineAmount.matchedRecordCount} posted or reconciled cash-basis USD record${lineAmount.matchedRecordCount === 1 ? "" : "s"} mapped to ${lineCode}.${categoryFragment}`;
+}
+
+function getMissingQueryBackedLineSourceNote(lineCode: ScheduleCSupportedLineCode): string {
+  return `No posted or reconciled cash-basis USD records with authoritative tax_line_code ${lineCode} are available for this line yet.`;
+}
+
+function buildPartVSourceNote(partVRows: readonly FormScheduleCPartVRowSnapshot[]): string {
+  const firstRow = partVRows[0];
+
+  if (!firstRow) {
+    return "No cash-basis USD records mapped to line27a are available locally, so this Part V item stays manual.";
+  }
+
+  if (partVRows.length === 1) {
+    return `Preview comes from ${firstRow.matchedRecordCount} posted or reconciled cash-basis USD record${firstRow.matchedRecordCount === 1 ? "" : "s"} grouped into one Part V label by authoritative line27a mapping.`;
+  }
+
+  return `Preview shows the first of ${partVRows.length} grouped Part V labels derived from authoritative line27a mappings. Review the remaining grouped items before filing.`;
 }
 
 function getCalculatedSourceNote(slotId: FormScheduleCSlotId): string {
