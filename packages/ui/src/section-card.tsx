@@ -4,8 +4,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { surfaceTokens, type SurfaceTokens } from "./tokens";
 
 interface SectionCardProps extends PropsWithChildren {
-  eyebrow: string;
-  title: string;
+  eyebrow?: string;
+  title?: string;
   footer?: ReactNode;
   palette?: SurfaceTokens;
 }
@@ -19,8 +19,10 @@ export function SectionCard({
 }: SectionCardProps) {
   return (
     <View style={[styles.card, { backgroundColor: palette.paper, borderColor: palette.border }]}>
-      <Text style={[styles.eyebrow, { color: palette.accent }]}>{eyebrow}</Text>
-      <Text style={[styles.title, { color: palette.ink }]}>{title}</Text>
+      {eyebrow ? (
+        <Text style={[styles.eyebrow, { color: palette.accent }]}>{eyebrow}</Text>
+      ) : null}
+      {title ? <Text style={[styles.title, { color: palette.ink }]}>{title}</Text> : null}
       <View style={styles.content}>{children}</View>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </View>

@@ -28,43 +28,44 @@ export function DatabaseHooksDemo({
   return (
     <SectionCard
       eyebrow="Hooks demo"
+      palette={palette}
       title="Interact with SQLite through hooks"
       footer={
-        <Text style={styles.footerText}>
+        <Text style={[styles.footerText, { color: palette.inkMuted }]}>
           Web preview keeps this section explanatory so the static export stays stable; the native
           app runs the same flow against `{storagePlan.databaseName}`.
         </Text>
       }
     >
-      <Text style={styles.summary}>
+      <Text style={[styles.summary, { color: palette.inkMuted }]}>
         Native demo flow:
       </Text>
-      <View style={styles.listRow}>
-        <Text style={styles.rowTitle}>1. Mount `SQLiteProvider`</Text>
-        <Text style={styles.rowSummary}>
+      <View style={[styles.listRow, { borderTopColor: palette.divider }]}>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>1. Mount `SQLiteProvider`</Text>
+        <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
           Use the shared database name and schema initialization helper before rendering hook
           consumers.
         </Text>
       </View>
-      <View style={styles.listRow}>
-        <Text style={styles.rowTitle}>2. Query with a custom hook</Text>
-        <Text style={styles.rowSummary}>
+      <View style={[styles.listRow, { borderTopColor: palette.divider }]}>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>2. Query with a custom hook</Text>
+        <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
           `useDatabaseDemo()` wraps `useSQLiteContext()` and returns multi-record CRUD actions,
           selected-record state, selected-field state, and current-database report previews built
           from the accounting reporting view.
         </Text>
       </View>
-      <View style={styles.listRow}>
-        <Text style={styles.rowTitle}>3. Switch report tabs</Text>
-        <Text style={styles.rowSummary}>
+      <View style={[styles.listRow, { borderTopColor: palette.divider }]}>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>3. Switch report tabs</Text>
+        <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
           The native demo lets you create multiple demo `records`, select one record, update one
           chosen field, delete the selected record, and switch across postings, journal, general
           ledger, balance sheet, and profit/loss views for the current demo database.
         </Text>
       </View>
-      <View style={styles.listRow}>
-        <Text style={styles.rowTitle}>4. Surface ledger health</Text>
-        <Text style={styles.rowSummary}>
+      <View style={[styles.listRow, { borderTopColor: palette.divider }]}>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>4. Surface ledger health</Text>
+        <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
           The native card also shows a warning if the current demo ledger is unbalanced, using the
           same accounting posting surface as the report tabs.
         </Text>
@@ -75,8 +76,15 @@ export function DatabaseHooksDemo({
           manualBadge={manualBadge}
           palette={palette}
           renderLauncher={(openPreview) => (
-            <Pressable accessibilityRole="button" onPress={openPreview} style={styles.button}>
-              <Text style={styles.buttonLabel}>{form1099NecCopy.openPreview}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openPreview}
+              style={[
+                styles.button,
+                { backgroundColor: palette.paperMuted, borderColor: palette.border },
+              ]}
+            >
+              <Text style={[styles.buttonLabel, { color: palette.ink }]}>{form1099NecCopy.openPreview}</Text>
             </Pressable>
           )}
         />
@@ -86,13 +94,20 @@ export function DatabaseHooksDemo({
           manualBadge={manualBadge}
           palette={palette}
           renderLauncher={(openPreview) => (
-            <Pressable accessibilityRole="button" onPress={openPreview} style={styles.button}>
-              <Text style={styles.buttonLabel}>{formScheduleCCopy.openPreview}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openPreview}
+              style={[
+                styles.button,
+                { backgroundColor: palette.paperMuted, borderColor: palette.border },
+              ]}
+            >
+              <Text style={[styles.buttonLabel, { color: palette.ink }]}>{formScheduleCCopy.openPreview}</Text>
             </Pressable>
           )}
         />
       </View>
-      <Text style={styles.summary}>
+      <Text style={[styles.summary, { color: palette.inkMuted }]}>
         Bootstrap state: {isBootstrapped ? "metadata ready" : "waiting for preview bootstrap"}.
       </Text>
     </SectionCard>
@@ -101,8 +116,6 @@ export function DatabaseHooksDemo({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#f8f2e7",
-    borderColor: "rgba(20, 33, 61, 0.12)",
     borderRadius: 18,
     borderWidth: 1,
     minWidth: 200,
@@ -110,7 +123,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   buttonLabel: {
-    color: "#14213d",
     fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
@@ -121,27 +133,22 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   footerText: {
-    color: "#61717d",
     fontSize: 13,
   },
   listRow: {
+    borderTopWidth: 1,
     gap: 6,
     paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(20, 33, 61, 0.08)",
   },
   rowSummary: {
-    color: "#61717d",
     fontSize: 14,
     lineHeight: 20,
   },
   rowTitle: {
-    color: "#14213d",
     fontSize: 16,
     fontWeight: "700",
   },
   summary: {
-    color: "#465560",
     fontSize: 15,
     lineHeight: 22,
   },

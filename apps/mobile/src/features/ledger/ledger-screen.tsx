@@ -8,7 +8,7 @@ export function LedgerScreen() {
   const { copy, palette } = useAppShell();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.shell }]}>
+    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: palette.shell }]}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.hero}>
           <Text style={[styles.eyebrow, { color: palette.accent }]}>{copy.ledger.eyebrow}</Text>

@@ -62,6 +62,7 @@ export function FormScheduleCPreview(props: FormScheduleCPreviewProps) {
   );
   const baseFormWidth = Math.max(Math.min(viewportWidth - 88, 980), 320);
   const canvasWidth = Math.round(baseFormWidth * formZoom);
+  const accentLabelColor = palette.name === "dark" ? palette.shell : palette.inkOnAccent;
 
   useEffect(() => {
     if (!pageSlots.some((slot) => slot.id === selectedSlotId)) {
@@ -111,7 +112,7 @@ export function FormScheduleCPreview(props: FormScheduleCPreviewProps) {
             onPress={openPreview}
             style={[styles.launchButton, { backgroundColor: palette.accent }]}
           >
-            <Text style={[styles.launchButtonLabel, { color: palette.inkOnAccent }]}>
+            <Text style={[styles.launchButtonLabel, { color: accentLabelColor }]}>
               {copy.openPreview}
             </Text>
           </Pressable>
@@ -153,7 +154,7 @@ export function FormScheduleCPreview(props: FormScheduleCPreviewProps) {
                     }}
                     style={[styles.modalButton, { backgroundColor: palette.accent }]}
                   >
-                    <Text style={[styles.modalButtonLabel, { color: palette.inkOnAccent }]}>
+                    <Text style={[styles.modalButtonLabel, { color: accentLabelColor }]}>
                       {copy.acknowledge}
                     </Text>
                   </Pressable>
