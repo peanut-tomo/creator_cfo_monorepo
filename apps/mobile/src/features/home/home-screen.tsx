@@ -252,16 +252,6 @@ export function HomeScreen() {
               </View>
             ))}
           </View>
-
-          <DatabaseHooksDemo
-            calculatedBadge={copy.discover.calculatedBadge}
-            form1040Copy={copy.discover.form1040}
-            formScheduleCCopy={copy.discover.formScheduleC}
-            formScheduleSECopy={copy.discover.formScheduleSE}
-            isBootstrapped={bootstrapStatus.status === "ready"}
-            manualBadge={copy.discover.manualBadge}
-            palette={palette}
-          />
         </View>
       </ScrollView>
     </SafeAreaView>
