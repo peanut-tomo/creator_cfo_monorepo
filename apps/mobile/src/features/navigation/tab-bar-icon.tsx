@@ -92,7 +92,7 @@ export function TabBarIcon({
         style={[
           styles.wrap,
           {
-            backgroundColor: focused ? palette.accentSoft : "transparent",
+            backgroundColor: focused ? palette.paper : "transparent",
             borderColor: focused ? palette.border : "transparent",
           },
         ]}

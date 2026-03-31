@@ -54,7 +54,7 @@ export function DiscoverScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.shell }]}>
+    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: palette.shell }]}>
       <FlatList
         contentContainerStyle={styles.container}
         data={articles}

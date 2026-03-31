@@ -57,7 +57,7 @@ export function HomeScreen() {
   }, [sections.platforms.length]);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.shell }]}>
+    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: palette.shell }]}>
       <ScrollView contentContainerStyle={styles.container}>
         <View
           style={[
@@ -104,16 +104,16 @@ export function HomeScreen() {
               />
             </View>
           </View>
+
+          <Text style={[styles.heroSignalTitle, { color: palette.inkOnAccent }]}>{copy.home.signalTitle}</Text>
         </View>
 
         <View style={styles.sectionStack}>
           <SectionCard
-            eyebrow={copy.tabs.home}
             footer={
               <Text style={[styles.footerText, { color: palette.inkMuted }]}>{copy.home.moduleFooter}</Text>
             }
             palette={palette}
-            title={copy.home.signalTitle}
           >
             <View style={styles.focusGrid}>
               <View style={styles.focusRow}>
@@ -259,9 +259,8 @@ function chunkItems<T>(items: readonly T[], size: number): T[][] {
 
 const styles = StyleSheet.create({
   container: {
-    gap: 24,
+    gap: 0,
     padding: 20,
-    paddingBottom: 36,
   },
   eyebrow: {
     fontSize: 12,
@@ -312,10 +311,16 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     borderWidth: 1,
     gap: 14,
+    marginBottom: 10,
     padding: 22,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 1,
     shadowRadius: 30,
+  },
+  heroSignalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 6,
   },
   heroMetricGrid: {
     gap: 12,

@@ -42,7 +42,18 @@ pnpm smoke
    - modules
    - supported platforms
    - bootstrap / storage related counts
-7. 在「我的」中切换主题与语言，确认 Tab 图标与首页数据块仍清晰可读。
-8. 在「我的」中执行退出登录，确认应用回到登录页。
-9. 若在支持的 iOS 设备上，验证 Apple 登录可进入主壳层；若当前环境不支持，确认会优雅提示并允许游客继续。
-10. 运行 `pnpm contract:check`，确认本地存储与设备状态契约测试通过。
+7. 保持 light 主题，依次检查以下交互控件无“浅底浅字”或“贴底发灰”问题：
+   - 登录页右上角「暂不登录」
+   - 登录页游客入口与 Apple 按钮/降级按钮
+   - 底部四个 Tab 的 icon 与 label（含 active / inactive）
+   - 首页 database demo 的 CRUD 按钮、字段选择 chip、记录选中态与报告卡片文字
+   - 「我的」页主题/语言 Pill 与退出登录按钮
+8. 切到 dark 主题，抽样复查：
+   - 底部四个 Tab 的 active / inactive 对比度
+   - 登录页主按钮与游客入口
+   - 首页 database demo 的按钮、chip 与列表卡片可读性
+   - 「我的」页主题/语言 Pill 与退出登录按钮
+9. 在「我的」中切换主题与语言，确认 Tab 图标、首页数据块与设置控件仍清晰可读。
+10. 在「我的」中执行退出登录，确认应用回到登录页。
+11. 若在支持的 iOS 设备上，验证 Apple 登录可进入主壳层；若当前环境不支持，确认会优雅提示并允许游客继续。
+12. 运行 `pnpm contract:check`，确认本地存储与设备状态契约测试通过。

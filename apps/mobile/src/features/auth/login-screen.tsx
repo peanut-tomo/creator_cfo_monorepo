@@ -115,7 +115,7 @@ export function LoginScreen() {
                 { backgroundColor: palette.accentSoft, borderColor: palette.border },
               ]}
             >
-              <Text style={[styles.skipLabel, { color: palette.inkOnAccent }]}>
+              <Text style={[styles.skipLabel, { color: palette.ink }]}>
                 {copy.login.skip}
               </Text>
             </Pressable>

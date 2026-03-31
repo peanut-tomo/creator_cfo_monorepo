@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SQLiteProvider } from "expo-sqlite";
 import { getLocalStorageBootstrapPlan } from "@creator-cfo/storage";
-import { SectionCard, surfaceTokens, type SurfaceTokens } from "@creator-cfo/ui";
+import { SectionCard, type SurfaceTokens } from "@creator-cfo/ui";
 
 import type { AppCopy } from "../app-shell/copy";
 import { initializeLocalDatabase } from "../../storage/database";
@@ -29,6 +29,14 @@ interface DatabaseHooksDemoProps {
 
 const storagePlan = getLocalStorageBootstrapPlan();
 
+function alpha(hexColor: string, alphaHex: string) {
+  if (/^#[0-9a-fA-F]{6}$/.test(hexColor)) {
+    return `${hexColor}${alphaHex}`;
+  }
+
+  return hexColor;
+}
+
 export function DatabaseHooksDemo({
   calculatedBadge,
   form1099NecCopy,
@@ -41,10 +49,11 @@ export function DatabaseHooksDemo({
     return (
       <SectionCard
         eyebrow="Hooks demo"
+        palette={palette}
         title="Interact with SQLite through hooks"
-        footer={<Text style={styles.footerText}>Waiting for local storage bootstrap.</Text>}
+        footer={<Text style={[styles.footerText, { color: palette.inkMuted }]}>Waiting for local storage bootstrap.</Text>}
       >
-        <Text style={styles.summary}>
+        <Text style={[styles.summary, { color: palette.inkMuted }]}>
           This demo mounts a SQLite provider and reads or writes sample finance rows through a
           custom hook once the storage bootstrap is ready.
         </Text>
@@ -102,16 +111,17 @@ function DatabaseHooksDemoCard({
   return (
     <SectionCard
       eyebrow="Hooks demo"
+      palette={palette}
       title="CRUD records through hooks"
       footer={
-        <Text style={styles.footerText}>
+        <Text style={[styles.footerText, { color: palette.inkMuted }]}>
           `SQLiteProvider` opens `{storagePlan.databaseName}` and `useDatabaseDemo()` wraps
           `useSQLiteContext()` for multi-record CRUD plus current-database accounting report tabs
           powered by `accounting_posting_lines_v`.
         </Text>
       }
     >
-      <Text style={styles.summary}>
+      <Text style={[styles.summary, { color: palette.inkMuted }]}>
         This sample now keeps CRUD and reporting in one place: create deterministic `records`,
         select which record is active, choose one editable field to update, and switch among
         postings, journal, general ledger, balance sheet, and profit/loss views built from the
@@ -120,27 +130,46 @@ function DatabaseHooksDemoCard({
 
       <View style={styles.metricRow}>
         {metrics.map((metric) => (
-          <View key={metric.label} style={styles.metricCard}>
-            <Text style={styles.metricValue}>{metric.value}</Text>
-            <Text style={styles.metricLabel}>{metric.label}</Text>
+          <View
+            key={metric.label}
+            style={[
+              styles.metricCard,
+              { backgroundColor: palette.accentSoft, borderColor: palette.border },
+            ]}
+          >
+            <Text style={[styles.metricValue, { color: palette.accent }]}>{metric.value}</Text>
+            <Text style={[styles.metricLabel, { color: palette.inkMuted }]}>{metric.label}</Text>
           </View>
         ))}
       </View>
 
       {snapshot.counts.journalEntryCount > 0 ? (
         snapshot.ledgerHealth.isBalanced ? (
-          <View style={styles.healthCard}>
-            <Text style={styles.healthTitle}>Ledger balanced</Text>
-            <Text style={styles.healthText}>
+          <View
+            style={[
+              styles.healthCard,
+              { backgroundColor: palette.accentSoft, borderColor: palette.border },
+            ]}
+          >
+            <Text style={[styles.healthTitle, { color: palette.accent }]}>Ledger balanced</Text>
+            <Text style={[styles.healthText, { color: palette.inkMuted }]}>
               Debits {snapshot.ledgerHealth.debitTotalLabel} · credits{" "}
               {snapshot.ledgerHealth.creditTotalLabel}
             </Text>
           </View>
         ) : (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Ledger warning</Text>
-            <Text style={styles.warningText}>{snapshot.ledgerHealth.warningText}</Text>
-            <Text style={styles.warningMeta}>
+          <View
+            style={[
+              styles.warningCard,
+              {
+                backgroundColor: alpha(palette.destructive, "14"),
+                borderColor: alpha(palette.destructive, "42"),
+              },
+            ]}
+          >
+            <Text style={[styles.warningTitle, { color: palette.destructive }]}>Ledger warning</Text>
+            <Text style={[styles.warningText, { color: palette.ink }]}>{snapshot.ledgerHealth.warningText}</Text>
+            <Text style={[styles.warningMeta, { color: palette.inkMuted }]}>
               Debits {snapshot.ledgerHealth.debitTotalLabel} · credits{" "}
               {snapshot.ledgerHealth.creditTotalLabel}
             </Text>
@@ -148,7 +177,7 @@ function DatabaseHooksDemoCard({
         )
       ) : null}
 
-      <Text style={styles.subheading}>Selected field</Text>
+      <Text style={[styles.subheading, { color: palette.ink }]}>Selected field</Text>
       <View style={styles.selectionRow}>
         {editableFields.map((field) => (
           <SelectionChip
@@ -159,10 +188,11 @@ function DatabaseHooksDemoCard({
             onPress={() => {
               selectField(field.value);
             }}
+            palette={palette}
           />
         ))}
       </View>
-      <Text style={styles.selectionHint}>
+      <Text style={[styles.selectionHint, { color: palette.inkMuted }]}>
         {hasRecord
           ? selectedFieldOption?.description
           : "Create a record first, then pick which field the update action should mutate."}
@@ -175,6 +205,7 @@ function DatabaseHooksDemoCard({
           onPress={() => {
             void createRecord();
           }}
+          palette={palette}
           tone="accent"
         />
         <DemoButton
@@ -183,6 +214,7 @@ function DatabaseHooksDemoCard({
           onPress={() => {
             void updateSelectedRecord();
           }}
+          palette={palette}
           tone="neutral"
         />
         <DemoButton
@@ -191,6 +223,7 @@ function DatabaseHooksDemoCard({
           onPress={() => {
             void deleteRecord();
           }}
+          palette={palette}
           tone="neutral"
         />
         <DemoButton
@@ -199,6 +232,7 @@ function DatabaseHooksDemoCard({
           onPress={() => {
             void refresh();
           }}
+          palette={palette}
           tone="neutral"
         />
         <Form1099NecSection
@@ -210,6 +244,7 @@ function DatabaseHooksDemoCard({
               disabled={false}
               label={form1099NecCopy.openPreview}
               onPress={openPreview}
+              palette={palette}
               tone="neutral"
             />
           )}
@@ -224,6 +259,7 @@ function DatabaseHooksDemoCard({
               disabled={false}
               label={formScheduleCCopy.openPreview}
               onPress={openPreview}
+              palette={palette}
               tone="neutral"
             />
           )}
@@ -231,21 +267,21 @@ function DatabaseHooksDemoCard({
       </View>
 
       {selectedRecord ? (
-        <Text style={styles.selectionSummary}>
+        <Text style={[styles.selectionSummary, { color: palette.inkMuted }]}>
           Selected record: {selectedRecord.description} ({selectedRecord.recordId}) with field{" "}
           {selectedFieldOption?.label.toLowerCase()}.
         </Text>
       ) : (
-        <Text style={styles.selectionSummary}>
+        <Text style={[styles.selectionSummary, { color: palette.inkMuted }]}>
           No record is selected yet. Create one or more records to activate the selection flow.
         </Text>
       )}
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: palette.destructive }]}>{error}</Text> : null}
 
-      <Text style={styles.subheading}>Demo records</Text>
+      <Text style={[styles.subheading, { color: palette.ink }]}>Demo records</Text>
       {snapshot.recentRecords.length === 0 ? (
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: palette.inkMuted }]}>
           Create one or more demo records to inspect record queries and derived postings.
         </Text>
       ) : (
@@ -258,25 +294,34 @@ function DatabaseHooksDemoCard({
             }}
             style={({ pressed }) => [
               styles.recordRow,
-              record.recordId === selectedRecordId ? styles.recordRowSelected : null,
+              {
+                backgroundColor: palette.paper,
+                borderColor: palette.border,
+              },
+              record.recordId === selectedRecordId
+                ? {
+                    borderColor: palette.accent,
+                    backgroundColor: palette.accentSoft,
+                  }
+                : null,
               pressed && !isBusy ? styles.recordRowPressed : null,
             ]}
           >
-            <Text style={styles.rowTitle}>
+            <Text style={[styles.rowTitle, { color: palette.ink }]}>
               {record.description} · gross {record.grossAmountLabel}
             </Text>
-            <Text style={styles.rowSummary}>
+            <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
               {record.recordKind} · {record.status} · net {record.netAmountLabel} ·{" "}
               {record.recognizedOn}
             </Text>
-            <Text style={styles.recordMeta}>
+            <Text style={[styles.recordMeta, { color: palette.inkMuted }]}>
               {record.recordId === selectedRecordId ? "Selected" : "Tap to select"} · {record.recordId}
             </Text>
           </Pressable>
         ))
       )}
 
-      <Text style={styles.subheading}>Current database reports</Text>
+      <Text style={[styles.subheading, { color: palette.ink }]}>Current database reports</Text>
       <View style={styles.selectionRow}>
         {databaseDemoReportTabs.map((tab) => (
           <SelectionChip
@@ -287,18 +332,20 @@ function DatabaseHooksDemoCard({
             onPress={() => {
               setSelectedReportTab(tab.value);
             }}
+            palette={palette}
           />
         ))}
       </View>
-      <Text style={styles.selectionHint}>{selectedReportTabOption?.description}</Text>
+      <Text style={[styles.selectionHint, { color: palette.inkMuted }]}>{selectedReportTabOption?.description}</Text>
 
       <DatabaseDemoReportPanel
+        palette={palette}
         selectedRecordId={selectedRecordId}
         selectedReportTab={selectedReportTab}
         snapshot={snapshot}
       />
 
-      <Text style={styles.summary}>{snapshot.summary}</Text>
+      <Text style={[styles.summary, { color: palette.inkMuted }]}>{snapshot.summary}</Text>
     </SectionCard>
   );
 }
@@ -307,22 +354,27 @@ interface DemoButtonProps {
   disabled: boolean;
   label: string;
   onPress: () => void;
+  palette: SurfaceTokens;
   tone: "accent" | "neutral";
 }
 
-function DemoButton({ disabled, label, onPress, tone }: DemoButtonProps) {
+function DemoButton({ disabled, label, onPress, palette, tone }: DemoButtonProps) {
+  const accentLabelColor = palette.name === "dark" ? palette.shell : palette.inkOnAccent;
+
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        tone === "accent" ? styles.buttonAccent : styles.buttonNeutral,
+        tone === "accent"
+          ? { backgroundColor: palette.accent, borderColor: palette.accent }
+          : { backgroundColor: palette.paperMuted, borderColor: palette.border },
         disabled ? styles.buttonDisabled : null,
         pressed && !disabled ? styles.buttonPressed : null,
       ]}
     >
-      <Text style={tone === "accent" ? styles.buttonAccentLabel : styles.buttonNeutralLabel}>
+      <Text style={[styles.buttonLabel, { color: tone === "accent" ? accentLabelColor : palette.ink }]}>
         {label}
       </Text>
     </Pressable>
@@ -334,21 +386,31 @@ interface SelectionChipProps {
   isSelected: boolean;
   label: string;
   onPress: () => void;
+  palette: SurfaceTokens;
 }
 
-function SelectionChip({ disabled, isSelected, label, onPress }: SelectionChipProps) {
+function SelectionChip({ disabled, isSelected, label, onPress, palette }: SelectionChipProps) {
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.selectionChip,
-        isSelected ? styles.selectionChipSelected : null,
+        {
+          borderColor: isSelected ? palette.accent : palette.border,
+          backgroundColor: isSelected ? palette.accentSoft : palette.paper,
+        },
         disabled ? styles.buttonDisabled : null,
         pressed && !disabled ? styles.buttonPressed : null,
       ]}
     >
-      <Text style={isSelected ? styles.selectionChipSelectedLabel : styles.selectionChipLabel}>
+      <Text
+        style={[
+          styles.selectionChipLabel,
+          { color: isSelected ? palette.accent : palette.ink },
+          isSelected ? styles.selectionChipSelectedLabel : null,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -356,12 +418,14 @@ function SelectionChip({ disabled, isSelected, label, onPress }: SelectionChipPr
 }
 
 interface DatabaseDemoReportPanelProps {
+  palette: SurfaceTokens;
   selectedRecordId: string | null;
   selectedReportTab: DatabaseDemoReportTab;
   snapshot: DatabaseDemoSnapshot;
 }
 
 function DatabaseDemoReportPanel({
+  palette,
   selectedRecordId,
   selectedReportTab,
   snapshot,
@@ -369,7 +433,7 @@ function DatabaseDemoReportPanel({
   if (selectedReportTab === "postings") {
     if (snapshot.selectedPostingLines.length === 0) {
       return (
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: palette.inkMuted }]}>
           {selectedRecordId
             ? "This selected record has no derived posting lines yet."
             : "Select or create a record to inspect derived posting lines."}
@@ -380,11 +444,14 @@ function DatabaseDemoReportPanel({
     return (
       <>
         {snapshot.selectedPostingLines.map((line) => (
-          <View key={`${line.lineNo}-${line.accountRole}`} style={styles.listRow}>
-            <Text style={styles.rowTitle}>
+          <View
+            key={`${line.lineNo}-${line.accountRole}`}
+            style={[styles.listRow, { borderTopColor: palette.divider }]}
+          >
+            <Text style={[styles.rowTitle, { color: palette.ink }]}>
               Line {line.lineNo} · {line.accountName}
             </Text>
-            <Text style={styles.rowSummary}>
+            <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
               {line.accountRole} · {line.direction} · {line.amountLabel}
             </Text>
           </View>
@@ -396,7 +463,7 @@ function DatabaseDemoReportPanel({
   if (selectedReportTab === "journal") {
     if (snapshot.journalEntries.length === 0) {
       return (
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: palette.inkMuted }]}>
           Create one or more postable demo records to inspect journal entries.
         </Text>
       );
@@ -405,7 +472,11 @@ function DatabaseDemoReportPanel({
     return (
       <>
         {snapshot.journalEntries.map((entry) => (
-          <JournalEntryCard key={entry.recordId} entry={entry} />
+          <JournalEntryCard
+            key={entry.recordId}
+            entry={entry}
+            palette={palette}
+          />
         ))}
       </>
     );
@@ -414,7 +485,7 @@ function DatabaseDemoReportPanel({
   if (selectedReportTab === "generalLedger") {
     if (snapshot.ledgerAccounts.length === 0) {
       return (
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: palette.inkMuted }]}>
           Create one or more postable demo records to inspect general-ledger balances and activity.
         </Text>
       );
@@ -426,6 +497,7 @@ function DatabaseDemoReportPanel({
           <LedgerAccountCard
             key={`${account.accountCode}-${account.accountName}`}
             account={account}
+            palette={palette}
           />
         ))}
       </>
@@ -435,7 +507,7 @@ function DatabaseDemoReportPanel({
   if (selectedReportTab === "balanceSheet") {
     if (snapshot.balanceSheetSections.length === 0) {
       return (
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: palette.inkMuted }]}>
           Create one or more postable demo records to inspect the balance sheet.
         </Text>
       );
@@ -444,7 +516,11 @@ function DatabaseDemoReportPanel({
     return (
       <>
         {snapshot.balanceSheetSections.map((section) => (
-          <StatementSectionCard key={section.title} section={section} />
+          <StatementSectionCard
+            key={section.title}
+            palette={palette}
+            section={section}
+          />
         ))}
       </>
     );
@@ -452,7 +528,7 @@ function DatabaseDemoReportPanel({
 
   if (snapshot.profitAndLossSections.length === 0) {
     return (
-      <Text style={styles.emptyText}>
+      <Text style={[styles.emptyText, { color: palette.inkMuted }]}>
         Create one or more postable demo records to inspect profit and loss output.
       </Text>
     );
@@ -461,7 +537,11 @@ function DatabaseDemoReportPanel({
   return (
     <>
       {snapshot.profitAndLossSections.map((section) => (
-        <StatementSectionCard key={section.title} section={section} />
+        <StatementSectionCard
+          key={section.title}
+          palette={palette}
+          section={section}
+        />
       ))}
     </>
   );
@@ -469,23 +549,27 @@ function DatabaseDemoReportPanel({
 
 interface JournalEntryCardProps {
   entry: DatabaseDemoJournalEntryPreview;
+  palette: SurfaceTokens;
 }
 
-function JournalEntryCard({ entry }: JournalEntryCardProps) {
+function JournalEntryCard({ entry, palette }: JournalEntryCardProps) {
   return (
-    <View style={styles.reportCard}>
-      <Text style={styles.rowTitle}>
+    <View style={[styles.reportCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+      <Text style={[styles.rowTitle, { color: palette.ink }]}>
         {entry.postingOn} · {entry.description}
       </Text>
-      <Text style={styles.reportMeta}>
+      <Text style={[styles.reportMeta, { color: palette.inkMuted }]}>
         {entry.recordId} · dr {entry.debitTotalLabel} · cr {entry.creditTotalLabel}
       </Text>
       {entry.lines.map((line) => (
-        <View key={`${entry.recordId}-${line.lineNo}-${line.accountRole}`} style={styles.nestedRow}>
-          <Text style={styles.nestedRowTitle}>
+        <View
+          key={`${entry.recordId}-${line.lineNo}-${line.accountRole}`}
+          style={[styles.nestedRow, { borderTopColor: palette.divider }]}
+        >
+          <Text style={[styles.nestedRowTitle, { color: palette.ink }]}>
             Line {line.lineNo} · {line.accountLabel}
           </Text>
-          <Text style={styles.rowSummary}>
+          <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
             {line.accountRole} · {line.direction} · {line.amountLabel}
           </Text>
         </View>
@@ -496,27 +580,31 @@ function JournalEntryCard({ entry }: JournalEntryCardProps) {
 
 interface LedgerAccountCardProps {
   account: DatabaseDemoLedgerAccountPreview;
+  palette: SurfaceTokens;
 }
 
-function LedgerAccountCard({ account }: LedgerAccountCardProps) {
+function LedgerAccountCard({ account, palette }: LedgerAccountCardProps) {
   return (
-    <View style={styles.reportCard}>
-      <Text style={styles.rowTitle}>
+    <View style={[styles.reportCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+      <Text style={[styles.rowTitle, { color: palette.ink }]}>
         {account.accountCode} · {account.accountName}
       </Text>
-      <Text style={styles.reportMeta}>
+      <Text style={[styles.reportMeta, { color: palette.inkMuted }]}>
         {account.accountType} · {account.normalBalance} normal · balance {account.balanceDirection}{" "}
         {account.balanceLabel}
       </Text>
-      <Text style={styles.reportMeta}>
+      <Text style={[styles.reportMeta, { color: palette.inkMuted }]}>
         Total debits {account.debitTotalLabel} · total credits {account.creditTotalLabel}
       </Text>
       {account.activityLines.map((line) => (
-        <View key={`${account.accountCode}-${line.recordId}-${line.postingOn}-${line.summary}`} style={styles.nestedRow}>
-          <Text style={styles.nestedRowTitle}>
+        <View
+          key={`${account.accountCode}-${line.recordId}-${line.postingOn}-${line.summary}`}
+          style={[styles.nestedRow, { borderTopColor: palette.divider }]}
+        >
+          <Text style={[styles.nestedRowTitle, { color: palette.ink }]}>
             {line.postingOn} · {line.recordId}
           </Text>
-          <Text style={styles.rowSummary}>
+          <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
             {line.summary} · {line.direction} · {line.amountLabel}
           </Text>
         </View>
@@ -526,20 +614,24 @@ function LedgerAccountCard({ account }: LedgerAccountCardProps) {
 }
 
 interface StatementSectionCardProps {
+  palette: SurfaceTokens;
   section: DatabaseDemoStatementSectionPreview;
 }
 
-function StatementSectionCard({ section }: StatementSectionCardProps) {
+function StatementSectionCard({ palette, section }: StatementSectionCardProps) {
   return (
-    <View style={styles.reportCard}>
+    <View style={[styles.reportCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
       <View style={styles.statementHeader}>
-        <Text style={styles.rowTitle}>{section.title}</Text>
-        <Text style={styles.statementTotal}>{section.totalLabel}</Text>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>{section.title}</Text>
+        <Text style={[styles.statementTotal, { color: palette.accent }]}>{section.totalLabel}</Text>
       </View>
       {section.lines.map((line) => (
-        <View key={`${section.title}-${line.label}`} style={styles.statementRow}>
-          <Text style={styles.rowSummary}>{line.label}</Text>
-          <Text style={styles.statementLineAmount}>{line.amountLabel}</Text>
+        <View
+          key={`${section.title}-${line.label}`}
+          style={[styles.statementRow, { borderTopColor: palette.divider }]}
+        >
+          <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>{line.label}</Text>
+          <Text style={[styles.statementLineAmount, { color: palette.ink }]}>{line.amountLabel}</Text>
         </View>
       ))}
     </View>
@@ -548,31 +640,16 @@ function StatementSectionCard({ section }: StatementSectionCardProps) {
 
 const styles = StyleSheet.create({
   button: {
+    borderRadius: 18,
+    borderWidth: 1,
     minWidth: 140,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-  },
-  buttonAccent: {
-    backgroundColor: surfaceTokens.accent,
-    borderColor: surfaceTokens.accent,
-  },
-  buttonAccentLabel: {
-    color: "#f8fffd",
-    fontSize: 14,
-    fontWeight: "700",
-    textAlign: "center",
   },
   buttonDisabled: {
     opacity: 0.5,
   },
-  buttonNeutral: {
-    backgroundColor: "#f8f2e7",
-    borderColor: surfaceTokens.border,
-  },
-  buttonNeutralLabel: {
-    color: "#14213d",
+  buttonLabel: {
     fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
@@ -586,53 +663,44 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyText: {
-    color: "#61717d",
     fontSize: 14,
     lineHeight: 20,
   },
   errorText: {
-    color: "#a61b1b",
     fontSize: 14,
     fontWeight: "600",
   },
   footerText: {
-    color: "#61717d",
     fontSize: 13,
   },
   healthCard: {
+    borderRadius: 18,
+    borderWidth: 1,
     gap: 4,
     padding: 12,
-    borderRadius: 18,
-    backgroundColor: "#eefaf6",
-    borderWidth: 1,
-    borderColor: "rgba(23, 125, 87, 0.18)",
   },
   healthText: {
-    color: "#3d5e52",
     fontSize: 14,
     lineHeight: 20,
   },
   healthTitle: {
-    color: surfaceTokens.accent,
     fontSize: 14,
     fontWeight: "700",
   },
   listRow: {
+    borderTopWidth: 1,
     gap: 4,
     paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(20, 33, 61, 0.08)",
   },
   metricCard: {
-    flex: 1,
-    minWidth: 88,
-    gap: 4,
-    padding: 12,
     borderRadius: 18,
-    backgroundColor: "#f2fbf8",
+    borderWidth: 1,
+    flex: 1,
+    gap: 4,
+    minWidth: 88,
+    padding: 12,
   },
   metricLabel: {
-    color: "#61717d",
     fontSize: 13,
   },
   metricRow: {
@@ -641,89 +709,64 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   metricValue: {
-    color: surfaceTokens.accent,
     fontSize: 24,
     fontWeight: "700",
   },
   nestedRow: {
-    gap: 4,
-    paddingTop: 10,
-    marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "rgba(20, 33, 61, 0.08)",
+    gap: 4,
+    marginTop: 10,
+    paddingTop: 10,
   },
   nestedRowTitle: {
-    color: "#284251",
     fontSize: 14,
     fontWeight: "700",
   },
   recordMeta: {
-    color: "#61717d",
     fontSize: 13,
     fontWeight: "600",
   },
   recordRow: {
+    borderWidth: 1,
+    borderRadius: 18,
     gap: 4,
     padding: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(20, 33, 61, 0.08)",
-    backgroundColor: "#fffaf2",
   },
   recordRowPressed: {
     transform: [{ scale: 0.99 }],
   },
-  recordRowSelected: {
-    borderColor: surfaceTokens.accent,
-    backgroundColor: "#eefaf6",
-  },
   reportCard: {
+    borderWidth: 1,
+    borderRadius: 18,
     gap: 6,
     padding: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(20, 33, 61, 0.08)",
-    backgroundColor: "#fffaf2",
   },
   reportMeta: {
-    color: "#61717d",
     fontSize: 13,
     lineHeight: 18,
   },
   rowSummary: {
-    color: "#61717d",
     fontSize: 14,
     lineHeight: 20,
   },
   rowTitle: {
-    color: surfaceTokens.ink,
     fontSize: 15,
     fontWeight: "700",
   },
   selectionChip: {
+    borderWidth: 1,
+    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: surfaceTokens.border,
-    backgroundColor: "#fffaf2",
   },
   selectionChipLabel: {
-    color: surfaceTokens.ink,
     fontSize: 14,
     fontWeight: "600",
   },
-  selectionChipSelected: {
-    borderColor: surfaceTokens.accent,
-    backgroundColor: "#eefaf6",
-  },
   selectionChipSelectedLabel: {
-    color: surfaceTokens.accent,
-    fontSize: 14,
     fontWeight: "700",
   },
   selectionHint: {
-    color: "#61717d",
     fontSize: 14,
     lineHeight: 20,
   },
@@ -733,7 +776,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   selectionSummary: {
-    color: "#465560",
     fontSize: 14,
     lineHeight: 20,
   },
@@ -744,55 +786,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statementLineAmount: {
-    color: surfaceTokens.ink,
     fontSize: 14,
     fontWeight: "700",
   },
   statementRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-    paddingTop: 10,
-    marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "rgba(20, 33, 61, 0.08)",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+    marginTop: 10,
+    paddingTop: 10,
   },
   statementTotal: {
-    color: surfaceTokens.accent,
     fontSize: 15,
     fontWeight: "700",
   },
   subheading: {
-    paddingTop: 6,
-    color: surfaceTokens.ink,
     fontSize: 15,
     fontWeight: "700",
+    paddingTop: 6,
   },
   summary: {
-    color: "#465560",
     fontSize: 15,
     lineHeight: 22,
   },
   warningCard: {
+    borderRadius: 18,
+    borderWidth: 1,
     gap: 4,
     padding: 12,
-    borderRadius: 18,
-    backgroundColor: "#fff2ef",
-    borderWidth: 1,
-    borderColor: "rgba(166, 27, 27, 0.16)",
   },
   warningMeta: {
-    color: "#7c3535",
     fontSize: 13,
     lineHeight: 18,
   },
   warningText: {
-    color: "#8c2f2f",
     fontSize: 14,
     lineHeight: 20,
   },
   warningTitle: {
-    color: "#a61b1b",
     fontSize: 14,
     fontWeight: "700",
   },

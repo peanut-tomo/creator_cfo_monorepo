@@ -2,9 +2,9 @@
 
 ## Version
 
-- version: 0.3.3
-- updated_at: 2026-03-27
-- scope: mobile shell now adds a local-first Discover news feed with refresh, load-more, and detail pages on top of the current login and tab shell
+- version: 0.3.4
+- updated_at: 2026-03-30
+- scope: mobile shell now tightens light-theme button and tab contrast while preserving the current login, tab, and local-first Discover flows
 
 ## Active Decisions
 
@@ -17,7 +17,7 @@
 
 ## Implemented Structure
 
-- `apps/mobile`: Expo Router app with login gate, animated svg tab icons, theme and locale switching, icon-led home metrics, and a local-first Discover news feed with detail routes.
+- `apps/mobile`: Expo Router app with login gate, animated svg tab icons, theme and locale switching, icon-led home metrics, a local-first Discover news feed, and stronger light-theme CTA/tab contrast.
 - `packages/storage`: storage contracts, path helpers, and contract tests.
 - `packages/ui`: React Native presentation primitives.
 - `packages/schemas`: creator product modules, platforms, and workflow principles.

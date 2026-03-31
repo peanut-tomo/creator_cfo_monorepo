@@ -16,8 +16,11 @@ export interface AppCopy {
     zhCN: string;
   };
   discover: {
+    backToFeed: string;
     calculatedBadge: string;
     cards: Array<{ summary: string; title: string }>;
+    emptySummary: string;
+    emptyTitle: string;
     eyebrow: string;
     form1099Nec: {
       acknowledge: string;
@@ -59,7 +62,18 @@ export interface AppCopy {
       unlockNote: string;
       webPreviewLabel: string;
     };
+    latestLabel: string;
+    latestTitle: string;
+    loadMore: string;
+    loadingMore: string;
     manualBadge: string;
+    missingArticleSummary: string;
+    missingArticleTitle: string;
+    openArticle: string;
+    publishedLabel: string;
+    readTimeLabel: string;
+    refreshHint: string;
+    sourceLabel: string;
     summary: string;
     title: string;
   };
@@ -147,6 +161,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       zhCN: "Chinese",
     },
     discover: {
+      backToFeed: "Back to Discover",
       calculatedBadge: "Calculated from the form",
       cards: [
         {
@@ -158,6 +173,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
           summary: "Keep future invoice drafts, receipts, and filing kits in one device-local command center.",
         },
       ],
+      emptySummary: "Pull to refresh or come back later. This local-first feed will grow from here.",
+      emptyTitle: "No stories loaded yet",
       eyebrow: "Discover",
       form1099Nec: {
         acknowledge: "I understand",
@@ -211,7 +228,18 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Schedule C preview.",
         webPreviewLabel: "Static web preview",
       },
+      latestLabel: "Latest signal",
+      latestTitle: "Operator news for creator finance teams.",
+      loadMore: "Load more",
+      loadingMore: "Loading more...",
       manualBadge: "Manual input required",
+      missingArticleSummary: "The article may have moved out of the local feed. Return to Discover to keep browsing.",
+      missingArticleTitle: "This story is unavailable",
+      openArticle: "Open article",
+      publishedLabel: "Published",
+      readTimeLabel: "min read",
+      refreshHint: "Pull to refresh the local news feed.",
+      sourceLabel: "Source",
       summary:
         "Scan the latest operating signals, then open a detail page when you want the full context.",
       title: "Discover",
@@ -321,6 +349,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       zhCN: "中文",
     },
     discover: {
+      backToFeed: "返回发现页",
       calculatedBadge: "由表内公式计算",
       cards: [
         {
@@ -332,6 +361,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
           summary: "把后续发票草稿、报销凭证和报税材料收拢到同一个本地工作台。",
         },
       ],
+      emptySummary: "下拉刷新或稍后再看。这个本地优先新闻流会从这里继续扩展。",
+      emptyTitle: "暂时还没有可展示的内容",
       eyebrow: "发现",
       form1099Nec: {
         acknowledge: "我已了解",
@@ -385,7 +416,18 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         unlockNote: "先确认免责声明，之后才会显示由前端绘制的 Schedule C 预览。",
         webPreviewLabel: "静态 Web 预览",
       },
+      latestLabel: "最新信号",
+      latestTitle: "给创作者财务团队看的运营新闻流。",
+      loadMore: "加载更多",
+      loadingMore: "正在加载...",
       manualBadge: "需要手动填写",
+      missingArticleSummary: "这篇文章可能已经不在当前本地新闻流中，请返回发现页继续浏览。",
+      missingArticleTitle: "这篇内容暂时不可用",
+      openArticle: "查看全文",
+      publishedLabel: "发布时间",
+      readTimeLabel: "分钟阅读",
+      refreshHint: "下拉即可刷新本地新闻流。",
+      sourceLabel: "来源",
       summary: "本阶段先保持轻量，但会为后续的增长功能预留清晰的产品位置。",
       title: "给创作者财务决策一个更冷静的观察层。",
     },

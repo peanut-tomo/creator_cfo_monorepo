@@ -14,6 +14,7 @@ function PreferencePill(props: {
   palette: ReturnType<typeof useAppShell>["palette"];
 }) {
   const { active, label, onPress, palette } = props;
+  const activeLabelColor = palette.name === "dark" ? palette.shell : palette.inkOnAccent;
 
   return (
     <Pressable
@@ -30,7 +31,7 @@ function PreferencePill(props: {
       <Text
         style={[
           styles.optionLabel,
-          { color: active ? palette.inkOnAccent : palette.ink },
+          { color: active ? activeLabelColor : palette.ink },
         ]}
       >
         {label}
@@ -67,9 +68,10 @@ export function ProfileScreen() {
 
   const sessionKindLabel =
     session?.kind === "apple" ? "Apple ID" : session?.kind === "guest" ? copy.common.guest : "None";
+  const destructiveLabelColor = palette.name === "dark" ? palette.shell : palette.inkOnAccent;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.shell }]}>
+    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: palette.shell }]}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.hero}>
           <Text style={[styles.eyebrow, { color: palette.accent }]}>{copy.tabs.profile}</Text>
@@ -130,7 +132,7 @@ export function ProfileScreen() {
             }}
             style={[styles.logoutButton, { backgroundColor: palette.destructive }]}
           >
-            <Text style={[styles.logoutLabel, { color: palette.inkOnAccent }]}>
+            <Text style={[styles.logoutLabel, { color: destructiveLabelColor }]}>
               {copy.common.signOut}
             </Text>
           </Pressable>
