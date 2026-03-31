@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
 import { useSQLiteContext } from "expo-sqlite";
+import {
+  persistResolvedStandardReceiptEntry,
+  resolveStandardReceiptEntry,
+} from "@creator-cfo/storage";
 
 import {
   buildDatabaseDemoFieldUpdate,
   buildDatabaseDemoReportState,
   buildDatabaseDemoSummary,
   createDatabaseDemoFixture,
-  createDatabaseDemoRecordDraft,
+  createDatabaseDemoStandardReceiptDraft,
   createDatabaseDemoRecordLikePattern,
   createEmptyDatabaseDemoSnapshot,
   databaseDemoEditableFields,
+  databaseDemoReceiptClassificationOptions,
   databaseDemoSourceSystem,
+  formatDatabaseDemoClassificationLabel,
   formatAmountLabel,
   getNextDatabaseDemoRecordSequence,
 } from "./demo-data";
@@ -19,10 +25,12 @@ import type {
   DatabaseDemoDoubleEntryPreview,
   DatabaseDemoEditableField,
   DatabaseDemoEditableFieldOption,
-  DatabaseDemoRecordDraft,
+  DatabaseDemoReceiptClassification,
+  DatabaseDemoReceiptClassificationOption,
   DatabaseDemoRecordPreview,
   DatabaseDemoSnapshot,
 } from "./demo-data";
+import { createWritableStorageDatabase } from "../../storage/storage-adapter";
 
 type DemoDatabase = ReturnType<typeof useSQLiteContext>;
 
@@ -32,19 +40,23 @@ interface DemoRecordIdRow {
 
 interface DemoRecordRow {
   currency: string;
+  cashOn: string | null;
   description: string;
   grossAmountCents: number;
+  primaryAmountCents: number;
   netCashAmountCents: number;
   recognitionOn: string;
   recordId: string;
   recordKind: string;
   recordStatus: string;
+  userClassification: DatabaseDemoReceiptClassification | null;
 }
 
 interface DemoEditableRecordRow {
   description: string;
   recordId: string;
   recordStatus: string;
+  userClassification: DatabaseDemoReceiptClassification | null;
 }
 
 interface DemoDoubleEntryRow {
@@ -69,8 +81,11 @@ export interface UseDatabaseDemoResult {
   isBusy: boolean;
   isLoaded: boolean;
   refresh: () => Promise<void>;
+  receiptClassifications: readonly DatabaseDemoReceiptClassificationOption[];
+  selectClassification: (classification: DatabaseDemoReceiptClassification) => void;
   selectField: (field: DatabaseDemoEditableField) => void;
   selectRecord: (recordId: string) => Promise<void>;
+  selectedClassification: DatabaseDemoReceiptClassification;
   selectedField: DatabaseDemoEditableField;
   selectedRecordId: string | null;
   snapshot: DatabaseDemoSnapshot;
@@ -82,6 +97,10 @@ export function useDatabaseDemo(): UseDatabaseDemoResult {
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedClassification, setSelectedClassification] =
+    useState<DatabaseDemoReceiptClassification>(
+      databaseDemoReceiptClassificationOptions[0]?.value ?? "income",
+    );
   const [selectedField, setSelectedField] = useState<DatabaseDemoEditableField>(
     databaseDemoEditableFields[0]?.value ?? "description",
   );
@@ -140,10 +159,12 @@ export function useDatabaseDemo(): UseDatabaseDemoResult {
         await ensureFixture(database);
         const existingRecordIds = await getDatabaseDemoRecordIds(database);
         const nextSequence = getNextDatabaseDemoRecordSequence(existingRecordIds);
-        const draft = createDatabaseDemoRecordDraft(nextSequence);
+        const draft = createDatabaseDemoStandardReceiptDraft(nextSequence, selectedClassification);
+        const resolvedEntry = resolveStandardReceiptEntry(draft.input, draft.persistenceContext);
+        const writableStorageDatabase = createWritableStorageDatabase(database);
 
-        await insertRecord(database, draft);
-        createdRecordId = draft.recordId;
+        await persistResolvedStandardReceiptEntry(writableStorageDatabase, resolvedEntry);
+        createdRecordId = resolvedEntry.record.recordId;
       });
 
       return createdRecordId;
@@ -159,11 +180,14 @@ export function useDatabaseDemo(): UseDatabaseDemoResult {
       await database.withTransactionAsync(async () => {
         const existingRecord = await database.getFirstAsync<DemoEditableRecordRow>(
           `SELECT
-            record_id AS recordId,
-            description,
-            record_status AS recordStatus
-          FROM records
-          WHERE record_id = ? AND source_system = ?
+            r.record_id AS recordId,
+            r.description,
+            r.record_status AS recordStatus,
+            classification.user_classification AS userClassification
+          FROM records AS r
+          LEFT JOIN record_entry_classifications AS classification
+            ON classification.record_id = r.record_id
+          WHERE r.record_id = ? AND r.source_system = ?
           LIMIT 1;`,
           selectedRecordId,
           databaseDemoSourceSystem,
@@ -216,8 +240,11 @@ export function useDatabaseDemo(): UseDatabaseDemoResult {
     isBusy,
     isLoaded,
     refresh,
+    receiptClassifications: databaseDemoReceiptClassificationOptions,
+    selectClassification: setSelectedClassification,
     selectField: setSelectedField,
     selectRecord,
+    selectedClassification,
     selectedField,
     selectedRecordId,
     snapshot,
@@ -231,17 +258,22 @@ async function loadSnapshot(
 ): Promise<LoadSnapshotResult> {
   const recentRecords = await database.getAllAsync<DemoRecordRow>(
     `SELECT
-      record_id AS recordId,
-      record_kind AS recordKind,
-      description,
-      gross_amount_cents AS grossAmountCents,
-      net_cash_amount_cents AS netCashAmountCents,
-      currency,
-      record_status AS recordStatus,
-      recognition_on AS recognitionOn
-    FROM records
-    WHERE source_system = ? AND record_id LIKE ?
-    ORDER BY recognition_on DESC, created_at DESC, record_id DESC;`,
+      r.record_id AS recordId,
+      r.record_kind AS recordKind,
+      classification.user_classification AS userClassification,
+      r.description,
+      r.primary_amount_cents AS primaryAmountCents,
+      r.gross_amount_cents AS grossAmountCents,
+      r.net_cash_amount_cents AS netCashAmountCents,
+      r.currency,
+      r.record_status AS recordStatus,
+      r.recognition_on AS recognitionOn,
+      r.cash_on AS cashOn
+    FROM records AS r
+    LEFT JOIN record_entry_classifications AS classification
+      ON classification.record_id = r.record_id
+    WHERE r.source_system = ? AND r.record_id LIKE ?
+    ORDER BY r.recognition_on DESC, r.created_at DESC, r.record_id DESC;`,
     databaseDemoSourceSystem,
     createDatabaseDemoRecordLikePattern(),
   );
@@ -330,10 +362,17 @@ function resolveSelectedRecordId(
 
 function buildRecentRecordPreview(rows: DemoRecordRow[]): DatabaseDemoRecordPreview[] {
   return rows.map((row) => ({
+    amountLabel: formatAmountLabel(
+      row.grossAmountCents > 0 ? row.grossAmountCents : row.primaryAmountCents,
+      row.currency,
+    ),
+    cashMovementLabel: formatAmountLabel(
+      row.netCashAmountCents > 0 ? row.netCashAmountCents : row.primaryAmountCents,
+      row.currency,
+    ),
+    classificationLabel: formatDatabaseDemoClassificationLabel(row.userClassification),
     description: row.description,
-    grossAmountLabel: formatAmountLabel(row.grossAmountCents, row.currency),
-    netAmountLabel: formatAmountLabel(row.netCashAmountCents, row.currency),
-    recognizedOn: row.recognitionOn,
+    occurredOn: row.cashOn ?? row.recognitionOn,
     recordId: row.recordId,
     recordKind: row.recordKind,
     status: row.recordStatus,
@@ -442,61 +481,6 @@ async function ensureFixture(database: DemoDatabase): Promise<void> {
     fixture.platformAccount.externalAccountRef,
     fixture.platformAccount.activeFrom,
     fixture.platformAccount.createdAt,
-  );
-}
-
-async function insertRecord(database: DemoDatabase, record: DatabaseDemoRecordDraft): Promise<void> {
-  await database.runAsync(
-    `INSERT INTO records (
-      record_id,
-      entity_id,
-      record_kind,
-      posting_pattern,
-      record_status,
-      source_system,
-      counterparty_id,
-      platform_account_id,
-      description,
-      evidence_status,
-      recognition_on,
-      cash_on,
-      currency,
-      tax_line_code,
-      gross_amount_cents,
-      fee_amount_cents,
-      withholding_amount_cents,
-      net_cash_amount_cents,
-      primary_account_id,
-      cash_account_id,
-      fee_account_id,
-      withholding_account_id,
-      created_at,
-      updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-    record.recordId,
-    record.entityId,
-    record.recordKind,
-    record.postingPattern,
-    record.recordStatus,
-    record.sourceSystem,
-    record.counterpartyId,
-    record.platformAccountId,
-    record.description,
-    record.evidenceStatus,
-    record.recognitionOn,
-    record.cashOn,
-    record.currency,
-    record.taxLineCode,
-    record.grossAmountCents,
-    record.feeAmountCents,
-    record.withholdingAmountCents,
-    record.netCashAmountCents,
-    record.primaryAccountId,
-    record.cashAccountId,
-    record.feeAccountId,
-    record.withholdingAccountId,
-    record.createdAt,
-    record.updatedAt,
   );
 }
 

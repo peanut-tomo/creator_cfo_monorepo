@@ -59,15 +59,25 @@ export function DatabaseHooksDemo({
         </Text>
       </View>
       <View style={[styles.listRow, { borderTopColor: palette.divider }]}>
-        <Text style={[styles.rowTitle, { color: palette.ink }]}>3. Switch report tabs</Text>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>
+          3. Choose a simplified receipt classification
+        </Text>
         <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
-          The native demo lets you create multiple demo `records`, select one record, update one
-          chosen field, delete the selected record, and switch across postings, journal, general
-          ledger, balance sheet, and profit/loss views for the current demo database.
+          The native demo lets you pick `income`, `expense`, or `personal spending`, then create
+          demo `records` through the shared resolver instead of filling internal ledger fields
+          directly.
         </Text>
       </View>
       <View style={[styles.listRow, { borderTopColor: palette.divider }]}>
-        <Text style={[styles.rowTitle, { color: palette.ink }]}>4. Surface ledger health</Text>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>4. Switch report and tax tabs</Text>
+        <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
+          The native demo also lets you select one record, update one chosen field, delete the
+          selected record, and switch across postings, journal, general ledger, balance sheet,
+          profit/loss, Schedule C, and Schedule SE views for the current demo database.
+        </Text>
+      </View>
+      <View style={[styles.listRow, { borderTopColor: palette.divider }]}>
+        <Text style={[styles.rowTitle, { color: palette.ink }]}>5. Surface ledger health</Text>
         <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
           The native card also shows a warning if the current demo ledger is unbalanced, using the
           same accounting posting surface as the report tabs.

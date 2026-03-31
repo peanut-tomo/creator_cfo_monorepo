@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { useSQLiteContext } from "expo-sqlite";
 
 import {
-  buildScheduleCAggregation,
-  buildSupportedScheduleCNetProfitPreview,
-  type ScheduleCCandidateRecord,
+  loadScheduleSEPreview,
+  type TaxQueryScope,
 } from "@creator-cfo/storage";
 
 import {
@@ -12,8 +11,16 @@ import {
   createEmptyFormScheduleSESnapshot,
   type FormScheduleSEDatabaseSnapshot,
 } from "./form-schedule-se-model";
+import { createReadableStorageDatabase } from "../../storage/storage-adapter";
 
-type ScheduleCCandidateRecordRow = ScheduleCCandidateRecord;
+interface EntityIdRow {
+  entityId: string;
+}
+
+export interface FormScheduleSEDataScope {
+  entityId?: string | null;
+  taxYear: number;
+}
 
 export interface UseFormScheduleSEResult {
   error: string | null;
@@ -21,7 +28,7 @@ export interface UseFormScheduleSEResult {
   snapshot: FormScheduleSEDatabaseSnapshot;
 }
 
-export function useFormScheduleSE(): UseFormScheduleSEResult {
+export function useFormScheduleSE(scope: FormScheduleSEDataScope): UseFormScheduleSEResult {
   const database = useSQLiteContext();
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -29,13 +36,17 @@ export function useFormScheduleSE(): UseFormScheduleSEResult {
 
   useEffect(() => {
     let isMounted = true;
+    setError(null);
+    setIsLoaded(false);
+    setSnapshot(createEmptyFormScheduleSESnapshot());
 
-    loadFormScheduleSEData(database)
+    loadFormScheduleSEData(database, scope)
       .then((nextSnapshot) => {
         if (!isMounted) {
           return;
         }
 
+        setError(null);
         setSnapshot(nextSnapshot);
         setIsLoaded(true);
       })
@@ -51,7 +62,7 @@ export function useFormScheduleSE(): UseFormScheduleSEResult {
     return () => {
       isMounted = false;
     };
-  }, [database]);
+  }, [database, scope.entityId, scope.taxYear]);
 
   return {
     error,
@@ -62,31 +73,46 @@ export function useFormScheduleSE(): UseFormScheduleSEResult {
 
 async function loadFormScheduleSEData(
   database: ReturnType<typeof useSQLiteContext>,
+  scope: FormScheduleSEDataScope,
 ): Promise<FormScheduleSEDatabaseSnapshot> {
-  const candidateRows = await database.getAllAsync<ScheduleCCandidateRecordRow>(
-    `SELECT
-      record_id AS recordId,
-      record_kind AS recordKind,
-      record_status AS recordStatus,
-      cash_on AS cashOn,
-      currency,
-      description,
-      memo,
-      category_code AS categoryCode,
-      subcategory_code AS subcategoryCode,
-      tax_category_code AS taxCategoryCode,
-      tax_line_code AS taxLineCode,
-      primary_amount_cents AS primaryAmountCents,
-      gross_amount_cents AS grossAmountCents,
-      business_use_bps AS businessUseBps
-    FROM records
-    WHERE record_status IN ('posted', 'reconciled')
-      AND COALESCE(tax_line_code, '') <> '';`,
-  );
-  const aggregation = buildScheduleCAggregation(candidateRows);
-  const preview = buildSupportedScheduleCNetProfitPreview(aggregation);
+  const storageDatabase = createReadableStorageDatabase(database);
+  const resolvedScope = await resolveTaxQueryScope(database, scope);
+
+  if (!resolvedScope) {
+    return createEmptyFormScheduleSESnapshot();
+  }
+
+  const preview = await loadScheduleSEPreview(storageDatabase, resolvedScope);
 
   return buildFormScheduleSESnapshot({
     supportedScheduleCNetProfitPreview: preview.netProfitCents !== null ? preview : null,
   });
+}
+
+async function resolveTaxQueryScope(
+  database: ReturnType<typeof useSQLiteContext>,
+  scope: FormScheduleSEDataScope,
+): Promise<TaxQueryScope | null> {
+  const normalizedEntityId = scope.entityId?.trim();
+
+  if (normalizedEntityId) {
+    return {
+      entityId: normalizedEntityId,
+      taxYear: scope.taxYear,
+    };
+  }
+
+  const entityRow = await database.getFirstAsync<EntityIdRow>(
+    `SELECT entity_id AS entityId
+    FROM entities
+    ORDER BY created_at ASC
+    LIMIT 1;`,
+  );
+
+  return entityRow
+    ? {
+        entityId: entityRow.entityId,
+        taxYear: scope.taxYear,
+      }
+    : null;
 }

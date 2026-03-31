@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SQLiteProvider } from "expo-sqlite";
 import type { ReactNode } from "react";
 import { getLocalStorageBootstrapPlan } from "@creator-cfo/storage";
@@ -5,6 +6,7 @@ import type { SurfaceTokens } from "@creator-cfo/ui";
 
 import type { AppCopy } from "../app-shell/copy";
 import { initializeLocalDatabase } from "../../storage/database";
+import { getCurrentFormScheduleCTaxYear } from "./form-schedule-c-model";
 import { FormScheduleCPreview } from "./form-schedule-c-preview";
 import { useFormScheduleC } from "./use-form-schedule-c.native";
 
@@ -28,7 +30,10 @@ export function FormScheduleCSection(props: FormScheduleCSectionProps) {
 
 function FormScheduleCNativeSection(props: FormScheduleCSectionProps) {
   const { calculatedBadge, copy, manualBadge, palette, renderLauncher } = props;
-  const { error, isLoaded, snapshot } = useFormScheduleC();
+  const currentTaxYear = getCurrentFormScheduleCTaxYear();
+  const taxYearOptions = [currentTaxYear - 1, currentTaxYear];
+  const [selectedTaxYear, setSelectedTaxYear] = useState(currentTaxYear);
+  const { error, isLoaded, snapshot } = useFormScheduleC({ taxYear: selectedTaxYear });
 
   return (
     <FormScheduleCPreview
@@ -40,8 +45,11 @@ function FormScheduleCNativeSection(props: FormScheduleCSectionProps) {
       manualBadge={manualBadge}
       palette={palette}
       renderLauncher={renderLauncher}
+      selectedTaxYear={selectedTaxYear}
       sectionEyebrow="Schedule C"
       snapshot={snapshot}
+      taxYearOptions={taxYearOptions}
+      onSelectTaxYear={setSelectedTaxYear}
     />
   );
 }

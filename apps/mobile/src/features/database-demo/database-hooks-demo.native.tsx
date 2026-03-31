@@ -103,8 +103,11 @@ function DatabaseHooksDemoCard({
     isBusy,
     isLoaded,
     refresh,
+    receiptClassifications,
+    selectClassification,
     selectField,
     selectRecord,
+    selectedClassification,
     selectedField,
     selectedRecordId,
     snapshot,
@@ -114,6 +117,9 @@ function DatabaseHooksDemoCard({
   const hasRecord = snapshot.counts.recordCount > 0;
   const selectedFieldOption =
     editableFields.find((option) => option.value === selectedField) ?? editableFields[0];
+  const selectedClassificationOption =
+    receiptClassifications.find((option) => option.value === selectedClassification) ??
+    receiptClassifications[0];
   const selectedReportTabOption =
     databaseDemoReportTabs.find((tab) => tab.value === selectedReportTab) ?? databaseDemoReportTabs[0];
   const selectedRecord = snapshot.recentRecords.find((record) => record.recordId === selectedRecordId) ?? null;
@@ -131,11 +137,15 @@ function DatabaseHooksDemoCard({
         </Text>
       }
     >
+      <Text style={styles.summary}>
+        This sample now keeps simplified receipt entry, CRUD, and reporting in one place: choose
+        a high-level classification, create deterministic `records` through the shared resolver,
       <Text style={[styles.summary, { color: palette.inkMuted }]}>
-        This sample now keeps CRUD and reporting in one place: create deterministic `records`,
+        This sample now keeps simplified receipt entry, CRUD, and reporting in one place: choose
+        a high-level classification, create deterministic `records` through the shared resolver,
         select which record is active, choose one editable field to update, and switch among
-        postings, journal, general ledger, balance sheet, and profit/loss views built from the
-        current demo database.
+        postings, journal, general ledger, balance sheet, profit/loss, and tax previews built
+        from the current demo database.
       </Text>
 
       <View style={styles.metricRow}>
@@ -186,6 +196,24 @@ function DatabaseHooksDemoCard({
           </View>
         )
       ) : null}
+
+      <Text style={[styles.subheading, { color: palette.ink }]}>Receipt classification</Text>
+      <View style={styles.selectionRow}>
+        {receiptClassifications.map((classification) => (
+          <SelectionChip
+            key={classification.value}
+            disabled={isBusy || !isLoaded}
+            isSelected={classification.value === selectedClassification}
+            label={classification.label}
+            onPress={() => {
+              selectClassification(classification.value);
+            }}
+          />
+        ))}
+      </View>
+      <Text style={[styles.selectionHint, { color: palette.inkMuted }]}>
+        {selectedClassificationOption?.description}
+      </Text>
 
       <Text style={[styles.subheading, { color: palette.ink }]}>Selected field</Text>
       <View style={styles.selectionRow}>
@@ -307,7 +335,9 @@ function DatabaseHooksDemoCard({
       <Text style={[styles.subheading, { color: palette.ink }]}>Demo records</Text>
       {snapshot.recentRecords.length === 0 ? (
         <Text style={[styles.emptyText, { color: palette.inkMuted }]}>
-          Create one or more demo records to inspect record queries and derived postings.
+          Pick a receipt classification and create one or more demo records to inspect simplified
+          entry, derived postings, and tax-form queries.
+        </Text>
         </Text>
       ) : (
         snapshot.recentRecords.map((record) => (
@@ -333,11 +363,11 @@ function DatabaseHooksDemoCard({
             ]}
           >
             <Text style={[styles.rowTitle, { color: palette.ink }]}>
-              {record.description} · gross {record.grossAmountLabel}
+              {record.description} · amount {record.amountLabel}
             </Text>
             <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>
-              {record.recordKind} · {record.status} · net {record.netAmountLabel} ·{" "}
-              {record.recognizedOn}
+              {record.classificationLabel} to {record.recordKind} · {record.status} · cash{" "}
+              {record.cashMovementLabel} · {record.occurredOn}
             </Text>
             <Text style={[styles.recordMeta, { color: palette.inkMuted }]}>
               {record.recordId === selectedRecordId ? "Selected" : "Tap to select"} · {record.recordId}

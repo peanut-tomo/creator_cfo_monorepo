@@ -63,10 +63,6 @@ export interface AppCopy {
       unlockNote: string;
       webPreviewLabel: string;
     };
-    latestLabel: string;
-    latestTitle: string;
-    loadMore: string;
-    loadingMore: string;
     formScheduleSE: {
       acknowledge: string;
       closePreview: string;
@@ -83,6 +79,7 @@ export interface AppCopy {
       pageTwoLabel: string;
       sourceLabel: string;
       slotGuideTitle: string;
+      taxYearTitle: string;
       title: string;
       unlockNote: string;
       webPreviewLabel: string;
@@ -107,6 +104,10 @@ export interface AppCopy {
       unlockNote: string;
       webPreviewLabel: string;
     };
+    latestLabel: string;
+    latestTitle: string;
+    loadMore: string;
+    loadingMore: string;
     manualBadge: string;
     missingArticleSummary: string;
     missingArticleTitle: string;
@@ -220,7 +221,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       zhCN: "Chinese",
     },
     discover: {
-      backToFeed: "Back to Discover",
+      backToFeed: "Back to feed",
       calculatedBadge: "Calculated from the form",
       cards: [
         {
@@ -232,8 +233,9 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
           summary: "Keep future invoice drafts, receipts, and filing kits in one device-local command center.",
         },
       ],
-      emptySummary: "Pull to refresh or come back later. This local-first feed will grow from here.",
-      emptyTitle: "No stories loaded yet",
+      emptySummary:
+        "Pull to refresh or come back later to reload the current curated creator-finance feed.",
+      emptyTitle: "No articles loaded yet",
       eyebrow: "Discover",
       form1099Nec: {
         acknowledge: "I understand",
@@ -288,10 +290,6 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Schedule C preview.",
         webPreviewLabel: "Static web preview",
       },
-      latestLabel: "Latest signal",
-      latestTitle: "Operator news for creator finance teams.",
-      loadMore: "Load more",
-      loadingMore: "Loading more...",
       formScheduleSE: {
         acknowledge: "I understand",
         closePreview: "Close preview",
@@ -313,6 +311,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         pageTwoLabel: "Page 2",
         sourceLabel: "Instruction source",
         slotGuideTitle: "Field guidance",
+        taxYearTitle: "Tax year",
         title: "Schedule SE exact-layout preview",
         unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Schedule SE preview.",
         webPreviewLabel: "Static web preview",
@@ -342,13 +341,18 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Form 1040 preview.",
         webPreviewLabel: "Static web preview",
       },
+      latestLabel: "Latest briefings",
+      latestTitle: "Creator finance signals",
+      loadMore: "Load more articles",
+      loadingMore: "Loading more...",
       manualBadge: "Manual input required",
-      missingArticleSummary: "The article may have moved out of the local feed. Return to Discover to keep browsing.",
-      missingArticleTitle: "This story is unavailable",
+      missingArticleSummary:
+        "This article is no longer in the local feed snapshot. Return to the discover list and choose another briefing.",
+      missingArticleTitle: "Article unavailable",
       openArticle: "Open article",
       publishedLabel: "Published",
       readTimeLabel: "min read",
-      refreshHint: "Pull to refresh the local news feed.",
+      refreshHint: "Pull to refresh or load more to extend the local article feed.",
       sourceLabel: "Source",
       summary:
         "Scan the latest operating signals, then open a detail page when you want the full context.",
@@ -477,7 +481,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       zhCN: "中文",
     },
     discover: {
-      backToFeed: "返回发现页",
+      backToFeed: "返回列表",
       calculatedBadge: "由表内公式计算",
       cards: [
         {
@@ -489,8 +493,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
           summary: "把后续发票草稿、报销凭证和报税材料收拢到同一个本地工作台。",
         },
       ],
-      emptySummary: "下拉刷新或稍后再看。这个本地优先新闻流会从这里继续扩展。",
-      emptyTitle: "暂时还没有可展示的内容",
+      emptySummary: "下拉刷新，或稍后再回来加载当前整理过的创作者财务资讯列表。",
+      emptyTitle: "暂时没有文章",
       eyebrow: "发现",
       form1099Nec: {
         acknowledge: "我已了解",
@@ -545,10 +549,6 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         unlockNote: "先确认免责声明，之后才会显示由前端绘制的 Schedule C 预览。",
         webPreviewLabel: "静态 Web 预览",
       },
-      latestLabel: "最新信号",
-      latestTitle: "给创作者财务团队看的运营新闻流。",
-      loadMore: "加载更多",
-      loadingMore: "正在加载...",
       formScheduleSE: {
         acknowledge: "我已了解",
         closePreview: "关闭预览",
@@ -570,6 +570,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         pageTwoLabel: "第 2 页",
         sourceLabel: "说明来源",
         slotGuideTitle: "栏位说明",
+        taxYearTitle: "税年",
         title: "Schedule SE 官方版式预览",
         unlockNote: "先确认免责声明，之后才会显示由前端绘制的 Schedule SE 预览。",
         webPreviewLabel: "静态 Web 预览",
@@ -599,13 +600,17 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         unlockNote: "先确认免责声明，之后才会显示由前端绘制的 Form 1040 预览。",
         webPreviewLabel: "静态 Web 预览",
       },
+      latestLabel: "最新简报",
+      latestTitle: "创作者财务信号",
+      loadMore: "加载更多文章",
+      loadingMore: "正在加载...",
       manualBadge: "需要手动填写",
-      missingArticleSummary: "这篇文章可能已经不在当前本地新闻流中，请返回发现页继续浏览。",
-      missingArticleTitle: "这篇内容暂时不可用",
-      openArticle: "查看全文",
+      missingArticleSummary: "这篇文章已经不在当前本地资讯快照里，请返回发现列表并选择另一篇简报。",
+      missingArticleTitle: "文章不可用",
+      openArticle: "阅读全文",
       publishedLabel: "发布时间",
       readTimeLabel: "分钟阅读",
-      refreshHint: "下拉即可刷新本地新闻流。",
+      refreshHint: "下拉刷新或继续加载更多，扩展当前本地文章列表。",
       sourceLabel: "来源",
       summary: "本阶段先保持轻量，但会为后续的增长功能预留清晰的产品位置。",
       title: "给创作者财务决策一个更冷静的观察层。",

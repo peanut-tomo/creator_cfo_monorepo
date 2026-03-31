@@ -6,7 +6,7 @@ import {
   buildDatabaseDemoReportState,
   buildDatabaseDemoSummary,
   createDatabaseDemoFixture,
-  createDatabaseDemoRecordDraft,
+  createDatabaseDemoStandardReceiptDraft,
   createDatabaseDemoRecordId,
   createEmptyDatabaseDemoSnapshot,
   databaseDemoIds,
@@ -19,15 +19,22 @@ import {
 describe("database hook demo helpers", () => {
   it("creates deterministic fixtures and sequenced record drafts for the demo", () => {
     const fixture = createDatabaseDemoFixture();
-    const firstRecord = createDatabaseDemoRecordDraft(1);
-    const thirdRecord = createDatabaseDemoRecordDraft(3);
+    const firstRecord = createDatabaseDemoStandardReceiptDraft(1, "income");
+    const thirdRecord = createDatabaseDemoStandardReceiptDraft(3, "personal_spending");
 
     expect(fixture.entity.entityId).toBe(databaseDemoIds.entityId);
-    expect(firstRecord.recordId).toBe(databaseDemoIds.recordIdPrefix);
-    expect(firstRecord.sourceSystem).toBe(databaseDemoSourceSystem);
-    expect(thirdRecord.recordId).toBe(`${databaseDemoIds.recordIdPrefix}-3`);
-    expect(getDatabaseDemoRecordSequence(thirdRecord.recordId)).toBe(3);
-    expect(getNextDatabaseDemoRecordSequence([firstRecord.recordId, thirdRecord.recordId])).toBe(4);
+    expect(firstRecord.persistenceContext.recordId).toBe(databaseDemoIds.recordIdPrefix);
+    expect(firstRecord.persistenceContext.sourceSystem).toBe(databaseDemoSourceSystem);
+    expect(firstRecord.input.userClassification).toBe("income");
+    expect(thirdRecord.persistenceContext.recordId).toBe(`${databaseDemoIds.recordIdPrefix}-3`);
+    expect(thirdRecord.input.userClassification).toBe("personal_spending");
+    expect(getDatabaseDemoRecordSequence(thirdRecord.persistenceContext.recordId)).toBe(3);
+    expect(
+      getNextDatabaseDemoRecordSequence([
+        firstRecord.persistenceContext.recordId,
+        thirdRecord.persistenceContext.recordId,
+      ]),
+    ).toBe(4);
   });
 
   it("builds field-scoped updates for the selected record", () => {
@@ -36,6 +43,7 @@ describe("database hook demo helpers", () => {
         description: "YouTube payout 2",
         recordId: createDatabaseDemoRecordId(2),
         recordStatus: "posted",
+        userClassification: "income",
       },
       "description",
     );
@@ -44,6 +52,7 @@ describe("database hook demo helpers", () => {
         description: "YouTube payout 2 reviewed",
         recordId: createDatabaseDemoRecordId(2),
         recordStatus: "posted",
+        userClassification: "income",
       },
       "recordStatus",
     );

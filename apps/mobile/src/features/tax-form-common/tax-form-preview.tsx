@@ -27,6 +27,7 @@ interface TaxFormCopyLike {
   pageTwoLabel: string;
   sourceLabel: string;
   slotGuideTitle: string;
+  taxYearTitle?: string;
   title: string;
 }
 
@@ -38,6 +39,7 @@ interface TaxFormPreviewProps {
   footerNote: string;
   isLoaded: boolean;
   manualBadge: string;
+  onSelectTaxYear?: (taxYear: number) => void;
   palette: SurfaceTokens;
   renderCanvas: (props: {
     onSelectSlot: (slotId: TaxFormSlotId) => void;
@@ -48,8 +50,10 @@ interface TaxFormPreviewProps {
     width: number;
   }) => ReactNode;
   renderLauncher?: (openPreview: () => void) => ReactNode;
+  selectedTaxYear?: number;
   sectionEyebrow: string;
   slots: readonly TaxFormSlotState[];
+  taxYearOptions?: readonly number[];
 }
 
 export function TaxFormPreview(props: TaxFormPreviewProps) {
@@ -61,11 +65,14 @@ export function TaxFormPreview(props: TaxFormPreviewProps) {
     footerNote,
     isLoaded,
     manualBadge,
+    onSelectTaxYear,
     palette,
     renderCanvas,
     renderLauncher,
+    selectedTaxYear,
     sectionEyebrow,
     slots,
+    taxYearOptions,
   } = props;
   const { width: viewportWidth } = useWindowDimensions();
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
@@ -214,6 +221,27 @@ export function TaxFormPreview(props: TaxFormPreviewProps) {
 
                   {error ? (
                     <Text style={[styles.errorText, { color: palette.destructive }]}>{error}</Text>
+                  ) : null}
+
+                  {copy.taxYearTitle && selectedTaxYear !== undefined && onSelectTaxYear && taxYearOptions ? (
+                    <>
+                      <Text style={[styles.subheading, { color: palette.ink }]}>
+                        {copy.taxYearTitle}
+                      </Text>
+                      <View style={styles.pageButtonRow}>
+                        {taxYearOptions.map((taxYear) => (
+                          <PageButton
+                            key={taxYear}
+                            isSelected={selectedTaxYear === taxYear}
+                            label={String(taxYear)}
+                            onPress={() => {
+                              onSelectTaxYear(taxYear);
+                            }}
+                            palette={palette}
+                          />
+                        ))}
+                      </View>
+                    </>
                   ) : null}
 
                   <Text style={[styles.subheading, { color: palette.ink }]}>{copy.pageSwitcherTitle}</Text>

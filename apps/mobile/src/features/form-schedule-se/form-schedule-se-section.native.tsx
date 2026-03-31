@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SQLiteProvider } from "expo-sqlite";
 import type { ReactNode } from "react";
 import { getLocalStorageBootstrapPlan } from "@creator-cfo/storage";
@@ -28,7 +29,10 @@ export function FormScheduleSESection(props: FormScheduleSESectionProps) {
 
 function FormScheduleSENativeSection(props: FormScheduleSESectionProps) {
   const { calculatedBadge, copy, manualBadge, palette, renderLauncher } = props;
-  const { error, isLoaded, snapshot } = useFormScheduleSE();
+  const currentTaxYear = new Date().getFullYear();
+  const taxYearOptions = [currentTaxYear - 1, currentTaxYear];
+  const [selectedTaxYear, setSelectedTaxYear] = useState(currentTaxYear);
+  const { error, isLoaded, snapshot } = useFormScheduleSE({ taxYear: selectedTaxYear });
 
   return (
     <FormScheduleSEPreview
@@ -38,10 +42,13 @@ function FormScheduleSENativeSection(props: FormScheduleSESectionProps) {
       footerNote={copy.footerNative}
       isLoaded={isLoaded}
       manualBadge={manualBadge}
+      onSelectTaxYear={setSelectedTaxYear}
       palette={palette}
       renderLauncher={renderLauncher}
+      selectedTaxYear={selectedTaxYear}
       sectionEyebrow="Schedule SE"
       snapshot={snapshot}
+      taxYearOptions={taxYearOptions}
     />
   );
 }

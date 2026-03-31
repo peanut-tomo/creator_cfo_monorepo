@@ -1,19 +1,27 @@
 import { useEffect, useState } from "react";
 import { useSQLiteContext } from "expo-sqlite";
 
-import { buildScheduleCAggregation, type ScheduleCCandidateRecord } from "@creator-cfo/storage";
+import {
+  loadEntityLegalName,
+  loadScheduleCAggregation,
+  type TaxQueryScope,
+} from "@creator-cfo/storage";
 
 import {
   buildFormScheduleCSnapshot,
   createEmptyFormScheduleCSnapshot,
   type FormScheduleCDatabaseSnapshot,
 } from "./form-schedule-c-model";
+import { createReadableStorageDatabase } from "../../storage/storage-adapter";
 
-interface EntityRow {
-  legalName: string;
+interface EntityIdRow {
+  entityId: string;
 }
 
-type ScheduleCCandidateRecordRow = ScheduleCCandidateRecord;
+export interface FormScheduleCDataScope {
+  entityId?: string | null;
+  taxYear: number;
+}
 
 export interface UseFormScheduleCResult {
   error: string | null;
@@ -21,7 +29,7 @@ export interface UseFormScheduleCResult {
   snapshot: FormScheduleCDatabaseSnapshot;
 }
 
-export function useFormScheduleC(): UseFormScheduleCResult {
+export function useFormScheduleC(scope: FormScheduleCDataScope): UseFormScheduleCResult {
   const database = useSQLiteContext();
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -29,13 +37,17 @@ export function useFormScheduleC(): UseFormScheduleCResult {
 
   useEffect(() => {
     let isMounted = true;
+    setError(null);
+    setIsLoaded(false);
+    setSnapshot(createEmptyFormScheduleCSnapshot());
 
-    loadFormScheduleCData(database)
+    loadFormScheduleCData(database, scope)
       .then((nextSnapshot) => {
         if (!isMounted) {
           return;
         }
 
+        setError(null);
         setSnapshot(nextSnapshot);
         setIsLoaded(true);
       })
@@ -51,7 +63,7 @@ export function useFormScheduleC(): UseFormScheduleCResult {
     return () => {
       isMounted = false;
     };
-  }, [database]);
+  }, [database, scope.entityId, scope.taxYear]);
 
   return {
     error,
@@ -62,34 +74,17 @@ export function useFormScheduleC(): UseFormScheduleCResult {
 
 async function loadFormScheduleCData(
   database: ReturnType<typeof useSQLiteContext>,
+  scope: FormScheduleCDataScope,
 ): Promise<FormScheduleCDatabaseSnapshot> {
-  const proprietorRow = await database.getFirstAsync<EntityRow>(
-    `SELECT legal_name AS legalName
-    FROM entities
-    ORDER BY created_at ASC
-    LIMIT 1;`,
-  );
-  const candidateRows = await database.getAllAsync<ScheduleCCandidateRecordRow>(
-    `SELECT
-      record_id AS recordId,
-      record_kind AS recordKind,
-      record_status AS recordStatus,
-      cash_on AS cashOn,
-      currency,
-      description,
-      memo,
-      category_code AS categoryCode,
-      subcategory_code AS subcategoryCode,
-      tax_category_code AS taxCategoryCode,
-      tax_line_code AS taxLineCode,
-      primary_amount_cents AS primaryAmountCents,
-      gross_amount_cents AS grossAmountCents,
-      business_use_bps AS businessUseBps
-    FROM records
-    WHERE record_status IN ('posted', 'reconciled')
-      AND COALESCE(tax_line_code, '') <> '';`,
-  );
-  const aggregation = buildScheduleCAggregation(candidateRows);
+  const storageDatabase = createReadableStorageDatabase(database);
+  const resolvedScope = await resolveTaxQueryScope(database, scope);
+
+  if (!resolvedScope) {
+    return createEmptyFormScheduleCSnapshot();
+  }
+
+  const proprietorName = await loadEntityLegalName(storageDatabase, resolvedScope.entityId);
+  const aggregation = await loadScheduleCAggregation(storageDatabase, resolvedScope);
   const hasScheduleCData =
     Object.keys(aggregation.lineAmounts).length > 0 ||
     Object.keys(aggregation.lineReviewNotes).length > 0 ||
@@ -102,6 +97,34 @@ async function loadFormScheduleCData(
     lineReviewNotes: aggregation.lineReviewNotes,
     partVReviewNote: aggregation.partVReviewNote,
     partVRows: aggregation.partVRows,
-    proprietorName: proprietorRow?.legalName ?? null,
+    proprietorName,
   });
+}
+
+async function resolveTaxQueryScope(
+  database: ReturnType<typeof useSQLiteContext>,
+  scope: FormScheduleCDataScope,
+): Promise<TaxQueryScope | null> {
+  const normalizedEntityId = scope.entityId?.trim();
+
+  if (normalizedEntityId) {
+    return {
+      entityId: normalizedEntityId,
+      taxYear: scope.taxYear,
+    };
+  }
+
+  const entityRow = await database.getFirstAsync<EntityIdRow>(
+    `SELECT entity_id AS entityId
+    FROM entities
+    ORDER BY created_at ASC
+    LIMIT 1;`,
+  );
+
+  return entityRow
+    ? {
+        entityId: entityRow.entityId,
+        taxYear: scope.taxYear,
+      }
+    : null;
 }

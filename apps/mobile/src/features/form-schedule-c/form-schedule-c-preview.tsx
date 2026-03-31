@@ -30,10 +30,13 @@ interface FormScheduleCPreviewProps {
   footerNote: string;
   isLoaded: boolean;
   manualBadge: string;
+  onSelectTaxYear?: (taxYear: number) => void;
   palette: SurfaceTokens;
   renderLauncher?: (openPreview: () => void) => ReactNode;
+  selectedTaxYear?: number;
   sectionEyebrow: string;
   snapshot: FormScheduleCDatabaseSnapshot;
+  taxYearOptions?: readonly number[];
 }
 
 export function FormScheduleCPreview(props: FormScheduleCPreviewProps) {
@@ -51,12 +54,14 @@ export function FormScheduleCPreview(props: FormScheduleCPreviewProps) {
   } = props;
   const { width: viewportWidth } = useWindowDimensions();
   const currentTaxYear = getCurrentFormScheduleCTaxYear();
-  const taxYearOptions = [currentTaxYear - 1, currentTaxYear];
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [isDisclaimerVisible, setIsDisclaimerVisible] = useState(true);
   const [formZoom, setFormZoom] = useState(1);
   const [selectedPage, setSelectedPage] = useState<FormScheduleCPage>(1);
-  const [selectedTaxYear, setSelectedTaxYear] = useState(currentTaxYear);
+  const [uncontrolledTaxYear, setUncontrolledTaxYear] = useState(currentTaxYear);
+  const selectedTaxYear = props.selectedTaxYear ?? uncontrolledTaxYear;
+  const taxYearOptions = props.taxYearOptions ?? [currentTaxYear - 1, currentTaxYear];
+  const selectTaxYear = props.onSelectTaxYear ?? setUncontrolledTaxYear;
   const slots = buildFormScheduleCSlots(snapshot, {
     noInstructionNote: copy.noInstructionNote,
     taxYear: selectedTaxYear,
@@ -214,7 +219,7 @@ export function FormScheduleCPreview(props: FormScheduleCPreviewProps) {
                         isSelected={selectedTaxYear === taxYear}
                         label={String(taxYear)}
                         onPress={() => {
-                          setSelectedTaxYear(taxYear);
+                          selectTaxYear(taxYear);
                         }}
                         palette={palette}
                       />

@@ -19,12 +19,12 @@ describe("home sections", () => {
     expect(sections.storageCards[0]).toMatchObject({
       icon: "bootstrap",
       label: "Storage contract pulse",
-      value: "8",
+      value: "12",
     });
     expect(sections.storageCards[1]).toMatchObject({
       icon: "workflow",
       label: "Derived views",
-      value: "5",
+      value: "9",
     });
     expect(sections.storageCards[3]).toMatchObject({
       icon: "device",

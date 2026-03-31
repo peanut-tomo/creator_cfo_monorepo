@@ -53,7 +53,15 @@ pnpm smoke
    - 登录页主按钮与游客入口
    - 首页 database demo 的按钮、chip 与列表卡片可读性
    - 「我的」页主题/语言 Pill 与退出登录按钮
-9. 在「我的」中切换主题与语言，确认 Tab 图标、首页数据块与设置控件仍清晰可读。
-10. 在「我的」中执行退出登录，确认应用回到登录页。
-11. 若在支持的 iOS 设备上，验证 Apple 登录可进入主壳层；若当前环境不支持，确认会优雅提示并允许游客继续。
-12. 运行 `pnpm contract:check`，确认本地存储与设备状态契约测试通过。
+9. 进入 Discover 里的数据库 Hooks demo，确认简化录入路径可用：
+   - 先选择 `Income`、`Expense`、`Personal spending` 三种分类之一
+   - 点击 `Create record` 后，列表中新增记录，且描述、分类、`recordKind`、现金影响金额会同步变化
+   - 选中记录后执行 `Update selected field` 与 `Delete selected record`，确认仍然正常
+10. 在同一 demo 中打开 Schedule C 与 Schedule SE 预览，确认税年切换会触发真实数据重载：
+   - 切换当前年与上一年时，预览内税年按钮会变化
+   - Schedule C / Schedule SE 结果会根据所选税年刷新，而不是只改标题文字
+   - 本地数据库中 `tax_lines_v` 可按 `entity_id`、`tax_year`、`schedule_code`、`line_key`、`line_status` 过滤查询，并与预览主数据一致
+11. 在「我的」中切换主题与语言，确认 Tab 图标、首页数据块与设置控件仍清晰可读。
+12. 在「我的」中执行退出登录，确认应用回到登录页。
+13. 若在支持的 iOS 设备上，验证 Apple 登录可进入主壳层；若当前环境不支持，确认会优雅提示并允许游客继续。
+14. 运行 `pnpm contract:check`，确认本地存储与设备状态契约测试通过。

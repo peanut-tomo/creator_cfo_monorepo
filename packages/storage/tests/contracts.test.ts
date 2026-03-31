@@ -343,14 +343,18 @@ function selectOneRow<Row>(
 }
 
 describe("storage contracts", () => {
-  it("implements the required version-2 finance tables and views", () => {
-    expect(structuredStoreContract.version).toBe(2);
+  it("implements the required version-4 finance tables and views", () => {
+    expect(structuredStoreContract.version).toBe(4);
     expect(structuredStoreContract.tables.map((table) => table.name)).toEqual([
       "entities",
       "accounts",
       "counterparties",
       "platform_accounts",
       "records",
+      "record_entry_classifications",
+      "tax_year_profiles",
+      "tax_line_definitions",
+      "tax_line_inputs",
       "evidences",
       "evidence_files",
       "record_evidence_links",
@@ -361,12 +365,18 @@ describe("storage contracts", () => {
       "income_snapshots_v",
       "invoice_records_v",
       "expense_records_v",
+      "tax_line_scopes_v",
+      "tax_line_record_contributions_v",
+      "tax_line_record_rollups_v",
+      "tax_lines_v",
     ]);
     expect(structuredStoreContract.indexes.map((index) => index.name)).toEqual([
       "accounts_entity_code_idx",
       "records_entity_recognition_idx",
       "records_status_due_idx",
       "records_platform_idx",
+      "records_entity_cash_status_idx",
+      "records_entity_tax_line_cash_status_idx",
       "evidence_files_sha_idx",
       "record_evidence_primary_idx",
     ]);
@@ -387,8 +397,9 @@ describe("storage contracts", () => {
     const overview = getLocalStorageOverview();
 
     expect(plan.databaseName).toBe("creator-cfo-local.db");
-    expect(plan.version).toBe(2);
+    expect(plan.version).toBe(4);
     expect(plan.pragmas).toContain("PRAGMA foreign_keys = ON;");
+    expect(plan.maintenanceStatements).toHaveLength(structuredStoreContract.maintenanceStatements.length);
     expect(plan.schemaStatements).toHaveLength(
       structuredStoreContract.tables.length +
         structuredStoreContract.views.length +
@@ -399,7 +410,7 @@ describe("storage contracts", () => {
     expect(overview.collectionCount).toBe(fileVaultContract.collections.length);
   });
 
-  it("builds version-2 evidence and export paths", () => {
+  it("builds version-4 evidence and export paths", () => {
     expect(
       buildEvidenceObjectPath(
         "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789",
@@ -424,10 +435,10 @@ describe("storage contracts", () => {
     expect(sanitizeVaultFileName("...")).toBe("file");
   });
 
-  it("builds a bootstrap manifest for the version-2 vault layout", () => {
+  it("builds a bootstrap manifest for the version-4 vault layout", () => {
     const manifest = createLocalStorageBootstrapManifest();
 
-    expect(manifest.version).toBe(2);
+    expect(manifest.version).toBe(4);
     expect(manifest.fileCollections.map((collection) => collection.slug)).toContain(
       "evidence-objects",
     );
@@ -443,10 +454,11 @@ describe("storage contracts", () => {
     );
     const contractDoc = readFileSync(contractDocPath, "utf8");
 
-    expect(contractDoc).toContain("Current implemented contract version: `2`");
+    expect(contractDoc).toContain("Current implemented contract version: `4`");
     expect(contractDoc).toContain("Implemented tables:");
     expect(contractDoc).toContain("Implemented views:");
     expect(contractDoc).toContain("`accounting_posting_lines_v`");
+    expect(contractDoc).toContain("`tax_lines_v`");
     expect(contractDoc).toContain("Postable accounting statuses:");
     expect(contractDoc).toContain("Many-to-many record-to-evidence linkage is required.");
     expect(contractDoc).toContain("buildDeviceStateStorageKey()");
@@ -461,6 +473,76 @@ describe("storage contracts", () => {
     expect(buildDeviceStateStorageKey("auth_session")).toBe(
       "@creator-cfo/mobile/auth_session",
     );
+  });
+
+  it("backfills simplified-entry classifications for legacy records during maintenance", () => {
+    const database = createContractDatabase();
+    seedAccountingFixture(database);
+
+    for (const statement of structuredStoreContract.maintenanceStatements) {
+      database.exec(statement);
+    }
+
+    const classificationRows = selectAllRows<{
+      classificationStatus: string;
+      entryMode: string;
+      recordId: string;
+      userClassification: string;
+    }>(
+      database,
+      `SELECT
+          record_id AS recordId,
+          entry_mode AS entryMode,
+          user_classification AS userClassification,
+          classification_status AS classificationStatus
+        FROM record_entry_classifications
+        ORDER BY record_id;`,
+    );
+
+    expect(classificationRows).toEqual([
+      {
+        classificationStatus: "legacy",
+        entryMode: "legacy",
+        recordId: "record-asset-posted",
+        userClassification: "expense",
+      },
+      {
+        classificationStatus: "legacy",
+        entryMode: "legacy",
+        recordId: "record-contribution-posted",
+        userClassification: "other",
+      },
+      {
+        classificationStatus: "legacy",
+        entryMode: "legacy",
+        recordId: "record-draft-income",
+        userClassification: "income",
+      },
+      {
+        classificationStatus: "legacy",
+        entryMode: "legacy",
+        recordId: "record-draw-reconciled",
+        userClassification: "personal_spending",
+      },
+      {
+        classificationStatus: "legacy",
+        entryMode: "legacy",
+        recordId: "record-expense-posted",
+        userClassification: "expense",
+      },
+      {
+        classificationStatus: "legacy",
+        entryMode: "legacy",
+        recordId: "record-income-posted",
+        userClassification: "income",
+      },
+      {
+        classificationStatus: "legacy",
+        entryMode: "legacy",
+        recordId: "record-transfer-posted",
+        userClassification: "other",
+      },
+    ]);
   });
 
   it("excludes draft records from the canonical accounting-reporting surface", () => {

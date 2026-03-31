@@ -1,7 +1,7 @@
 # Local Storage Contract
 
 - Canonical status: implemented source of truth for monorepo local storage
-- Current implemented contract version: `2`
+- Current implemented contract version: `4`
 
 This is the single canonical local-storage document for `creator_cfo_monorepo`.
 
@@ -22,7 +22,7 @@ Runtime code lives in:
 ## Structured Database
 
 - Database name: `creator-cfo-local.db`
-- Runtime contract version: `2`
+- Runtime contract version: `4`
 - Bootstrap pragmas:
   - `PRAGMA journal_mode = WAL;`
   - `PRAGMA foreign_keys = ON;`
@@ -41,6 +41,10 @@ Implemented tables:
 - `counterparties`
 - `platform_accounts`
 - `records`
+- `record_entry_classifications`
+- `tax_year_profiles`
+- `tax_line_definitions`
+- `tax_line_inputs`
 - `evidences`
 - `evidence_files`
 - `record_evidence_links`
@@ -52,6 +56,10 @@ Implemented views:
 - `income_snapshots_v`
 - `invoice_records_v`
 - `expense_records_v`
+- `tax_line_scopes_v`
+- `tax_line_record_contributions_v`
+- `tax_line_record_rollups_v`
+- `tax_lines_v`
 
 Implemented indexes:
 
@@ -59,6 +67,8 @@ Implemented indexes:
 - `records_entity_recognition_idx`
 - `records_status_due_idx`
 - `records_platform_idx`
+- `records_entity_cash_status_idx`
+- `records_entity_tax_line_cash_status_idx`
 - `evidence_files_sha_idx`
 - `record_evidence_primary_idx`
 
@@ -112,6 +122,34 @@ Postable accounting statuses:
 - `reconciled`
 
 Records with other statuses can still exist operationally, but they are not part of the canonical accounting-reporting surface until they reach a postable status.
+
+Simplified-entry note:
+
+- version 4 keeps `records` as the canonical ledger row
+- user-facing receipt choices such as `income`, `expense`, and `personal_spending` are stored beside the ledger row in `record_entry_classifications`
+- multi-year tax read settings such as `accounting_method` live in `tax_year_profiles`
+
+### `record_entry_classifications`
+
+Durable simplified-entry metadata for the canonical `records` rows.
+
+This table stores:
+
+- `entry_mode` such as `standard_receipt`, `advanced`, or `legacy`
+- `user_classification` such as `income`, `expense`, `personal_spending`, or `other`
+- resolver status and notes for the simplified-entry pipeline
+
+The version-3 bootstrap runs an idempotent backfill so legacy `records` rows gain a best-effort simplified classification without destructive migration.
+
+### `tax_year_profiles`
+
+Entity- and tax-year-scoped tax settings that are not themselves bookkeeping rows.
+
+Current version-3 scope:
+
+- `entity_id`
+- `tax_year`
+- `accounting_method` with current local tax helpers limited to `cash`
 
 ### `evidences`
 
@@ -211,6 +249,24 @@ The old version-1 feature tables are replaced by compatibility views rather than
 - `income_snapshots_v`
 - `invoice_records_v`
 - `expense_records_v`
+
+## Tax Query Scope
+
+Version 4 adds a normalized tax-line projection surface in storage:
+
+- `tax_line_definitions` seeds the cross-form line registry.
+- `tax_line_inputs` stores non-ledger dependency values per `{ entity_id, tax_year, line_key }`.
+- `tax_line_scopes_v` defines available entity-year scopes.
+- `tax_line_record_contributions_v` and `tax_line_record_rollups_v` expose direct and review-required record traceability.
+- `tax_lines_v` is the unified filtered query surface for Form 1040, Schedule C, Schedule SE, Schedule 1, and Schedule 2 line rows.
+
+Current local tax invariants:
+
+- records remain the canonical source for direct ledger-backed lines
+- non-ledger tax dependencies are stored outside `records`
+- line rows expose status as `direct`, `derived`, `review_required`, or `manual_required`
+- year membership is derived from `COALESCE(cash_on, recognition_on)` and explicit tax input/profile scopes
+- `records_entity_tax_line_cash_status_idx` exists to support tax-line filtered reads
 
 ## File Vault
 

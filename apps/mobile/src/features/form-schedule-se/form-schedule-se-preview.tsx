@@ -15,14 +15,31 @@ interface FormScheduleSEPreviewProps {
   footerNote: string;
   isLoaded: boolean;
   manualBadge: string;
+  onSelectTaxYear?: (taxYear: number) => void;
   palette: SurfaceTokens;
   renderLauncher?: (openPreview: () => void) => ReactNode;
+  selectedTaxYear?: number;
   sectionEyebrow: string;
   snapshot: FormScheduleSEDatabaseSnapshot;
+  taxYearOptions?: readonly number[];
 }
 
 export function FormScheduleSEPreview(props: FormScheduleSEPreviewProps) {
-  const { calculatedBadge, copy, error, footerNote, isLoaded, manualBadge, palette, renderLauncher, sectionEyebrow, snapshot } = props;
+  const {
+    calculatedBadge,
+    copy,
+    error,
+    footerNote,
+    isLoaded,
+    manualBadge,
+    onSelectTaxYear,
+    palette,
+    renderLauncher,
+    selectedTaxYear,
+    sectionEyebrow,
+    snapshot,
+    taxYearOptions,
+  } = props;
   const slots = buildFormScheduleSESlots(snapshot, {
     noInstructionNote: copy.noInstructionNote,
   });
@@ -36,6 +53,7 @@ export function FormScheduleSEPreview(props: FormScheduleSEPreviewProps) {
       footerNote={footerNote}
       isLoaded={isLoaded}
       manualBadge={manualBadge}
+      onSelectTaxYear={onSelectTaxYear}
       palette={palette}
       renderCanvas={(canvasProps) => (
         <ParsedFormCanvas
@@ -44,8 +62,10 @@ export function FormScheduleSEPreview(props: FormScheduleSEPreviewProps) {
         />
       )}
       renderLauncher={renderLauncher}
+      selectedTaxYear={selectedTaxYear}
       sectionEyebrow={sectionEyebrow}
       slots={slots}
+      taxYearOptions={taxYearOptions}
     />
   );
 }
