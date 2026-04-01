@@ -1,4 +1,4 @@
-export type LedgerFilter = "income" | "expenses" | "invoices";
+export type LedgerFilter = "income" | "expenses" | "spending";
 
 export interface LedgerRecordCard {
   amountLabel: string;
@@ -9,28 +9,22 @@ export interface LedgerRecordCard {
   title: string;
 }
 
-export interface UploadSourceCard {
-  id: string;
-  summary: string;
-  title: string;
-}
-
-export interface ParseProgressStep {
-  id: string;
-  summary: string;
-  title: string;
-}
-
 export interface ParseCategoryOption {
   description: string;
-  id: "income" | "expense" | "invoice";
+  id: "income" | "expense" | "spending";
   title: string;
+}
+
+export interface ParseFieldSeed {
+  id: "amount" | "date" | "fundFlow" | "summary" | "vendor";
+  label: string;
+  value: string;
 }
 
 export const ledgerFilters: ReadonlyArray<{ id: LedgerFilter; label: string }> = [
   { id: "income", label: "Income" },
   { id: "expenses", label: "Expenses" },
-  { id: "invoices", label: "Invoices" },
+  { id: "spending", label: "Spending" },
 ];
 
 export const ledgerRecordCards: ReadonlyArray<LedgerRecordCard> = [
@@ -92,47 +86,11 @@ export const ledgerRecordCards: ReadonlyArray<LedgerRecordCard> = [
   },
   {
     id: "invoice-q4",
-    kind: "invoices",
+    kind: "spending",
     title: "Brand Studio Retainer - Q4",
     dateLabel: "Due Nov 01, 2023",
     amountLabel: "$6,800.00",
     iconLabel: "IV",
-  },
-];
-
-export const uploadSourceCards: ReadonlyArray<UploadSourceCard> = [
-  {
-    id: "receipt",
-    title: "Receipt capture",
-    summary: "Best for expenses, software renewals, travel receipts, and vendor bills.",
-  },
-  {
-    id: "invoice",
-    title: "Invoice drop",
-    summary: "Use for unpaid client invoices, agency work, and contract deliverables.",
-  },
-  {
-    id: "statement",
-    title: "Statement import",
-    summary: "Use for platform payout statements, settlement reports, or remittance files.",
-  },
-];
-
-export const parseProgressSteps: ReadonlyArray<ParseProgressStep> = [
-  {
-    id: "classify",
-    title: "Classify document",
-    summary: "Receipt detected and routed into the expense review lane.",
-  },
-  {
-    id: "extract",
-    title: "Extract key fields",
-    summary: "Vendor, amount, and transaction date normalized into mock review fields.",
-  },
-  {
-    id: "assign",
-    title: "Assign ledger category",
-    summary: "Suggested category is ready, but stays editable before anything is saved.",
   },
 ];
 
@@ -148,9 +106,37 @@ export const parseCategoryOptions: ReadonlyArray<ParseCategoryOption> = [
     description: "Subscriptions, gear, and travel.",
   },
   {
-    id: "invoice",
-    title: "Invoice",
-    description: "Pending receivables and client billing.",
+    id: "spending",
+    title: "Spending",
+    description: "Outgoing spend, bills, and cash outflow.",
+  },
+];
+
+export const parseFieldSeeds: ReadonlyArray<ParseFieldSeed> = [
+  {
+    id: "vendor",
+    label: "Vendor",
+    value: "Adobe Systems Inc.",
+  },
+  {
+    id: "amount",
+    label: "Amount",
+    value: "$52.99",
+  },
+  {
+    id: "date",
+    label: "Date",
+    value: "Oct 24, 2025",
+  },
+  {
+    id: "fundFlow",
+    label: "Fund Flow",
+    value: "Outgoing",
+  },
+  {
+    id: "summary",
+    label: "Summary / Description",
+    value: "Creative Cloud monthly plan for editing, review, and publishing workflow.",
   },
 ];
 

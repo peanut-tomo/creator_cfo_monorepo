@@ -1,11 +1,11 @@
-import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackHeaderBar } from "../../components/back-header-bar";
+import { CfoAvatar } from "../../components/cfo-avatar";
 import { useAppShell } from "../app-shell/provider";
-import { uploadSourceCards } from "./ledger-mocks";
 
 export function LedgerUploadScreen() {
   const router = useRouter();
@@ -29,19 +29,7 @@ export function LedgerUploadScreen() {
         <BackHeaderBar
           onBack={() => router.back()}
           palette={palette}
-          rightAccessory={
-            <View
-              style={[
-                styles.avatar,
-                {
-                  backgroundColor: palette.heroEnd,
-                  borderColor: palette.border,
-                },
-              ]}
-            >
-              <Text style={[styles.avatarLabel, { color: palette.inkOnAccent }]}>YC</Text>
-            </View>
-          }
+          rightAccessory={<CfoAvatar />}
           title={copy.common.appName}
         />
       </View>
@@ -89,76 +77,6 @@ export function LedgerUploadScreen() {
           <Text style={[styles.hint, { color: palette.inkMuted }]}>{copy.ledger.upload.hint}</Text>
         </View>
 
-        <View
-          style={[
-            styles.engineCard,
-            {
-              backgroundColor: palette.paper,
-              borderColor: palette.border,
-            },
-          ]}
-        >
-          <Text style={[styles.engineEyebrow, { color: palette.inkMuted }]}>Classification engine</Text>
-          {uploadSourceCards.map((card) => (
-            <View key={card.id} style={[styles.engineRow, { borderTopColor: palette.divider }]}>
-              <Text style={[styles.engineTitle, { color: palette.ink }]}>{card.title}</Text>
-              <Text style={[styles.engineSummary, { color: palette.inkMuted }]}>{card.summary}</Text>
-            </View>
-          ))}
-          <View style={[styles.readyRow, { borderTopColor: palette.divider }]}>
-            <View style={[styles.readyDot, { backgroundColor: palette.accent }]} />
-            <Text style={[styles.readyText, { color: palette.inkMuted }]}>
-              AI status: ready. Documents are processed in real-time with 99.8% extraction accuracy.
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.recentCard,
-            {
-              backgroundColor: palette.shellElevated,
-              borderColor: palette.border,
-            },
-          ]}
-        >
-          <View style={styles.recentHeader}>
-            <Text style={[styles.recentTitle, { color: palette.ink }]}>Recent Processing</Text>
-            <Text style={[styles.recentLink, { color: palette.inkMuted }]}>Archive</Text>
-          </View>
-          <Text style={[styles.recentSubtitle, { color: palette.inkMuted }]}>
-            Activity from the last 24 hours
-          </Text>
-
-          {[
-            { id: "receipt", name: "Receipt_Adobe_CreativeCloud_Oct.pdf", status: "Uploaded 2m ago" },
-            { id: "settlement", name: "YT_Partner_Payment_Sept.pdf", status: "Uploaded 4h ago" },
-          ].map((item) => (
-            <Pressable
-              key={item.id}
-              accessibilityRole="button"
-              onPress={() => router.push("/ledger/parse")}
-              style={({ pressed }) => [
-                styles.recentRow,
-                {
-                  backgroundColor: pressed ? palette.paperMuted : palette.paper,
-                  borderColor: palette.border,
-                },
-              ]}
-            >
-              <View style={[styles.recentBadge, { backgroundColor: palette.accentSoft }]}>
-                <Ionicons color={palette.accent} name="document-text-outline" size={18} />
-              </View>
-              <View style={styles.recentCopy}>
-                <Text numberOfLines={1} style={[styles.recentFileName, { color: palette.ink }]}>
-                  {item.name}
-                </Text>
-                <Text style={[styles.recentStatus, { color: palette.inkMuted }]}>{item.status}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push("/ledger/parse")}
@@ -184,18 +102,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 12,
     paddingHorizontal: 20,
-  },
-  avatar: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 30,
-    justifyContent: "center",
-    width: 30,
-  },
-  avatarLabel: {
-    fontSize: 12,
-    fontWeight: "700",
   },
   container: {
     gap: 18,
@@ -223,31 +129,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 34,
     textAlign: "center",
-  },
-  engineCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    gap: 12,
-    padding: 18,
-  },
-  engineEyebrow: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-  },
-  engineRow: {
-    gap: 4,
-    borderTopWidth: 1,
-    paddingTop: 12,
-  },
-  engineSummary: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  engineTitle: {
-    fontSize: 16,
-    fontWeight: "700",
   },
   eyebrow: {
     fontSize: 11,
@@ -301,71 +182,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonLabel: {
     fontSize: 15,
-    fontWeight: "700",
-  },
-  readyDot: {
-    borderRadius: 999,
-    height: 8,
-    marginTop: 6,
-    width: 8,
-  },
-  readyRow: {
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    paddingTop: 14,
-  },
-  readyText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  recentBadge: {
-    alignItems: "center",
-    borderRadius: 16,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  recentCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    gap: 10,
-    padding: 18,
-  },
-  recentCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  recentFileName: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  recentHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  recentLink: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  recentRow: {
-    alignItems: "center",
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    padding: 12,
-  },
-  recentStatus: {
-    fontSize: 13,
-  },
-  recentSubtitle: {
-    fontSize: 14,
-  },
-  recentTitle: {
-    fontSize: 22,
     fontWeight: "700",
   },
   safeArea: {

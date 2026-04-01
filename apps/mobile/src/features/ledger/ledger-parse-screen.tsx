@@ -1,17 +1,41 @@
-import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackHeaderBar } from "../../components/back-header-bar";
+import { CfoAvatar } from "../../components/cfo-avatar";
 import { useAppShell } from "../app-shell/provider";
-import { parseCategoryOptions, parseProgressSteps } from "./ledger-mocks";
+import { parseCategoryOptions, parseFieldSeeds } from "./ledger-mocks";
+
+type ParseFieldId = (typeof parseFieldSeeds)[number]["id"];
+
+function isMultilineField(fieldId: ParseFieldId) {
+  return fieldId === "summary";
+}
+
+function getKeyboardType(fieldId: ParseFieldId): "decimal-pad" | "default" {
+  return fieldId === "amount" ? "decimal-pad" : "default";
+}
 
 export function LedgerParseScreen() {
   const router = useRouter();
   const { copy, palette } = useAppShell();
-  const [selectedCategory, setSelectedCategory] = useState<"income" | "expense" | "invoice">("expense");
+  const [selectedCategory, setSelectedCategory] = useState<"income" | "expense" | "spending">("expense");
+  const initialFieldValues = useMemo(
+    () =>
+      Object.fromEntries(parseFieldSeeds.map((field) => [field.id, field.value])) as Record<ParseFieldId, string>,
+    [],
+  );
+  const [fieldValues, setFieldValues] = useState<Record<ParseFieldId, string>>(initialFieldValues);
+  const [draftValues, setDraftValues] = useState<Record<ParseFieldId, string>>(initialFieldValues);
+  const [editingField, setEditingField] = useState<ParseFieldId | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<{ fieldId: ParseFieldId; nextValue: string } | null>(null);
+
+  const activeFieldLabel = pendingEdit
+    ? parseFieldSeeds.find((field) => field.id === pendingEdit.fieldId)?.label ?? ""
+    : "";
 
   return (
     <SafeAreaView
@@ -31,14 +55,11 @@ export function LedgerParseScreen() {
         <BackHeaderBar
           onBack={() => router.back()}
           palette={palette}
-          rightAccessory={
-            <View style={[styles.avatar, { backgroundColor: palette.heroEnd }]}>
-              <Text style={[styles.avatarLabel, { color: palette.inkOnAccent }]}>YC</Text>
-            </View>
-          }
+          rightAccessory={<CfoAvatar />}
           title={copy.common.appName}
         />
       </View>
+
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.heroBlock}>
           <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>Verification workflow</Text>
@@ -85,27 +106,100 @@ export function LedgerParseScreen() {
             },
           ]}
         >
+          <View style={styles.summaryHeader}>
+            <View>
+              <Text style={[styles.sectionEyebrow, { color: palette.accent }]}>Parsed Fields</Text>
+              <Text style={[styles.summaryTitle, { color: palette.ink }]}>Review and adjust extracted data</Text>
+            </View>
+          </View>
+
           <View style={styles.summaryGrid}>
-            <View style={styles.summaryCell}>
-              <Text style={[styles.summaryLabel, { color: palette.inkMuted }]}>Vendor</Text>
-              <View style={[styles.summaryValueBox, { backgroundColor: palette.paperMuted }]}>
-                <Text style={[styles.summaryValue, { color: palette.ink }]}>Adobe Systems Inc.</Text>
-              </View>
-            </View>
-            <View style={styles.summaryCellRow}>
-              <View style={styles.summaryCellHalf}>
-                <Text style={[styles.summaryLabel, { color: palette.inkMuted }]}>Amount</Text>
-                <View style={[styles.summaryValueBox, { backgroundColor: palette.paperMuted }]}>
-                  <Text style={[styles.summaryValue, { color: palette.ink }]}>$52.99</Text>
+            {parseFieldSeeds.map((field) => {
+              const isEditing = editingField === field.id;
+              const value = isEditing ? draftValues[field.id] : fieldValues[field.id];
+              const multiline = isMultilineField(field.id);
+
+              return (
+                <View
+                  key={field.id}
+                  style={[
+                    styles.summaryCell,
+                    multiline ? styles.summaryCellFull : styles.summaryCellHalf,
+                  ]}
+                >
+                  <View style={styles.summaryCellHeader}>
+                    <Text style={[styles.summaryLabel, { color: palette.inkMuted }]}>{field.label}</Text>
+                    {isEditing ? (
+                      <View style={styles.summaryCellActions}>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            setDraftValues((current) => ({ ...current, [field.id]: fieldValues[field.id] }));
+                            setEditingField(null);
+                          }}
+                        >
+                          <Text style={[styles.fieldActionLabel, { color: palette.inkMuted }]}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            const nextValue = draftValues[field.id].trim();
+
+                            if (nextValue === fieldValues[field.id]) {
+                              setEditingField(null);
+                              return;
+                            }
+
+                            setPendingEdit({
+                              fieldId: field.id,
+                              nextValue,
+                            });
+                          }}
+                        >
+                          <Text style={[styles.fieldActionLabel, { color: palette.accent }]}>Save</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => {
+                          setDraftValues((current) => ({ ...current, [field.id]: fieldValues[field.id] }));
+                          setEditingField(field.id);
+                        }}
+                      >
+                        <Text style={[styles.fieldActionLabel, { color: palette.accent }]}>Edit</Text>
+                      </Pressable>
+                    )}
+                  </View>
+
+                  <View
+                    style={[
+                      styles.summaryValueBox,
+                      {
+                        backgroundColor: palette.paperMuted,
+                        borderColor: isEditing ? palette.accent : "transparent",
+                      },
+                    ]}
+                  >
+                    <TextInput
+                      editable={isEditing}
+                      keyboardType={getKeyboardType(field.id)}
+                      multiline={multiline}
+                      onChangeText={(text) => {
+                        setDraftValues((current) => ({ ...current, [field.id]: text }));
+                      }}
+                      placeholderTextColor={palette.inkMuted}
+                      style={[
+                        styles.summaryInput,
+                        multiline ? styles.summaryInputMultiline : null,
+                        { color: palette.ink },
+                      ]}
+                      value={value}
+                    />
+                  </View>
                 </View>
-              </View>
-              <View style={styles.summaryCellHalf}>
-                <Text style={[styles.summaryLabel, { color: palette.inkMuted }]}>Date</Text>
-                <View style={[styles.summaryValueBox, { backgroundColor: palette.paperMuted }]}>
-                  <Text style={[styles.summaryValue, { color: palette.ink }]}>Oct 24, 2025</Text>
-                </View>
-              </View>
-            </View>
+              );
+            })}
           </View>
 
           <Text style={[styles.categoryTitle, { color: palette.ink }]}>Financial Category</Text>
@@ -133,14 +227,12 @@ export function LedgerParseScreen() {
                   ) : option.id === "expense" ? (
                     <MaterialCommunityIcons color={palette.accent} name="bag-personal-outline" size={18} />
                   ) : (
-                    <Ionicons color={palette.accent} name="document-text-outline" size={16} />
+                    <MaterialCommunityIcons color={palette.accent} name="wallet-outline" size={18} />
                   )}
                 </View>
                 <View style={styles.categoryCopy}>
                   <Text style={[styles.categoryHeading, { color: palette.ink }]}>{option.title}</Text>
-                  <Text style={[styles.categoryDescription, { color: palette.inkMuted }]}>
-                    {option.description}
-                  </Text>
+                  <Text style={[styles.categoryDescription, { color: palette.inkMuted }]}>{option.description}</Text>
                 </View>
                 <View
                   style={[
@@ -154,27 +246,6 @@ export function LedgerParseScreen() {
               </Pressable>
             );
           })}
-        </View>
-
-        <View
-          style={[
-            styles.progressCard,
-            {
-              backgroundColor: palette.paper,
-              borderColor: palette.border,
-            },
-          ]}
-        >
-          <Text style={[styles.progressTitle, { color: palette.ink }]}>{copy.ledger.parse.progressTitle}</Text>
-          {parseProgressSteps.map((step, index) => (
-            <View key={step.id} style={[styles.progressRow, { borderTopColor: index === 0 ? "transparent" : palette.divider }]}>
-              <View style={[styles.progressDot, { backgroundColor: palette.accent }]} />
-              <View style={styles.progressCopy}>
-                <Text style={[styles.progressHeading, { color: palette.ink }]}>{step.title}</Text>
-                <Text style={[styles.progressSummary, { color: palette.inkMuted }]}>{step.summary}</Text>
-              </View>
-            </View>
-          ))}
         </View>
 
         <Pressable
@@ -201,23 +272,61 @@ export function LedgerParseScreen() {
         >
           <Text style={[styles.secondaryButtonLabel, { color: palette.inkMuted }]}>Discard</Text>
         </Pressable>
-
-        <View
-          style={[
-            styles.noteCard,
-            {
-              backgroundColor: palette.paper,
-              borderColor: palette.border,
-            },
-          ]}
-        >
-          <View style={[styles.noteDot, { backgroundColor: palette.accent }]} />
-          <Text style={[styles.noteText, { color: palette.inkMuted }]}>
-            Our intelligence engine has identified this as a monthly subscription based on previous patterns. Select
-            Expense to keep the default software deduction review path.
-          </Text>
-        </View>
       </ScrollView>
+
+      <Modal animationType="fade" transparent visible={pendingEdit !== null}>
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: palette.paper,
+                borderColor: palette.border,
+                shadowColor: palette.shadow,
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: palette.ink }]}>是否确认编辑？</Text>
+            <Text style={[styles.modalBody, { color: palette.inkMuted }]}>
+              {activeFieldLabel} will be updated to:
+            </Text>
+            <Text style={[styles.modalValue, { color: palette.ink }]}>
+              {pendingEdit?.nextValue || "Empty value"}
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setPendingEdit(null)}
+                style={[styles.modalButtonSecondary, { borderColor: palette.border }]}
+              >
+                <Text style={[styles.modalButtonSecondaryLabel, { color: palette.ink }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (!pendingEdit) {
+                    return;
+                  }
+
+                  setFieldValues((current) => ({
+                    ...current,
+                    [pendingEdit.fieldId]: pendingEdit.nextValue,
+                  }));
+                  setDraftValues((current) => ({
+                    ...current,
+                    [pendingEdit.fieldId]: pendingEdit.nextValue,
+                  }));
+                  setEditingField(null);
+                  setPendingEdit(null);
+                }}
+                style={[styles.modalButtonPrimary, { backgroundColor: palette.accent }]}
+              >
+                <Text style={[styles.modalButtonPrimaryLabel, { color: palette.inkOnAccent }]}>Confirm</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -227,17 +336,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 12,
     paddingHorizontal: 20,
-  },
-  avatar: {
-    alignItems: "center",
-    borderRadius: 999,
-    height: 28,
-    justifyContent: "center",
-    width: 28,
-  },
-  avatarLabel: {
-    fontSize: 11,
-    fontWeight: "700",
   },
   categoryBadge: {
     alignItems: "center",
@@ -303,6 +401,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
     textTransform: "uppercase",
   },
+  fieldActionLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
   heroBlock: {
     gap: 10,
   },
@@ -316,23 +420,66 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     lineHeight: 42,
   },
-  noteCard: {
-    borderRadius: 24,
-    borderWidth: 1,
+  modalActions: {
     flexDirection: "row",
     gap: 10,
-    padding: 16,
+    marginTop: 8,
   },
-  noteDot: {
-    borderRadius: 999,
-    height: 10,
-    marginTop: 5,
-    width: 10,
-  },
-  noteText: {
+  modalBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(7, 24, 22, 0.42)",
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalBody: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modalButtonPrimary: {
+    alignItems: "center",
+    borderRadius: 16,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 16,
+  },
+  modalButtonPrimaryLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  modalButtonSecondary: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 16,
+  },
+  modalButtonSecondaryLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  modalCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    maxWidth: 360,
+    padding: 20,
+    shadowOffset: { height: 18, width: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    width: "100%",
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  modalValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 21,
   },
   previewFrame: {
     alignItems: "center",
@@ -369,40 +516,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  progressCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    gap: 10,
-    padding: 18,
-  },
-  progressCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  progressDot: {
-    borderRadius: 999,
-    height: 10,
-    marginTop: 6,
-    width: 10,
-  },
-  progressHeading: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  progressRow: {
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    paddingTop: 12,
-  },
-  progressSummary: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  progressTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-  },
   radio: {
     borderRadius: 999,
     borderWidth: 1.5,
@@ -412,6 +525,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  sectionEyebrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
   secondaryButton: {
     alignItems: "center",
     borderRadius: 999,
@@ -420,50 +539,73 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   secondaryButtonLabel: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   summaryCard: {
     borderRadius: 28,
     borderWidth: 1,
-    gap: 14,
+    gap: 18,
     padding: 18,
   },
   summaryCell: {
-    gap: 6,
+    gap: 8,
+  },
+  summaryCellActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  summaryCellFull: {
+    width: "100%",
   },
   summaryCellHalf: {
-    flex: 1,
-    gap: 6,
+    width: "48%",
   },
-  summaryCellRow: {
+  summaryCellHeader: {
+    alignItems: "center",
     flexDirection: "row",
-    gap: 10,
+    justifyContent: "space-between",
   },
   summaryGrid: {
-    gap: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  summaryHeader: {
+    gap: 4,
+  },
+  summaryInput: {
+    fontSize: 15,
+    fontWeight: "700",
+    minHeight: 22,
+    padding: 0,
+  },
+  summaryInputMultiline: {
+    minHeight: 62,
+    textAlignVertical: "top",
   },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
   },
-  summaryValue: {
-    fontSize: 15,
-    fontWeight: "600",
+  summaryTitle: {
+    fontSize: 22,
+    fontWeight: "700",
   },
   summaryValueBox: {
-    borderRadius: 8,
-    minHeight: 42,
-    justifyContent: "center",
-    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   toolDot: {
     alignItems: "center",
     borderRadius: 999,
-    height: 24,
+    height: 28,
     justifyContent: "center",
-    width: 24,
+    width: 28,
   },
 });
