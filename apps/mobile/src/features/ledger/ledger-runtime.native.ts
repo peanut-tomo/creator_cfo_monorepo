@@ -8,7 +8,7 @@ import type { EvidenceExtractedData } from "@creator-cfo/schemas";
 
 import {
   buildFailedExtractedData,
-  buildExtractedData,
+  buildRemoteExtractedData,
   buildStoredUploadFileName,
   defaultEntityId,
   type EvidenceQueueItem,
@@ -24,6 +24,7 @@ import {
   loadEvidenceQueue,
   updateEvidenceExtraction,
 } from "./ledger-store";
+import { parseEvidenceMultipartFromNative } from "./remote-parse";
 import { loadHomeSnapshot, type HomeSnapshot } from "../home/home-data";
 import { withWritableLocalDatabase } from "../../storage/runtime";
 
@@ -186,10 +187,23 @@ export async function retryEvidenceParsing(evidenceId: string): Promise<Evidence
         target: null,
         taxCategory: null,
       },
-      parser: "rule_fallback",
+      fields: {
+        amountCents: null,
+        category: null,
+        date: evidence.capturedDate,
+        description: evidence.capturedDescription || stripExtension(evidence.originalFileName),
+        notes: null,
+        source: null,
+        target: null,
+        taxCategory: null,
+      },
+      model: null,
+      parser: "openai_gpt",
       rawLines: [],
+      rawSummary: "",
       rawText: "",
       sourceLabel: "retry",
+      warnings: [],
     };
 
     await updateEvidenceExtraction(writableDatabase, {
@@ -298,40 +312,31 @@ async function createImportedBundles(
 
 async function extractEvidenceData(evidence: EvidenceQueueItem): Promise<EvidenceExtractedData> {
   const fallbackDate = evidence.createdAt.slice(0, 10);
-  const isImage = evidence.mimeType?.startsWith("image/") || /\.(heic|jpe?g|png)$/i.test(evidence.originalFileName);
+  const absolutePath = await buildAbsoluteVaultPath(evidence.filePath);
 
-  if (Platform.OS === "ios" && isImage) {
-    try {
-      const { recognizeTextFromImage } = await import("@creator-cfo/ios-ocr");
-      const result = await recognizeTextFromImage(await buildAbsoluteVaultPath(evidence.filePath));
+  try {
+    const result = await parseEvidenceMultipartFromNative({
+      fileName: evidence.originalFileName,
+      fileUri: absolutePath,
+      mimeType: evidence.mimeType,
+      sourcePlatform: Platform.OS === "ios" ? "ios" : "android",
+    });
 
-      return buildExtractedData({
-        fallbackDate,
-        fileName: evidence.originalFileName,
-        parser: result.parser,
-        rawLines: result.lines,
-        rawText: result.text,
-        sourceLabel: "Apple Vision OCR",
-      });
-    } catch (error) {
-      return buildFailedExtractedData({
-        fallbackDate,
-        failureReason: error instanceof Error ? error.message : "iOS OCR failed.",
-        fileName: evidence.originalFileName,
-        parser: "ios_vision_ocr",
-        sourceLabel: "Apple Vision OCR",
-      });
-    }
+    return buildRemoteExtractedData({
+      fallbackDate,
+      fileName: evidence.originalFileName,
+      response: result,
+      sourceLabel: "Vercel OpenAI GPT",
+    });
+  } catch (error) {
+    return buildFailedExtractedData({
+      fallbackDate,
+      failureReason: error instanceof Error ? error.message : "Remote GPT parsing failed.",
+      fileName: evidence.originalFileName,
+      parser: "openai_gpt",
+      sourceLabel: "Vercel OpenAI GPT",
+    });
   }
-
-  return buildExtractedData({
-    fallbackDate,
-    fileName: evidence.originalFileName,
-    parser: "rule_fallback",
-    rawLines: [evidence.originalFileName],
-    rawText: evidence.originalFileName,
-    sourceLabel: "Rule fallback",
-  });
 }
 
 async function buildAbsoluteVaultPath(relativePath: string): Promise<string> {

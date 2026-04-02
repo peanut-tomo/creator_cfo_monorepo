@@ -134,5 +134,7 @@ describe("storage contract v3", () => {
     expect(contractDoc).toContain("`parse_status`");
     expect(contractDoc).toContain("`entity-main`");
     expect(contractDoc).toContain("repeated uploads of the same binary are allowed");
+    expect(contractDoc).toContain("`openai_api_key`");
+    expect(contractDoc).toContain("`vercel_api_base_url`");
   });
 });

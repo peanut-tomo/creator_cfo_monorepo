@@ -14,6 +14,8 @@ import {
 import {
   loadPersistedAppState,
   persistLocalePreference,
+  persistOpenAiApiKey,
+  persistParseApiBaseUrl,
   persistSession,
   persistThemePreference,
 } from "./storage";
@@ -29,10 +31,14 @@ interface AppShellContextValue {
   copy: ReturnType<typeof getAppCopy>;
   isHydrated: boolean;
   localePreference: LocalePreference;
+  openAiApiKey: string;
   palette: (typeof surfaceThemes)[keyof typeof surfaceThemes];
+  parseApiBaseUrl: string;
   session: AppSession | null;
   sessionDisplayName: string;
   setLocalePreference: (value: LocalePreference) => Promise<void>;
+  setOpenAiApiKey: (value: string) => Promise<void>;
+  setParseApiBaseUrl: (value: string) => Promise<void>;
   setThemePreference: (value: ThemePreference) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithApple: (input: {
@@ -48,6 +54,8 @@ const AppShellContext = createContext<AppShellContextValue | null>(null);
 
 const initialState: PersistedAppState = {
   localePreference: "system",
+  openAiApiKey: "",
+  parseApiBaseUrl: "",
   session: null,
   themePreference: "system",
 };
@@ -93,6 +101,18 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     await persistLocalePreference(value);
   };
 
+  const setOpenAiApiKey = async (value: string) => {
+    const normalized = value.trim();
+    setState((current) => ({ ...current, openAiApiKey: normalized }));
+    await persistOpenAiApiKey(normalized);
+  };
+
+  const setParseApiBaseUrl = async (value: string) => {
+    const normalized = value.trim().replace(/\/+$/g, "");
+    setState((current) => ({ ...current, parseApiBaseUrl: normalized }));
+    await persistParseApiBaseUrl(normalized);
+  };
+
   const setSession = async (session: AppSession | null) => {
     setState((current) => ({ ...current, session }));
     await persistSession(session);
@@ -105,10 +125,14 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     copy,
     isHydrated,
     localePreference: state.localePreference,
+    openAiApiKey: state.openAiApiKey,
     palette,
+    parseApiBaseUrl: state.parseApiBaseUrl,
     session: state.session,
     sessionDisplayName: getSessionDisplayName(state.session),
     setLocalePreference,
+    setOpenAiApiKey,
+    setParseApiBaseUrl,
     setThemePreference,
     signOut: async () => {
       await setSession(null);

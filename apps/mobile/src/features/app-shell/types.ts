@@ -18,8 +18,15 @@ export interface AppleSession {
 
 export type AppSession = GuestSession | AppleSession;
 
+export interface ParseApiSettings {
+  openAiApiKey: string;
+  parseApiBaseUrl: string;
+}
+
 export interface PersistedAppState {
   localePreference: LocalePreference;
+  openAiApiKey: string;
+  parseApiBaseUrl: string;
   session: AppSession | null;
   themePreference: ThemePreference;
 }

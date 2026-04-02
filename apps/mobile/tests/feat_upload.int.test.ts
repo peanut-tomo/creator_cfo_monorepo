@@ -132,10 +132,10 @@ describe("feat_upload data flow", () => {
       extractedData: buildExtractedData({
         fallbackDate: "2026-04-01",
         fileName: "receipt.heic",
-        parser: "ios_vision_ocr",
+        parser: "openai_gpt",
         rawLines: ["Apple Store", "04/01/2026", "$52.99"],
         rawText: "Apple Store 04/01/2026 $52.99",
-        sourceLabel: "Apple Vision OCR",
+        sourceLabel: "Vercel OpenAI GPT",
       }),
       parseStatus: "pending",
     });
@@ -210,17 +210,17 @@ describe("feat_upload data flow", () => {
       evidenceId: "evidence-live-photo",
       extractedData: buildFailedExtractedData({
         fallbackDate: "2026-04-01",
-        failureReason: "Apple Vision OCR failed.",
+        failureReason: "Remote GPT parsing failed.",
         fileName: "receipt.heic",
-        parser: "ios_vision_ocr",
-        sourceLabel: "Apple Vision OCR",
+        parser: "openai_gpt",
+        sourceLabel: "Vercel OpenAI GPT",
       }),
       parseStatus: "failed",
     });
 
     const queue = await loadEvidenceQueue(writableDatabase);
     expect(queue[0]?.parseStatus).toBe("failed");
-    expect(queue[0]?.extractedData?.failureReason).toBe("Apple Vision OCR failed.");
+    expect(queue[0]?.extractedData?.failureReason).toBe("Remote GPT parsing failed.");
   });
 
   it("allows re-uploading the same file payload into separate evidences", async () => {

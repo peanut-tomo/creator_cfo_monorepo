@@ -206,7 +206,7 @@ export async function finalizeEvidenceReview(
     : null;
   const extractedData = buildConfirmedExtractedData(
     normalizedReview,
-    existingExtractedData?.parser ?? "rule_fallback",
+    existingExtractedData,
     normalizedReview.failureReason,
   );
   const resolvedEntry = resolveStandardReceiptEntry(
@@ -314,25 +314,31 @@ export async function loadEvidenceQueueByIds(
 
 function buildConfirmedExtractedData(
   review: ReturnType<typeof normalizeReviewValues>,
-  parser: EvidenceExtractedData["parser"],
+  existingExtractedData: EvidenceExtractedData | null,
   failureReason: string | null,
 ): EvidenceExtractedData {
+  const fields = {
+    amountCents: Math.round(Number.parseFloat(review.amountValue) * 100),
+    category: review.category,
+    date: review.date,
+    description: review.description,
+    notes: review.notes || null,
+    source: review.source,
+    target: review.target,
+    taxCategory: review.taxCategory || null,
+  };
+
   return {
-    candidates: {
-      amountCents: Math.round(Number.parseFloat(review.amountValue) * 100),
-      category: review.category,
-      date: review.date,
-      description: review.description,
-      notes: review.notes || null,
-      source: review.source,
-      target: review.target,
-      taxCategory: review.taxCategory || null,
-    },
+    candidates: fields,
     failureReason,
-    parser,
-    rawLines: [],
-    rawText: "",
-    sourceLabel: "confirmed_review",
+    fields,
+    model: existingExtractedData?.model ?? null,
+    parser: existingExtractedData?.parser ?? "rule_fallback",
+    rawLines: existingExtractedData?.rawLines ?? [],
+    rawSummary: existingExtractedData?.rawSummary ?? "Confirmed after local review.",
+    rawText: existingExtractedData?.rawText ?? "",
+    sourceLabel: existingExtractedData?.sourceLabel ?? "confirmed_review",
+    warnings: existingExtractedData?.warnings ?? [],
   };
 }
 

@@ -179,10 +179,14 @@ export function LedgerParseScreen() {
           <View style={[styles.previewFrame, { backgroundColor: palette.shellElevated, borderColor: palette.border }]}>
             <View style={[styles.previewPoster, { backgroundColor: palette.ink }]}>
               <Text style={[styles.previewPosterTitle, { color: palette.inkOnAccent }]}>
-                {currentItem.extractedData?.parser === "ios_vision_ocr" ? "IOS OCR" : "FALLBACK"}
+                {currentItem.extractedData?.parser === "openai_gpt" ? "OPENAI GPT" : "FALLBACK"}
               </Text>
               <Text style={[styles.previewPosterSub, { color: palette.inkOnAccent }]}>
-                {currentItem.parseStatus === "failed" ? "RETRY AVAILABLE" : "READY FOR REVIEW"}
+                {currentItem.parseStatus === "failed"
+                  ? "RETRY AVAILABLE"
+                  : currentItem.extractedData?.model
+                    ? currentItem.extractedData.model.toUpperCase()
+                    : "READY FOR REVIEW"}
               </Text>
             </View>
           </View>

@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/parse-evidence.ts": {
+      "maxDuration": 60
+    }
+  }
+}

@@ -354,7 +354,7 @@ export const fileVaultContract = {
 export const deviceStateContract = {
   storageEngine: "AsyncStorage",
   namespace: "@creator-cfo/mobile",
-  version: 1,
+  version: 2,
   records: [
     {
       key: "theme_preference",
@@ -372,6 +372,17 @@ export const deviceStateContract = {
         "Persist the locally trusted session summary for guest mode or on-device Apple sign-in.",
       valueShape:
         '{ kind: "guest" | "apple"; appleUserId?: string; email?: string | null; displayName?: string | null }',
+    },
+    {
+      key: "openai_api_key",
+      summary:
+        "Persist the user-provided OpenAI API key locally on-device for Vercel parse requests.",
+      valueShape: "string",
+    },
+    {
+      key: "vercel_api_base_url",
+      summary: "Persist the Vercel API base URL used by the client-side receipt parse flow.",
+      valueShape: "string",
     },
   ],
 } as const satisfies {

@@ -74,8 +74,9 @@ export function LedgerUploadScreen() {
           <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>Upload center</Text>
           <Text style={[styles.heroTitle, { color: palette.ink }]}>{copy.ledger.upload.title}</Text>
           <Text style={[styles.heroSummary, { color: palette.inkMuted }]}>
-            Upload receipts, PDFs, or Live Photos into the local vault. iOS development builds use
-            Apple Vision OCR, while Android and Web stay on fallback parsing.
+            Upload receipts, PDFs, or Live Photos into the local vault. The app sends each file to
+            your Vercel parse API using the OpenAI key you saved in Settings, then keeps the parsed
+            result local for review.
           </Text>
         </View>
 
@@ -95,7 +96,7 @@ export function LedgerUploadScreen() {
           <Text style={[styles.dropTitle, { color: palette.ink }]}>Send files into your local vault</Text>
           <Text style={[styles.dropSummary, { color: palette.inkMuted }]}>
             The queue writes into `entity-main`, stores renamed files locally, and prepares every
-            item for review.
+            item for GPT-assisted review.
           </Text>
 
           <View style={styles.buttonStack}>

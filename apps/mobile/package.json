@@ -16,7 +16,6 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@creator-cfo/ios-ocr": "workspace:*",
     "@creator-cfo/schemas": "workspace:*",
     "@creator-cfo/storage": "workspace:*",
     "@creator-cfo/ui": "workspace:*",

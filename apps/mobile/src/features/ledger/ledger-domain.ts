@@ -1,4 +1,9 @@
-import type { EvidenceExtractedData, EvidenceFieldCandidates, EvidenceParserKind } from "@creator-cfo/schemas";
+import type {
+  EvidenceExtractedData,
+  EvidenceFieldCandidates,
+  EvidenceParserKind,
+  ParseEvidenceApiSuccess,
+} from "@creator-cfo/schemas";
 
 export const defaultEntityId = "entity-main";
 export const homeRecentPageSize = 20;
@@ -102,14 +107,18 @@ export function buildExtractedData(input: {
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   const normalizedText = input.rawText.trim() || normalizedLines.join("\n").trim() || input.fileName;
-  const candidates = extractFieldCandidates(normalizedText, normalizedLines, input.fileName, input.fallbackDate);
+  const fields = extractFieldCandidates(normalizedText, normalizedLines, input.fileName, input.fallbackDate);
 
   return {
-    candidates,
+    candidates: fields,
+    fields,
+    model: null,
     parser: input.parser,
     rawLines: normalizedLines,
+    rawSummary: normalizedText.slice(0, 160),
     rawText: normalizedText,
     sourceLabel: input.sourceLabel,
+    warnings: [],
   };
 }
 
@@ -120,13 +129,45 @@ export function buildFailedExtractedData(input: {
   parser: EvidenceParserKind;
   sourceLabel: string;
 }): EvidenceExtractedData {
+  const fields = extractFieldCandidates("", [], input.fileName, input.fallbackDate);
+
   return {
-    candidates: extractFieldCandidates("", [], input.fileName, input.fallbackDate),
+    candidates: fields,
     failureReason: input.failureReason,
+    fields,
+    model: null,
     parser: input.parser,
     rawLines: [],
+    rawSummary: input.failureReason,
     rawText: "",
     sourceLabel: input.sourceLabel,
+    warnings: [],
+  };
+}
+
+export function buildRemoteExtractedData(input: {
+  fallbackDate: string;
+  fileName: string;
+  response: ParseEvidenceApiSuccess;
+  sourceLabel: string;
+}): EvidenceExtractedData {
+  const rawText = input.response.rawText.trim();
+  const rawLines = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const fields = normalizeFields(input.response.fields, input.fallbackDate, input.fileName);
+
+  return {
+    candidates: fields,
+    fields,
+    model: input.response.model,
+    parser: input.response.parser,
+    rawLines,
+    rawSummary: input.response.rawSummary.trim(),
+    rawText,
+    sourceLabel: input.sourceLabel,
+    warnings: input.response.warnings,
   };
 }
 
@@ -144,7 +185,7 @@ export function createEmptyReviewValues(): LedgerReviewValues {
 }
 
 export function deriveReviewValues(item: EvidenceQueueItem): LedgerReviewValues {
-  const candidates = item.extractedData?.candidates;
+  const candidates = item.extractedData?.fields ?? item.extractedData?.candidates;
   const amountCents = candidates?.amountCents ?? item.capturedAmountCents;
   const description = candidates?.description ?? item.capturedDescription;
   const source = candidates?.source ?? item.capturedSource;
@@ -331,6 +372,23 @@ function inferTarget(lines: string[]): string | null {
 
 function formatCentsInput(amountCents: number): string {
   return (amountCents / 100).toFixed(2);
+}
+
+function normalizeFields(
+  fields: EvidenceFieldCandidates,
+  fallbackDate: string,
+  fileName: string,
+): EvidenceFieldCandidates {
+  return {
+    amountCents: fields.amountCents,
+    category: fields.category,
+    date: fields.date ?? fallbackDate,
+    description: fields.description ?? stripExtension(fileName),
+    notes: fields.notes,
+    source: fields.source,
+    target: fields.target,
+    taxCategory: fields.taxCategory,
+  };
 }
 
 function getFileExtension(fileName: string): string | null {

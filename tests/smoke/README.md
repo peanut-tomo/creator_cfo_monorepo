@@ -55,23 +55,26 @@ pnpm smoke
    - 登录页不再出现「Open database demo」之类的 CTA
    - 首页不再出现数据库 CRUD、字段选择 chip、记录选中态或报告卡片等 demo 区块
    - 主壳层三个 Tab 内不存在通往 database demo / database hooks demo 的入口
-10. 在 iOS development build 打开 Ledger 上传与解析子流程，确认 OCR 主路径可用：
+10. 在 iOS development build、Android 或 Web 打开 Ledger 上传与解析子流程，确认 Vercel API + OpenAI 主路径可用：
    - Upload workspace 支持 `Select Photos` 与 `Select Files`
-   - 选择一张清晰收据图片后，会进入 Parse Review
-   - Parse Review 顶部标识显示 `IOS OCR`
+   - 先在「设置」中填入 `Vercel API Base URL` 与 `OpenAI API Key`
+   - 选择一张清晰收据图片或一个小 PDF 后，会进入 Parse Review
+   - Parse Review 顶部标识显示 `OPENAI GPT`
    - 字段进入编辑后，保存会弹出“是否确认编辑？”对话框
    - 填完整 `date`、`amount`、`description` 后可提交
    - 提交最后一项后会返回 Ledger
-11. 在 Android 或 Web 打开同一流程，确认 fallback 主路径可用：
-   - 上传图片或 PDF 后仍可进入 Parse Review
-   - 顶部标识显示 `FALLBACK`
+11. 在大文件或对象存储联调场景下，确认 `fileUrl` 入口可用：
+   - `POST /api/parse-evidence` 支持 JSON body + `fileUrl`
+   - 缺少 `Authorization` 会返回 `401`
+   - 超出 multipart 体积限制时，接口会提示改用 `fileUrl`
+12. 在任一客户端完成保存后，确认本地数据展示仍正确：
    - 可手动补全必填字段并成功保存
    - 保存后 Home 的月度指标、趋势图与 Recent Activity 会刷新到最新本地数据
-12. 若当前构建仍暴露 Schedule C / Schedule SE 预览入口，从其现有入口打开并确认税年切换会触发真实数据重载：
+13. 若当前构建仍暴露 Schedule C / Schedule SE 预览入口，从其现有入口打开并确认税年切换会触发真实数据重载：
    - 切换当前年与上一年时，预览内税年按钮会变化
    - Schedule C / Schedule SE 结果会根据所选税年刷新，而不是只改标题文字
    - 本地数据库中 `tax_lines_v` 可按 `entity_id`、`tax_year`、`schedule_code`、`line_key`、`line_status` 过滤查询，并与预览主数据一致
-13. 在「设置」中切换主题与语言，确认 Tab 图标、首页数据块与设置控件仍清晰可读。
-14. 在「设置」中执行退出登录，确认应用回到登录页。
-15. 若在支持的 iOS 设备上，验证 Apple 登录可进入主壳层；若当前环境不支持，确认会优雅提示并允许游客继续。
-16. 运行 `pnpm contract:check`，确认本地存储与设备状态契约测试通过。
+14. 在「设置」中切换主题与语言，确认 Tab 图标、首页数据块与设置控件仍清晰可读。
+15. 在「设置」中执行退出登录，确认应用回到登录页。
+16. 若在支持的 iOS 设备上，验证 Apple 登录可进入主壳层；若当前环境不支持，确认会优雅提示并允许游客继续。
+17. 运行 `pnpm contract:check`，确认本地存储与设备状态契约测试通过。

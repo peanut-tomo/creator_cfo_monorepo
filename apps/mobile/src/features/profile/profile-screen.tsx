@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SectionCard } from "@creator-cfo/ui";
 
@@ -45,14 +46,28 @@ export function ProfileScreen() {
   const {
     copy,
     localePreference,
+    openAiApiKey,
     palette,
+    parseApiBaseUrl,
     session,
     sessionDisplayName,
     setLocalePreference,
+    setOpenAiApiKey,
+    setParseApiBaseUrl,
     setThemePreference,
     signOut,
     themePreference,
   } = useAppShell();
+  const [apiKeyDraft, setApiKeyDraft] = useState(openAiApiKey);
+  const [baseUrlDraft, setBaseUrlDraft] = useState(parseApiBaseUrl);
+
+  useEffect(() => {
+    setApiKeyDraft(openAiApiKey);
+  }, [openAiApiKey]);
+
+  useEffect(() => {
+    setBaseUrlDraft(parseApiBaseUrl);
+  }, [parseApiBaseUrl]);
 
   const themeLabels: Record<ThemePreference, string> = {
     dark: copy.common.dark,
@@ -119,6 +134,92 @@ export function ProfileScreen() {
           </View>
         </SectionCard>
 
+        <SectionCard eyebrow="AI Parse" palette={palette} title="Vercel Parse API">
+          <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
+            Store your Vercel API URL and OpenAI API key locally on this device. Upload parsing will
+            send the key only in the request header and will not save it to SQLite.
+          </Text>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Vercel API Base URL</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setBaseUrlDraft}
+              placeholder="https://your-project.vercel.app"
+              placeholderTextColor={palette.inkMuted}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              value={baseUrlDraft}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>OpenAI API Key</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setApiKeyDraft}
+              placeholder="sk-..."
+              placeholderTextColor={palette.inkMuted}
+              secureTextEntry
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              value={apiKeyDraft}
+            />
+          </View>
+
+          <View style={styles.optionRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                void Promise.all([
+                  setParseApiBaseUrl(baseUrlDraft),
+                  setOpenAiApiKey(apiKeyDraft),
+                ]);
+              }}
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: palette.ink,
+                },
+              ]}
+            >
+              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save API Settings</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setApiKeyDraft("");
+                setBaseUrlDraft("");
+                void Promise.all([setOpenAiApiKey(""), setParseApiBaseUrl("")]);
+              }}
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                },
+              ]}
+            >
+              <Text style={[styles.secondaryActionLabel, { color: palette.ink }]}>Clear</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+
         <SectionCard eyebrow={copy.meScreen.sessionTitle} palette={palette} title={sessionDisplayName}>
           <Text style={[styles.sessionKind, { color: palette.accent }]}>{sessionKindLabel}</Text>
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
@@ -143,6 +244,19 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  actionButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 16,
+  },
+  actionButtonLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
   container: {
     gap: 16,
     padding: 20,
@@ -154,8 +268,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
+  fieldBlock: {
+    gap: 8,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
   hero: {
     gap: 12,
+  },
+  input: {
+    borderRadius: 16,
+    borderWidth: 1,
+    fontSize: 14,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   logoutButton: {
     alignItems: "center",
@@ -191,6 +320,10 @@ const styles = StyleSheet.create({
   sectionHint: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  secondaryActionLabel: {
+    fontSize: 14,
+    fontWeight: "700",
   },
   sessionKind: {
     fontSize: 15,

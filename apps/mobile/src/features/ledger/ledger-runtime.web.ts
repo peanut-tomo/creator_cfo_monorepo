@@ -3,7 +3,8 @@ import * as ImagePicker from "expo-image-picker";
 import type { EvidenceExtractedData } from "@creator-cfo/schemas";
 
 import {
-  buildExtractedData,
+  buildFailedExtractedData,
+  buildRemoteExtractedData,
   createTrendPointsFromTotals,
   defaultEntityId,
   homeRecentPageSize,
@@ -11,6 +12,7 @@ import {
   type HomeRecentRecord,
   type LedgerReviewValues,
 } from "./ledger-domain";
+import { parseEvidenceMultipartFromBlob } from "./remote-parse";
 import type { HomeSnapshot } from "../home/home-data";
 
 interface UploadCandidate {
@@ -131,15 +133,39 @@ export async function parseEvidence(evidenceId: string): Promise<EvidenceQueueIt
     return evidence;
   }
 
-  evidence.extractedData = buildExtractedData({
-    fallbackDate: evidence.createdAt.slice(0, 10),
-    fileName: evidence.originalFileName,
-    parser: "rule_fallback",
-    rawLines: [evidence.originalFileName],
-    rawText: evidence.originalFileName,
-    sourceLabel: "Web fallback",
-  });
-  evidence.parseStatus = "pending";
+  try {
+    const blob = await fetch(evidence.filePath).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Unable to read selected file: ${response.status}`);
+      }
+
+      return response.blob();
+    });
+    const response = await parseEvidenceMultipartFromBlob({
+      blob,
+      fileName: evidence.originalFileName,
+      mimeType: evidence.mimeType,
+      sourcePlatform: "web",
+    });
+
+    evidence.extractedData = buildRemoteExtractedData({
+      fallbackDate: evidence.createdAt.slice(0, 10),
+      fileName: evidence.originalFileName,
+      response,
+      sourceLabel: "Vercel OpenAI GPT",
+    });
+    evidence.parseStatus = "pending";
+  } catch (error) {
+    evidence.extractedData = buildFailedExtractedData({
+      fallbackDate: evidence.createdAt.slice(0, 10),
+      failureReason: error instanceof Error ? error.message : "Remote GPT parsing failed.",
+      fileName: evidence.originalFileName,
+      parser: "openai_gpt",
+      sourceLabel: "Vercel OpenAI GPT",
+    });
+    evidence.parseStatus = "failed";
+  }
+
   saveState(state);
   return evidence;
 }
@@ -181,7 +207,7 @@ export async function confirmEvidenceReview(
   evidence.capturedSource = review.source;
   evidence.capturedTarget = review.target;
   evidence.parseStatus = "parsed";
-  evidence.extractedData = buildConfirmedExtractedData(review, evidence.extractedData?.parser ?? "rule_fallback");
+  evidence.extractedData = buildConfirmedExtractedData(review, evidence.extractedData);
 
   const recordId = `record-${evidenceId}`;
   state.records.push({
@@ -251,23 +277,29 @@ export async function loadHomeScreenSnapshot(input: {
 
 function buildConfirmedExtractedData(
   review: LedgerReviewValues,
-  parser: EvidenceExtractedData["parser"],
+  existingExtractedData: EvidenceExtractedData | null,
 ): EvidenceExtractedData {
+  const fields = {
+    amountCents: Math.round(Number.parseFloat(review.amount) * 100),
+    category: review.category,
+    date: review.date,
+    description: review.description,
+    notes: review.notes || null,
+    source: review.source || null,
+    target: review.target || null,
+    taxCategory: review.taxCategory || null,
+  };
+
   return {
-    candidates: {
-      amountCents: Math.round(Number.parseFloat(review.amount) * 100),
-      category: review.category,
-      date: review.date,
-      description: review.description,
-      notes: review.notes || null,
-      source: review.source || null,
-      target: review.target || null,
-      taxCategory: review.taxCategory || null,
-    },
-    parser,
-    rawLines: [],
-    rawText: "",
-    sourceLabel: "web-confirmed-review",
+    candidates: fields,
+    fields,
+    model: existingExtractedData?.model ?? null,
+    parser: existingExtractedData?.parser ?? "rule_fallback",
+    rawLines: existingExtractedData?.rawLines ?? [],
+    rawSummary: existingExtractedData?.rawSummary ?? "Confirmed after local review.",
+    rawText: existingExtractedData?.rawText ?? "",
+    sourceLabel: existingExtractedData?.sourceLabel ?? "web-confirmed-review",
+    warnings: existingExtractedData?.warnings ?? [],
   };
 }
 

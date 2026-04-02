@@ -29,7 +29,7 @@ describe("home sections", () => {
     expect(sections.storageCards[3]).toMatchObject({
       icon: "device",
       label: "Device state",
-      value: "3",
+      value: "5",
     });
     expect(sections.storageCollections.map((collection) => collection.slug)).toContain(
       "evidence-objects",

@@ -93,12 +93,25 @@ Expected upload-state rules:
 
 Expected `extracted_data` JSON fields:
 
-- `parser`: `ios_vision_ocr` or `rule_fallback`
+- `parser`: `openai_gpt` or `rule_fallback`
+- `model`: parsed model identifier when remote GPT parsing succeeds
 - `sourceLabel`: human-readable parse source
-- `rawText`: normalized OCR text or fallback source text
+- `rawText`: normalized GPT/OCR text or fallback source text
+- `rawSummary`: short parse summary for review UI
 - `rawLines`: line-by-line OCR text or fallback tokens
+- `warnings`: ambiguity, inference, or parse-quality warnings returned by the parser
+- `fields`: structured fields for `date`, `amountCents`, `description`, `source`, `target`, `category`, `taxCategory`, `notes`
 - `candidates`: structured candidates for `date`, `amountCents`, `description`, `source`, `target`, `category`, `taxCategory`, `notes`
 - `errorReason` / `failureReason`: optional parse diagnostics
+
+## Device State
+
+The device-state contract is now at version `2`. In addition to theme, locale, and session, the app persists:
+
+- `openai_api_key`: the user-provided OpenAI API key used only for outbound parse requests
+- `vercel_api_base_url`: the deployed Vercel API base URL used by the mobile and web clients
+
+Both values remain local to the device runtime and are not written into the SQLite business tables.
 
 ## Contract Source Of Truth
 

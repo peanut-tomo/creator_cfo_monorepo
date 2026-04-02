@@ -33,8 +33,7 @@
       "expo-router",
       "expo-apple-authentication",
       "expo-sqlite",
-      "expo-localization",
-      "../../modules/ios-ocr/app.plugin"
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": false

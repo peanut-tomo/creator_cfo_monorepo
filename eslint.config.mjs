@@ -7,6 +7,7 @@ export default tseslint.config(
       ".expo/**",
       ".next/**",
       ".turbo/**",
+      ".vercel/**",
       "coverage/**",
       "dist/**",
       "node_modules/**",
@@ -15,7 +16,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["apps/mobile/**/*.{ts,tsx}", "packages/**/*.{ts,tsx}"],
+    files: ["api/**/*.ts", "apps/mobile/**/*.{ts,tsx}", "packages/**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
     },
