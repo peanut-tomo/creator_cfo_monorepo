@@ -2,11 +2,9 @@ import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
-import type { SurfaceTokens } from "@creator-cfo/ui";
 
 interface AnimatedTabBarButtonProps extends BottomTabBarButtonProps {
   children: ReactNode;
-  palette: SurfaceTokens;
 }
 
 export function TabBarIcon({
@@ -14,7 +12,6 @@ export function TabBarIcon({
   children,
   onLongPress,
   onPress,
-  palette,
 }: AnimatedTabBarButtonProps) {
   const focused = accessibilityState?.selected ?? false;
   const wobble = useRef(new Animated.Value(0)).current;
@@ -92,8 +89,8 @@ export function TabBarIcon({
         style={[
           styles.wrap,
           {
-            backgroundColor: focused ? palette.accentSoft : "transparent",
-            borderColor: focused ? palette.accentSoft : "transparent",
+            backgroundColor: focused ? "rgba(255,255,255,0.5)" : "transparent",
+            borderColor: "transparent",
           },
         ]}
       >
@@ -139,17 +136,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
   },
   wrap: {
     alignItems: "center",
-    borderRadius: 18,
-    borderWidth: 1,
+    borderRadius: 999,
+    borderWidth: 0,
     justifyContent: "center",
-    minWidth: 74,
-    minHeight: 52,
-    paddingHorizontal: 12,
+    minWidth: 92,
+    minHeight: 48,
+    paddingHorizontal: 20,
     paddingVertical: 6,
   },
 });

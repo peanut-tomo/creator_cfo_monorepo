@@ -1,160 +1,771 @@
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { CfoAvatar } from "../../components/cfo-avatar";
 import { useAppShell } from "../app-shell/provider";
-import { getLedgerCardsForFilter, ledgerFilters, type LedgerFilter } from "./ledger-mocks";
+import type {
+  GeneralLedgerEntry,
+  GeneralLedgerPostingLine,
+  LedgerMetricCard,
+  LedgerPeriodOption,
+  LedgerSectionRow,
+  LedgerViewId,
+} from "./ledger-reporting";
+import { useLedgerScreen } from "./use-ledger-screen.native";
+
+const ledgerViews: ReadonlyArray<{ id: LedgerViewId; label: string }> = [
+  { id: "general-ledger", label: "General Ledger" },
+  { id: "balance-sheet", label: "Balance Sheet" },
+  { id: "profit-loss", label: "Profit & Loss" },
+];
+const quarterLabels = ["Q1", "Q2", "Q3", "Q4"] as const;
+const quarterSegmentIds = ["q1", "q2", "q3", "q4"] as const;
 
 export function LedgerScreen() {
   const router = useRouter();
   const { copy, palette } = useAppShell();
-  const [activeFilter, setActiveFilter] = useState<LedgerFilter>("income");
-  const cards = useMemo(() => getLedgerCardsForFilter(activeFilter), [activeFilter]);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [pickerStep, setPickerStep] = useState<"month" | "quarter" | "year">("year");
+  const [draftQuarterId, setDraftQuarterId] = useState<(typeof quarterSegmentIds)[number] | null>(null);
+  const [draftYearId, setDraftYearId] = useState<string>("");
+  const {
+    error,
+    isLoaded,
+    isRefreshing,
+    refresh,
+    selectPeriodSegment,
+    selectView,
+    selectYear,
+    selectedView,
+    selectedYearId,
+    snapshot,
+  } = useLedgerScreen();
+
+  const selectedPeriod = snapshot.selectedPeriod;
+  const selectedQuarterId = useMemo(
+    () => getQuarterIdForSegment(selectedPeriod.segmentId),
+    [selectedPeriod.segmentId],
+  );
+  const monthOptions = useMemo(
+    () =>
+      draftQuarterId
+        ? snapshot.periodOptions.filter(
+            (option) => option.year === Number(draftYearId) && option.segmentId.startsWith("m") && getQuarterIdForSegment(option.segmentId) === draftQuarterId,
+          )
+        : [],
+    [draftQuarterId, draftYearId, snapshot.periodOptions],
+  );
+
+  const openSelector = () => {
+    setDraftYearId(selectedYearId);
+    setDraftQuarterId(selectedQuarterId);
+    setPickerStep("year");
+    setIsSelectorOpen(true);
+  };
+
+  const closeSelector = () => {
+    setIsSelectorOpen(false);
+    setPickerStep("year");
+    setDraftQuarterId(null);
+    setDraftYearId("");
+  };
+
+  const handleYearChoice = (yearId: string) => {
+    setDraftYearId(yearId);
+    setDraftQuarterId(selectedQuarterId);
+    setPickerStep("quarter");
+  };
+
+  const handleWholeYearChoice = (yearId: string) => {
+    selectYear(yearId);
+    selectPeriodSegment("full-year");
+    closeSelector();
+  };
+
+  const handleQuarterChoice = (quarterId: (typeof quarterSegmentIds)[number]) => {
+    setDraftQuarterId(quarterId);
+    setPickerStep("month");
+  };
+
+  const handleWholeQuarterChoice = (quarterId: (typeof quarterSegmentIds)[number]) => {
+    selectYear(draftYearId);
+    selectPeriodSegment(quarterId);
+    closeSelector();
+  };
+
+  const handleMonthChoice = (period: LedgerPeriodOption) => {
+    selectYear(String(period.year));
+    selectPeriodSegment(period.segmentId);
+    closeSelector();
+  };
 
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={[styles.safeArea, { backgroundColor: palette.shell }]}
+      style={styles.safeArea}
       testID="ledger-screen"
     >
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.topRow}>
           <View style={styles.brandRow}>
-            <View style={[styles.avatar, { backgroundColor: palette.heroEnd, borderColor: palette.border }]}>
-              <Text style={[styles.avatarLabel, { color: palette.inkOnAccent }]}>YC</Text>
-            </View>
-            <Text style={[styles.brand, { color: palette.ink }]}>{copy.common.appName}</Text>
+            <CfoAvatar size={32} />
+            <Text style={[styles.brand, { color: palette.ink }]}>
+              {copy.common.appName}
+            </Text>
           </View>
-          <View style={[styles.navDot, { backgroundColor: palette.heroEnd }]} />
+          <View style={styles.headerDot} />
         </View>
 
-        <View style={styles.hero}>
-          <Text style={[styles.eyebrow, { color: palette.accent }]}>Financial records</Text>
-          <Text style={[styles.title, { color: palette.ink }]}>Ledger</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/ledger/upload")}
-            style={({ pressed }) => [
-              styles.primaryAction,
-              {
-                backgroundColor: pressed ? palette.heroEnd : palette.ink,
-                shadowColor: palette.shadow,
-              },
-            ]}
-            testID="ledger-upload-button"
-          >
-            <View style={styles.primaryActionContent}>
-              <Feather color={palette.inkOnAccent} name="file-plus" size={16} />
-              <Text style={[styles.primaryActionLabel, { color: palette.inkOnAccent }]}>Upload Document</Text>
-            </View>
-          </Pressable>
+        <View style={styles.periodHeader}>
+          <View style={styles.periodCopy}>
+            <Text style={styles.periodEyebrow}>Accounting Period</Text>
+            <Text style={styles.periodTitle}>{selectedPeriod.label}</Text>
+            <Text style={styles.periodSummary}>{selectedPeriod.summary}</Text>
+          </View>
+
+          <View style={styles.utilityActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openSelector}
+              style={({ pressed }) => [
+                styles.utilityButton,
+                pressed ? styles.utilityButtonPressed : null,
+              ]}
+              testID="ledger-period-picker-button"
+            >
+              <Ionicons color="#002045" name="calendar-outline" size={18} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/ledger/upload")}
+              style={({ pressed }) => [
+                styles.utilityButton,
+                pressed ? styles.utilityButtonPressed : null,
+              ]}
+              testID="ledger-upload-button"
+            >
+              <Ionicons color="#002045" name="cloud-upload-outline" size={18} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/ledger/parse")}
+              style={({ pressed }) => [
+                styles.utilityButton,
+                pressed ? styles.utilityButtonPressed : null,
+              ]}
+            >
+              <MaterialCommunityIcons
+                color="#002045"
+                name="tune-variant"
+                size={18}
+              />
+            </Pressable>
+          </View>
         </View>
 
-        <View
-          style={[
-            styles.filterRail,
-            {
-              backgroundColor: palette.paperMuted,
-              borderColor: "transparent",
-            },
+        <Pressable
+          accessibilityRole="button"
+          onPress={openSelector}
+          style={({ pressed }) => [
+            styles.periodSummaryCard,
+            pressed ? styles.periodSummaryCardPressed : null,
           ]}
         >
-          {ledgerFilters.map((filter) => {
-            const active = filter.id === activeFilter;
+          <View style={styles.periodSummaryCardCopy}>
+            <Text style={styles.periodSummaryCardLabel}>Selected range</Text>
+            <Text style={styles.periodSummaryCardValue}>
+              {formatPopupSelection(selectedPeriod)}
+            </Text>
+            <Text style={styles.periodSummaryCardDetail}>
+              Tap to pick a year, then a quarter, then a month. Whole year and whole quarter stay available as default choices.
+            </Text>
+          </View>
+          <Ionicons color="#002045" name="chevron-forward" size={18} />
+        </Pressable>
+
+        <View style={styles.segmentedControl}>
+          {ledgerViews.map((tab) => {
+            const isActive = tab.id === selectedView;
 
             return (
               <Pressable
-                key={filter.id}
+                key={tab.id}
                 accessibilityRole="button"
-                onPress={() => setActiveFilter(filter.id)}
-                style={({ pressed }) => [
-                  styles.filterChip,
-                  {
-                    backgroundColor: active ? palette.paper : pressed ? palette.paper : "transparent",
-                    borderColor: active ? palette.border : "transparent",
-                    shadowColor: active ? palette.shadow : "transparent",
-                  },
+                onPress={() => selectView(tab.id)}
+                style={[
+                  styles.segmentedItem,
+                  isActive ? styles.segmentedItemActive : null,
                 ]}
-                testID={`ledger-filter-${filter.id}`}
               >
                 <Text
                   style={[
-                    styles.filterLabel,
-                    { color: active ? palette.ink : palette.inkMuted },
+                    styles.segmentedLabel,
+                    isActive ? styles.segmentedLabelActive : null,
                   ]}
                 >
-                  {filter.label}
+                  {tab.label}
                 </Text>
               </Pressable>
             );
           })}
         </View>
 
-        <View style={styles.cardStack}>
-          {cards.map((card) => (
-            <Pressable
-              key={card.id}
-              accessibilityRole="button"
-              onPress={() => router.push("/ledger/parse")}
-              style={({ pressed }) => [
-                styles.recordCard,
-                {
-                  backgroundColor: pressed ? palette.paperMuted : palette.shellElevated,
-                  borderColor: palette.border,
-                  shadowColor: palette.shadow,
-                },
-              ]}
-            >
-              <View style={[styles.recordAccent, { backgroundColor: palette.accent }]} />
-              <View style={[styles.recordBadge, { backgroundColor: palette.accentSoft }]}>
-                {card.kind === "income" ? (
-                  <MaterialCommunityIcons color={palette.accent} name="cash-multiple" size={18} />
-                ) : card.kind === "expenses" ? (
-                  <MaterialCommunityIcons color={palette.accent} name="bag-suitcase-outline" size={18} />
-                ) : (
-                  <Feather color={palette.accent} name="briefcase" size={16} />
-                )}
-              </View>
-              <View style={styles.recordContent}>
-                <Text style={[styles.rowTitle, { color: palette.ink }]}>{card.title}</Text>
-                <Text style={[styles.rowSummary, { color: palette.inkMuted }]}>{card.dateLabel}</Text>
-                <Text style={[styles.recordAmount, { color: palette.ink }]}>{card.amountLabel}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+        {!isLoaded ? (
+          <StatusCard
+            body="Loading the latest persisted records from local SQLite."
+            title="Preparing ledger snapshot"
+          />
+        ) : error ? (
+          <StatusCard
+            actionLabel={isRefreshing ? "Retrying..." : "Retry"}
+            body={error}
+            disabled={isRefreshing}
+            onPress={() => {
+              void refresh();
+            }}
+            title="Ledger data unavailable"
+          />
+        ) : snapshot.isEmpty ? (
+          <StatusCard
+            body="No posted or reconciled business records were found for the selected accounting period."
+            title="No business records in this range"
+          />
+        ) : (
+          <>
+            {selectedView === "general-ledger" ? (
+              <>
+                <MetricGrid cards={snapshot.generalLedger.metricCards} />
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Newest first journal entries</Text>
+                  <Text style={styles.sectionMeta}>
+                    {snapshot.generalLedger.recordCountLabel}
+                  </Text>
+                </View>
+                <View style={styles.sectionStack}>
+                  {snapshot.generalLedger.entries.map((entry) => (
+                    <GeneralLedgerCard entry={entry} key={entry.id} />
+                  ))}
+                </View>
+              </>
+            ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/ledger/parse")}
-          style={styles.pastRecordsButton}
-          testID="ledger-parse-button"
-        >
-          <View style={styles.pastRecordsContent}>
-            <Text style={[styles.pastRecordsLabel, { color: palette.inkMuted }]}>View Past Records</Text>
-            <Feather color={palette.inkMuted} name="chevron-down" size={18} />
-          </View>
-        </Pressable>
+            {selectedView === "balance-sheet" ? (
+              <>
+                <MetricGrid cards={snapshot.balanceSheet.metricCards} />
+                <View style={styles.equationCard}>
+                  <Text style={styles.equationEyebrow}>Simplified equation</Text>
+                  <Text style={styles.equationTitle}>
+                    {snapshot.balanceSheet.equationSummary}
+                  </Text>
+                  <Text style={styles.equationSummary}>
+                    {snapshot.balanceSheet.netPositionLabel}
+                  </Text>
+                </View>
+                <SectionCard
+                  rows={snapshot.balanceSheet.assetRows}
+                  title="Assets"
+                />
+                <SectionCard
+                  rows={snapshot.balanceSheet.liabilityRows}
+                  title="Liabilities"
+                />
+                <SectionCard
+                  rows={snapshot.balanceSheet.equityRows}
+                  title="Owner Equity"
+                />
+              </>
+            ) : null}
+
+            {selectedView === "profit-loss" ? (
+              <>
+                <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
+                <View style={styles.equationCard}>
+                  <Text style={styles.equationEyebrow}>Net income</Text>
+                  <Text style={styles.netIncomeValue}>
+                    {snapshot.profitAndLoss.netIncomeLabel}
+                  </Text>
+                  <Text style={styles.equationSummary}>
+                    Revenue minus business expenses for the selected period.
+                  </Text>
+                </View>
+                <SectionCard
+                  rows={snapshot.profitAndLoss.revenueRows}
+                  title="Revenue"
+                />
+                <SectionCard
+                  rows={snapshot.profitAndLoss.expenseRows}
+                  title="Expenses"
+                />
+              </>
+            ) : null}
+          </>
+        )}
+
+        <View style={styles.endCap}>
+          <View style={styles.endCapBar} />
+          <Text style={styles.endCapLabel}>
+            {snapshot.hasData
+              ? `Reporting range ${selectedPeriod.summary}`
+              : "Add and review records to populate this ledger"}
+          </Text>
+        </View>
       </ScrollView>
+
+      <LedgerPeriodPickerModal
+        currentPeriod={selectedPeriod}
+        draftQuarterId={draftQuarterId}
+        draftYearId={draftYearId}
+        isOpen={isSelectorOpen}
+        monthOptions={monthOptions}
+        onClose={closeSelector}
+        onMonthChoice={handleMonthChoice}
+        onQuarterChoice={handleQuarterChoice}
+        onWholeQuarterChoice={handleWholeQuarterChoice}
+        onWholeYearChoice={handleWholeYearChoice}
+        onYearChoice={handleYearChoice}
+        pickerStep={pickerStep}
+        yearOptions={snapshot.yearOptions}
+      />
     </SafeAreaView>
   );
 }
 
+function LedgerPeriodPickerModal({
+  currentPeriod,
+  draftQuarterId,
+  draftYearId,
+  isOpen,
+  monthOptions,
+  onClose,
+  onMonthChoice,
+  onQuarterChoice,
+  onWholeQuarterChoice,
+  onWholeYearChoice,
+  onYearChoice,
+  pickerStep,
+  yearOptions,
+}: {
+  currentPeriod: LedgerPeriodOption;
+  draftQuarterId: (typeof quarterSegmentIds)[number] | null;
+  draftYearId: string;
+  isOpen: boolean;
+  monthOptions: readonly LedgerPeriodOption[];
+  onClose: () => void;
+  onMonthChoice: (period: LedgerPeriodOption) => void;
+  onQuarterChoice: (quarterId: (typeof quarterSegmentIds)[number]) => void;
+  onWholeQuarterChoice: (quarterId: (typeof quarterSegmentIds)[number]) => void;
+  onWholeYearChoice: (yearId: string) => void;
+  onYearChoice: (yearId: string) => void;
+  pickerStep: "month" | "quarter" | "year";
+  yearOptions: readonly { id: string; label: string; year: number }[];
+}) {
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      transparent
+      visible={isOpen}
+    >
+      <View style={styles.modalBackdrop}>
+        <Pressable onPress={onClose} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderCopy}>
+              <Text style={styles.modalEyebrow}>Calendar-style period picker</Text>
+              <Text style={styles.modalTitle}>Choose ledger range</Text>
+              <Text style={styles.modalSummary}>
+                {currentPeriod.label} · {currentPeriod.summary}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.modalCloseButton,
+                pressed ? styles.utilityButtonPressed : null,
+              ]}
+            >
+              <Ionicons color="#002045" name="close" size={18} />
+            </Pressable>
+          </View>
+
+          <View style={styles.modalStepRail}>
+            <StepPill active={pickerStep === "year"} label="Year" />
+            <StepPill active={pickerStep === "quarter"} label="Quarter" />
+            <StepPill active={pickerStep === "month"} label="Month" />
+          </View>
+
+          {pickerStep === "year" ? (
+            <>
+              <Text style={styles.modalSectionTitle}>Start with a year</Text>
+              <View style={styles.modalGrid}>
+                {yearOptions.map((option) => (
+                  <View key={option.id} style={styles.modalGridCell}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onYearChoice(option.id)}
+                      style={({ pressed }) => [
+                        styles.modalBlock,
+                        option.id === String(currentPeriod.year) ? styles.modalBlockActive : null,
+                        pressed ? styles.modalBlockPressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.modalBlockTitle,
+                          option.id === String(currentPeriod.year) ? styles.modalBlockTitleActive : null,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.modalBlockNote,
+                          option.id === String(currentPeriod.year) ? styles.modalBlockNoteActive : null,
+                        ]}
+                      >
+                        Open quarters and months
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onWholeYearChoice(option.id)}
+                      style={({ pressed }) => [
+                        styles.modalSubAction,
+                        pressed ? styles.modalSubActionPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.modalSubActionLabel}>All {option.label}</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {pickerStep === "quarter" ? (
+            <>
+              <Text style={styles.modalSectionTitle}>Then narrow into a quarter</Text>
+              <Text style={styles.modalSectionSummary}>
+                Or keep the full year as the default review range.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => onWholeYearChoice(draftYearId)}
+                style={({ pressed }) => [
+                  styles.modalDefaultChoice,
+                  pressed ? styles.modalDefaultChoicePressed : null,
+                ]}
+              >
+                <Text style={styles.modalDefaultChoiceTitle}>All {draftYearId}</Text>
+                <Text style={styles.modalDefaultChoiceNote}>Use the complete year without drilling into a quarter.</Text>
+              </Pressable>
+              <View style={styles.modalGrid}>
+                {quarterSegmentIds.map((quarterId, index) => (
+                  <View key={quarterId} style={styles.modalGridCell}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onQuarterChoice(quarterId)}
+                      style={({ pressed }) => [
+                        styles.modalBlock,
+                        quarterId === draftQuarterId ? styles.modalBlockActive : null,
+                        pressed ? styles.modalBlockPressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.modalBlockTitle,
+                          quarterId === draftQuarterId ? styles.modalBlockTitleActive : null,
+                        ]}
+                      >
+                        {quarterLabels[index]}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.modalBlockNote,
+                          quarterId === draftQuarterId ? styles.modalBlockNoteActive : null,
+                        ]}
+                      >
+                        Open the months in this quarter
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onWholeQuarterChoice(quarterId)}
+                      style={({ pressed }) => [
+                        styles.modalSubAction,
+                        pressed ? styles.modalSubActionPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.modalSubActionLabel}>All {quarterLabels[index]}</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {pickerStep === "month" ? (
+            <>
+              <Text style={styles.modalSectionTitle}>Finally choose a month</Text>
+              <Text style={styles.modalSectionSummary}>
+                Or keep the whole quarter as the default review range.
+              </Text>
+              {draftQuarterId ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => onWholeQuarterChoice(draftQuarterId)}
+                  style={({ pressed }) => [
+                    styles.modalDefaultChoice,
+                    pressed ? styles.modalDefaultChoicePressed : null,
+                  ]}
+                >
+                  <Text style={styles.modalDefaultChoiceTitle}>
+                    All {draftQuarterId.toUpperCase()} {draftYearId}
+                  </Text>
+                  <Text style={styles.modalDefaultChoiceNote}>
+                    Keep the complete quarter instead of a single month.
+                  </Text>
+                </Pressable>
+              ) : null}
+              <View style={styles.modalGrid}>
+                {monthOptions.map((period) => (
+                  <Pressable
+                    key={period.id}
+                    accessibilityRole="button"
+                    onPress={() => onMonthChoice(period)}
+                    style={({ pressed }) => [
+                      styles.modalBlock,
+                      period.id === currentPeriod.id ? styles.modalBlockActive : null,
+                      styles.modalMonthBlock,
+                      pressed ? styles.modalBlockPressed : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalBlockTitle,
+                        period.id === currentPeriod.id ? styles.modalBlockTitleActive : null,
+                      ]}
+                    >
+                      {period.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.modalBlockNote,
+                        period.id === currentPeriod.id ? styles.modalBlockNoteActive : null,
+                      ]}
+                    >
+                      {period.summary}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function StepPill({ active, label }: { active: boolean; label: string }) {
+  return (
+    <View style={[styles.modalStepPill, active ? styles.modalStepPillActive : null]}>
+      <Text style={[styles.modalStepLabel, active ? styles.modalStepLabelActive : null]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function getQuarterIdForSegment(
+  segmentId: LedgerPeriodOption["segmentId"],
+): (typeof quarterSegmentIds)[number] | null {
+  if (segmentId === "q1" || segmentId === "m01" || segmentId === "m02" || segmentId === "m03") {
+    return "q1";
+  }
+
+  if (segmentId === "q2" || segmentId === "m04" || segmentId === "m05" || segmentId === "m06") {
+    return "q2";
+  }
+
+  if (segmentId === "q3" || segmentId === "m07" || segmentId === "m08" || segmentId === "m09") {
+    return "q3";
+  }
+
+  if (segmentId === "q4" || segmentId === "m10" || segmentId === "m11" || segmentId === "m12") {
+    return "q4";
+  }
+
+  return null;
+}
+
+function formatPopupSelection(period: LedgerPeriodOption): string {
+  if (period.segmentId === "full-year") {
+    return `All ${period.year}`;
+  }
+
+  if (period.segmentId.startsWith("q")) {
+    return `${period.segmentId.toUpperCase()} ${period.year}`;
+  }
+
+  const quarterId = getQuarterIdForSegment(period.segmentId);
+  return quarterId ? `${period.label} ${period.year} · ${quarterId.toUpperCase()}` : period.label;
+}
+
+function MetricGrid({ cards }: { cards: readonly LedgerMetricCard[] }) {
+  return (
+    <View style={styles.metricGrid}>
+      {cards.map((card) => (
+        <View key={card.id} style={styles.metricCard}>
+          <Text style={styles.metricLabel}>{card.label}</Text>
+          <Text style={styles.metricValue}>{card.value}</Text>
+          <View
+            style={[
+              styles.metricAccentBar,
+              card.accent === "danger"
+                ? styles.metricAccentDanger
+                : card.accent === "neutral"
+                  ? styles.metricAccentNeutral
+                  : styles.metricAccentSuccess,
+            ]}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function GeneralLedgerCard({ entry }: { entry: GeneralLedgerEntry }) {
+  return (
+    <View style={styles.transactionCard}>
+      <View style={styles.transactionHeader}>
+        <View style={styles.transactionLeft}>
+          <View
+            style={[
+              styles.transactionIconWrap,
+              entry.kindLabel === "Income"
+                ? styles.transactionIconIncome
+                : styles.transactionIconExpense,
+            ]}
+          >
+            <Ionicons
+              color={entry.kindLabel === "Income" ? "#45664A" : "#BA1A1A"}
+              name={entry.kindLabel === "Income" ? "arrow-down-outline" : "arrow-up-outline"}
+              size={18}
+            />
+          </View>
+          <View style={styles.transactionCopy}>
+            <Text style={styles.transactionTitle}>{entry.title}</Text>
+            <Text style={styles.transactionMeta}>{entry.subtitle}</Text>
+          </View>
+        </View>
+        <View style={styles.transactionRight}>
+          <Text style={styles.transactionAmount}>{entry.amount}</Text>
+          <Text style={styles.transactionSource}>{entry.dateLabel}</Text>
+        </View>
+      </View>
+
+      <View style={styles.postingLineStack}>
+        {entry.lines.map((line) => (
+          <PostingLine key={line.id} line={line} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PostingLine({ line }: { line: GeneralLedgerPostingLine }) {
+  const isDebit = line.side === "debit";
+
+  return (
+    <View style={styles.postingLineRow}>
+      <View style={styles.postingLineCopy}>
+        <Text style={styles.postingLineTitle}>
+          {isDebit ? "Debit" : "Credit"} · {line.accountName}
+        </Text>
+        <Text style={styles.postingLineDetail}>{line.detail}</Text>
+      </View>
+      <Text style={styles.postingLineAmount}>{line.amount}</Text>
+    </View>
+  );
+}
+
+function SectionCard({
+  rows,
+  title,
+}: {
+  rows: readonly LedgerSectionRow[];
+  title: string;
+}) {
+  return (
+    <View style={styles.sheetCard}>
+      <Text style={styles.sheetTitle}>{title}</Text>
+      <View style={styles.sheetRowStack}>
+        {rows.map((row) => (
+          <View key={row.id} style={styles.sheetRow}>
+            <View style={styles.sheetCopy}>
+              <Text style={styles.sheetLabel}>{row.label}</Text>
+              <Text style={styles.sheetNote}>{row.note}</Text>
+            </View>
+            <Text style={styles.sheetAmount}>{row.amount}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function StatusCard({
+  actionLabel,
+  body,
+  disabled,
+  onPress,
+  title,
+}: {
+  actionLabel?: string;
+  body: string;
+  disabled?: boolean;
+  onPress?: () => void;
+  title: string;
+}) {
+  return (
+    <View style={styles.statusCard}>
+      <Text style={styles.statusTitle}>{title}</Text>
+      <Text style={styles.statusBody}>{body}</Text>
+      {actionLabel && onPress ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={disabled}
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.statusButton,
+            pressed ? styles.statusButtonPressed : null,
+            disabled ? styles.statusButtonDisabled : null,
+          ]}
+        >
+          <Text style={styles.statusButtonLabel}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  avatar: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 28,
-    justifyContent: "center",
-    width: 28,
-  },
-  avatarLabel: {
-    fontSize: 11,
-    fontWeight: "800",
-  },
   brand: {
     fontSize: 20,
     fontWeight: "800",
@@ -164,140 +775,640 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
-  cardStack: {
-    gap: 14,
-  },
   container: {
-    gap: 18,
-    padding: 18,
-    paddingBottom: 28,
+    backgroundColor: "#F9F9F7",
+    gap: 16,
+    paddingBottom: 140,
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
-  eyebrow: {
+  endCap: {
+    alignItems: "center",
+    gap: 16,
+    paddingTop: 8,
+  },
+  endCapBar: {
+    backgroundColor: "rgba(26, 54, 93, 0.1)",
+    borderRadius: 999,
+    height: 32,
+    width: 4,
+  },
+  endCapLabel: {
+    color: "rgba(0, 32, 69, 0.45)",
+    fontSize: 11,
+    fontWeight: "500",
+    letterSpacing: 1,
+    lineHeight: 16,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  equationCard: {
+    backgroundColor: "#FFFDF8",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    padding: 20,
+  },
+  equationEyebrow: {
+    color: "rgba(0, 32, 69, 0.5)",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
+  equationSummary: {
+    color: "rgba(0, 32, 69, 0.62)",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  equationTitle: {
+    color: "#002045",
+    fontSize: 22,
+    fontWeight: "700",
+    lineHeight: 30,
+  },
+  headerDot: {
+    backgroundColor: "#002045",
+    borderRadius: 999,
+    height: 10,
+    opacity: 0.2,
+    width: 10,
+  },
+  metricAccentBar: {
+    borderBottomRightRadius: 999,
+    borderTopRightRadius: 999,
+    bottom: 24,
+    height: 46,
+    left: 0,
+    position: "absolute",
+    width: 4,
+  },
+  metricAccentDanger: {
+    backgroundColor: "#BA1A1A",
+  },
+  metricAccentNeutral: {
+    backgroundColor: "#002045",
+  },
+  metricAccentSuccess: {
+    backgroundColor: "#45664A",
+  },
+  metricCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 24,
+    borderWidth: 1,
+    flex: 1,
+    gap: 8,
+    minHeight: 126,
+    overflow: "hidden",
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  metricGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  metricLabel: {
+    color: "rgba(0, 32, 69, 0.55)",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  metricValue: {
+    color: "#002045",
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 34,
+  },
+  netIncomeValue: {
+    color: "#002045",
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  modalBackdrop: {
+    backgroundColor: "rgba(0, 32, 69, 0.28)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalBlock: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 6,
+    minHeight: 92,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  modalBlockActive: {
+    backgroundColor: "#002045",
+    borderColor: "#002045",
+  },
+  modalBlockNote: {
+    color: "rgba(0, 32, 69, 0.58)",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  modalBlockNoteActive: {
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  modalBlockPressed: {
+    opacity: 0.86,
+  },
+  modalBlockTitle: {
+    color: "#002045",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  modalBlockTitleActive: {
+    color: "#FFFFFF",
+  },
+  modalCard: {
+    backgroundColor: "#F9F9F7",
+    borderRadius: 28,
+    gap: 16,
+    maxHeight: "84%",
+    padding: 20,
+  },
+  modalCloseButton: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  modalDefaultChoice: {
+    backgroundColor: "#FFFDF8",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 6,
+    padding: 16,
+  },
+  modalDefaultChoiceNote: {
+    color: "rgba(0, 32, 69, 0.58)",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  modalDefaultChoicePressed: {
+    opacity: 0.86,
+  },
+  modalDefaultChoiceTitle: {
+    color: "#002045",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  modalEyebrow: {
+    color: "rgba(0, 32, 69, 0.5)",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
+  modalGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  modalGridCell: {
+    gap: 8,
+    width: "47%",
+  },
+  modalHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  modalHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  modalMonthBlock: {
+    width: "47%",
+  },
+  modalSectionSummary: {
+    color: "rgba(0, 32, 69, 0.58)",
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: -8,
+  },
+  modalSectionTitle: {
+    color: "#002045",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  modalStepLabel: {
+    color: "rgba(0, 32, 69, 0.55)",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  modalStepLabelActive: {
+    color: "#FFFFFF",
+  },
+  modalStepPill: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  modalStepPillActive: {
+    backgroundColor: "#002045",
+    borderColor: "#002045",
+  },
+  modalStepRail: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  modalSubAction: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 32, 69, 0.05)",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  modalSubActionLabel: {
+    color: "#002045",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  modalSubActionPressed: {
+    opacity: 0.75,
+  },
+  modalSummary: {
+    color: "rgba(0, 32, 69, 0.62)",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  modalTitle: {
+    color: "#002045",
+    fontSize: 24,
+    fontWeight: "800",
+    lineHeight: 30,
+  },
+  periodChip: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 4,
+    marginRight: 10,
+    minWidth: 156,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  periodChipActive: {
+    backgroundColor: "#002045",
+    borderColor: "#002045",
+  },
+  periodChipLabel: {
+    color: "#002045",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  periodChipLabelActive: {
+    color: "#FFFFFF",
+  },
+  periodChipSummary: {
+    color: "rgba(0, 32, 69, 0.55)",
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  periodChipSummaryActive: {
+    color: "rgba(255, 255, 255, 0.82)",
+  },
+  periodCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  periodEyebrow: {
+    color: "rgba(0, 32, 69, 0.5)",
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
-  filterChip: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 40,
-    paddingHorizontal: 12,
-    shadowOffset: { height: 6, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  filterRail: {
-    borderRadius: 999,
-    borderWidth: 0,
+  periodHeader: {
+    alignItems: "flex-start",
     flexDirection: "row",
-    gap: 4,
-    padding: 4,
+    gap: 12,
+    justifyContent: "space-between",
   },
-  hero: {
-    gap: 14,
+  periodSelectorContent: {
+    paddingRight: 14,
   },
-  navDot: {
-    borderRadius: 999,
-    height: 10,
-    width: 10,
-  },
-  pastRecordsButton: {
+  periodSummaryCard: {
     alignItems: "center",
+    backgroundColor: "#FFFDF8",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  periodSummaryCardCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  periodSummaryCardDetail: {
+    color: "rgba(0, 32, 69, 0.55)",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  periodSummaryCardLabel: {
+    color: "rgba(0, 32, 69, 0.5)",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  periodSummaryCardPressed: {
+    opacity: 0.92,
+  },
+  periodSummaryCardValue: {
+    color: "#002045",
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 24,
+  },
+  yearChip: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 16,
+    borderWidth: 1,
+    marginRight: 10,
+    minWidth: 84,
+    paddingHorizontal: 18,
     paddingVertical: 12,
   },
-  pastRecordsContent: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-  },
-  pastRecordsLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  primaryAction: {
-    alignItems: "center",
-    borderRadius: 999,
-    height: 50,
-    justifyContent: "center",
-    shadowOffset: { height: 14, width: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-  },
-  primaryActionContent: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  primaryActionLabel: {
+  yearChipLabel: {
+    color: "#002045",
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
   },
-  recordAccent: {
-    borderRadius: 999,
-    height: 42,
-    left: 0,
-    position: "absolute",
-    top: 32,
-    width: 3,
+  periodSummary: {
+    color: "rgba(0, 32, 69, 0.62)",
+    fontSize: 13,
+    lineHeight: 18,
   },
-  recordAmount: {
-    alignSelf: "flex-end",
-    fontSize: 17,
+  periodTitle: {
+    color: "#002045",
+    fontSize: 28,
     fontWeight: "800",
-    marginTop: 6,
+    lineHeight: 34,
   },
-  recordBadge: {
-    alignItems: "center",
-    borderRadius: 999,
-    height: 52,
-    justifyContent: "center",
-    width: 52,
+  postingLineAmount: {
+    color: "#002045",
+    fontSize: 13,
+    fontWeight: "700",
   },
-  recordCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 14,
-    overflow: "hidden",
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    position: "relative",
-    shadowOffset: { height: 14, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-  },
-  recordContent: {
+  postingLineCopy: {
     flex: 1,
     gap: 2,
   },
-  rowSummary: {
-    fontSize: 14,
-    lineHeight: 20,
+  postingLineDetail: {
+    color: "rgba(0, 32, 69, 0.55)",
+    fontSize: 12,
+    lineHeight: 17,
   },
-  rowTitle: {
-    fontSize: 18,
+  postingLineRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  postingLineStack: {
+    borderTopColor: "rgba(0, 32, 69, 0.08)",
+    borderTopWidth: 1,
+    gap: 10,
+    paddingTop: 14,
+  },
+  postingLineTitle: {
+    color: "#002045",
+    fontSize: 13,
     fontWeight: "700",
   },
   safeArea: {
+    backgroundColor: "#F9F9F7",
     flex: 1,
   },
-  title: {
-    fontSize: 42,
+  sectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  sectionMeta: {
+    color: "rgba(0, 32, 69, 0.5)",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  sectionStack: {
+    gap: 14,
+  },
+  sectionTitle: {
+    color: "#002045",
+    fontSize: 17,
     fontWeight: "800",
-    letterSpacing: -1.1,
-    lineHeight: 44,
+  },
+  segmentedControl: {
+    backgroundColor: "#ECEAE3",
+    borderRadius: 22,
+    flexDirection: "row",
+    gap: 6,
+    padding: 6,
+  },
+  segmentedItem: {
+    borderRadius: 16,
+    flex: 1,
+    minHeight: 50,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  segmentedItemActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#002045",
+    shadowOffset: { height: 10, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+  },
+  segmentedLabel: {
+    color: "rgba(0, 32, 69, 0.5)",
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  segmentedLabelActive: {
+    color: "#002045",
+  },
+  sheetAmount: {
+    color: "#002045",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  sheetCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 16,
+    padding: 20,
+  },
+  sheetCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  sheetLabel: {
+    color: "#002045",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  sheetNote: {
+    color: "rgba(0, 32, 69, 0.56)",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  sheetRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  sheetRowStack: {
+    gap: 14,
+  },
+  sheetTitle: {
+    color: "#002045",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  statusBody: {
+    color: "rgba(0, 32, 69, 0.62)",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  statusButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#002045",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  statusButtonDisabled: {
+    opacity: 0.5,
+  },
+  statusButtonLabel: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  statusButtonPressed: {
+    opacity: 0.85,
+  },
+  statusCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    padding: 20,
+  },
+  statusTitle: {
+    color: "#002045",
+    fontSize: 18,
+    fontWeight: "800",
   },
   topRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  transactionAmount: {
+    color: "#002045",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  transactionCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 16,
+    padding: 18,
+  },
+  transactionCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  transactionHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 14,
+    justifyContent: "space-between",
+  },
+  transactionIconExpense: {
+    backgroundColor: "rgba(255, 218, 214, 0.28)",
+  },
+  transactionIconIncome: {
+    backgroundColor: "rgba(195, 233, 197, 0.35)",
+  },
+  transactionIconWrap: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  transactionLeft: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 12,
+  },
+  transactionMeta: {
+    color: "rgba(0, 32, 69, 0.55)",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  transactionRight: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  transactionSource: {
+    color: "rgba(0, 32, 69, 0.45)",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  transactionTitle: {
+    color: "#002045",
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  utilityActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  utilityButton: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  utilityButtonPressed: {
+    backgroundColor: "#F0F4F8",
   },
 });

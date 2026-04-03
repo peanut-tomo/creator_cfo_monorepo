@@ -9,6 +9,56 @@ export interface WorkflowPrinciple {
   summary: string;
 }
 
+export const evidenceParseStatuses = ["pending", "parsed", "failed"] as const;
+export type EvidenceParseStatus = (typeof evidenceParseStatuses)[number];
+
+export const evidenceParserKinds = ["openai_gpt", "rule_fallback"] as const;
+export type EvidenceParserKind = (typeof evidenceParserKinds)[number];
+
+export const parseSourcePlatforms = ["ios", "android", "web"] as const;
+export type ParseSourcePlatform = (typeof parseSourcePlatforms)[number];
+
+export interface EvidenceFieldCandidates {
+  amountCents: number | null;
+  category: string | null;
+  date: string | null;
+  description: string | null;
+  notes: string | null;
+  source: string | null;
+  target: string | null;
+  taxCategory: string | null;
+}
+
+export interface EvidenceExtractedData {
+  candidates: EvidenceFieldCandidates;
+  errorReason?: string | null;
+  failureReason?: string | null;
+  fields: EvidenceFieldCandidates;
+  model?: string | null;
+  parser: EvidenceParserKind;
+  rawLines: string[];
+  rawSummary: string;
+  rawText: string;
+  sourceLabel: string;
+  warnings: string[];
+}
+
+export interface ParseEvidenceApiSuccess {
+  fields: EvidenceFieldCandidates;
+  model: string;
+  parser: "openai_gpt";
+  rawSummary: string;
+  rawText: string;
+  warnings: string[];
+}
+
+export interface ParseEvidenceApiErrorBody {
+  error: {
+    code: string;
+    message: string;
+  };
+}
+
 export const productModules: ProductModule[] = [
   {
     slug: "revenue-hub",

@@ -411,8 +411,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
           summary: "Start from mobile receipts, then attach local notes, tags, and vault documents.",
         },
         {
-          title: "Invoice watchlist",
-          summary: "Keep due dates, currency, and collection status visible even before full CRUD lands.",
+          title: "Spending watchlist",
+          summary: "Keep outgoing bills, vendors, and payment timing visible even before full CRUD lands.",
         },
       ],
       parse: {
@@ -462,7 +462,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       discover: "Discover",
       home: "Home",
       ledger: "Ledger",
-      profile: "Me",
+      profile: "Setting",
     },
   },
   "zh-CN": {
@@ -718,7 +718,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       discover: "发现",
       home: "首页",
       ledger: "记账",
-      profile: "我的",
+      profile: "设置",
     },
   },
 };

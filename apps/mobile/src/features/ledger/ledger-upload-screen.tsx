@@ -1,15 +1,51 @@
-import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackHeaderBar } from "../../components/back-header-bar";
+import { CfoAvatar } from "../../components/cfo-avatar";
+import {
+  importUploadCandidates,
+  parseEvidence,
+  pickDocumentUploadCandidates,
+  pickPhotoUploadCandidates,
+} from "./ledger-runtime";
 import { useAppShell } from "../app-shell/provider";
-import { uploadSourceCards } from "./ledger-mocks";
 
 export function LedgerUploadScreen() {
   const router = useRouter();
   const { copy, palette } = useAppShell();
+  const [error, setError] = useState<string | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
+  const [status, setStatus] = useState("Select files or photos to create a local parse queue.");
+
+  async function handleImport(source: "documents" | "photos"): Promise<void> {
+    setIsBusy(true);
+    setError(null);
+
+    try {
+      const candidates =
+        source === "photos"
+          ? await pickPhotoUploadCandidates()
+          : await pickDocumentUploadCandidates();
+
+      if (!candidates.length) {
+        setStatus("No files were selected.");
+        return;
+      }
+
+      const evidenceIds = await importUploadCandidates(candidates);
+      await Promise.all(evidenceIds.map((evidenceId) => parseEvidence(evidenceId)));
+      setStatus(`${evidenceIds.length} item(s) added to the local review queue.`);
+      router.push("/ledger/parse");
+    } catch (nextError: unknown) {
+      setError(nextError instanceof Error ? nextError.message : "Upload import failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  }
 
   return (
     <SafeAreaView
@@ -29,19 +65,7 @@ export function LedgerUploadScreen() {
         <BackHeaderBar
           onBack={() => router.back()}
           palette={palette}
-          rightAccessory={
-            <View
-              style={[
-                styles.avatar,
-                {
-                  backgroundColor: palette.heroEnd,
-                  borderColor: palette.border,
-                },
-              ]}
-            >
-              <Text style={[styles.avatarLabel, { color: palette.inkOnAccent }]}>YC</Text>
-            </View>
-          }
+          rightAccessory={<CfoAvatar />}
           title={copy.common.appName}
         />
       </View>
@@ -49,7 +73,11 @@ export function LedgerUploadScreen() {
         <View style={styles.heroBlock}>
           <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>Upload center</Text>
           <Text style={[styles.heroTitle, { color: palette.ink }]}>{copy.ledger.upload.title}</Text>
-          <Text style={[styles.heroSummary, { color: palette.inkMuted }]}>{copy.ledger.upload.summary}</Text>
+          <Text style={[styles.heroSummary, { color: palette.inkMuted }]}>
+            Upload receipts, PDFs, or Live Photos into the local vault. The app sends each file to
+            your Vercel parse API using the OpenAI key you saved in Settings, then keeps the parsed
+            result local for review.
+          </Text>
         </View>
 
         <View
@@ -65,98 +93,59 @@ export function LedgerUploadScreen() {
           <View style={[styles.uploadGlyph, { backgroundColor: palette.accentSoft }]}>
             <Feather color={palette.accent} name="upload-cloud" size={26} />
           </View>
-          <Text style={[styles.dropTitle, { color: palette.ink }]}>Drop files or Browse</Text>
+          <Text style={[styles.dropTitle, { color: palette.ink }]}>Send files into your local vault</Text>
           <Text style={[styles.dropSummary, { color: palette.inkMuted }]}>
-            Support for PDF, JPG, PNG, and HEIC is mocked in this UI-only phase.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/ledger/parse")}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              {
-                backgroundColor: pressed ? palette.heroEnd : palette.ink,
-                shadowColor: palette.shadow,
-              },
-            ]}
-            testID="ledger-upload-select-button"
-          >
-            <View style={styles.primaryButtonContent}>
-              <MaterialCommunityIcons color={palette.inkOnAccent} name="file-upload-outline" size={18} />
-              <Text style={[styles.primaryButtonLabel, { color: palette.inkOnAccent }]}>Select Files</Text>
-            </View>
-          </Pressable>
-          <Text style={[styles.hint, { color: palette.inkMuted }]}>{copy.ledger.upload.hint}</Text>
-        </View>
-
-        <View
-          style={[
-            styles.engineCard,
-            {
-              backgroundColor: palette.paper,
-              borderColor: palette.border,
-            },
-          ]}
-        >
-          <Text style={[styles.engineEyebrow, { color: palette.inkMuted }]}>Classification engine</Text>
-          {uploadSourceCards.map((card) => (
-            <View key={card.id} style={[styles.engineRow, { borderTopColor: palette.divider }]}>
-              <Text style={[styles.engineTitle, { color: palette.ink }]}>{card.title}</Text>
-              <Text style={[styles.engineSummary, { color: palette.inkMuted }]}>{card.summary}</Text>
-            </View>
-          ))}
-          <View style={[styles.readyRow, { borderTopColor: palette.divider }]}>
-            <View style={[styles.readyDot, { backgroundColor: palette.accent }]} />
-            <Text style={[styles.readyText, { color: palette.inkMuted }]}>
-              AI status: ready. Documents are processed in real-time with 99.8% extraction accuracy.
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.recentCard,
-            {
-              backgroundColor: palette.shellElevated,
-              borderColor: palette.border,
-            },
-          ]}
-        >
-          <View style={styles.recentHeader}>
-            <Text style={[styles.recentTitle, { color: palette.ink }]}>Recent Processing</Text>
-            <Text style={[styles.recentLink, { color: palette.inkMuted }]}>Archive</Text>
-          </View>
-          <Text style={[styles.recentSubtitle, { color: palette.inkMuted }]}>
-            Activity from the last 24 hours
+            The queue writes into `entity-main`, stores renamed files locally, and prepares every
+            item for GPT-assisted review.
           </Text>
 
-          {[
-            { id: "receipt", name: "Receipt_Adobe_CreativeCloud_Oct.pdf", status: "Uploaded 2m ago" },
-            { id: "settlement", name: "YT_Partner_Payment_Sept.pdf", status: "Uploaded 4h ago" },
-          ].map((item) => (
+          <View style={styles.buttonStack}>
             <Pressable
-              key={item.id}
               accessibilityRole="button"
-              onPress={() => router.push("/ledger/parse")}
+              disabled={isBusy}
+              onPress={() => handleImport("photos")}
               style={({ pressed }) => [
-                styles.recentRow,
+                styles.primaryButton,
+                {
+                  backgroundColor: pressed ? palette.heroEnd : palette.ink,
+                  opacity: isBusy ? 0.7 : 1,
+                  shadowColor: palette.shadow,
+                },
+              ]}
+              testID="ledger-upload-select-photos-button"
+            >
+              <View style={styles.primaryButtonContent}>
+                <MaterialCommunityIcons color={palette.inkOnAccent} name="image-multiple-outline" size={18} />
+                <Text style={[styles.primaryButtonLabel, { color: palette.inkOnAccent }]}>
+                  {isBusy ? "Importing..." : "Select Photos"}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={isBusy}
+              onPress={() => handleImport("documents")}
+              style={({ pressed }) => [
+                styles.secondaryButton,
                 {
                   backgroundColor: pressed ? palette.paperMuted : palette.paper,
                   borderColor: palette.border,
+                  opacity: isBusy ? 0.7 : 1,
                 },
               ]}
+              testID="ledger-upload-select-button"
             >
-              <View style={[styles.recentBadge, { backgroundColor: palette.accentSoft }]}>
-                <Ionicons color={palette.accent} name="document-text-outline" size={18} />
-              </View>
-              <View style={styles.recentCopy}>
-                <Text numberOfLines={1} style={[styles.recentFileName, { color: palette.ink }]}>
-                  {item.name}
-                </Text>
-                <Text style={[styles.recentStatus, { color: palette.inkMuted }]}>{item.status}</Text>
+              <View style={styles.primaryButtonContent}>
+                <MaterialCommunityIcons color={palette.ink} name="file-upload-outline" size={18} />
+                <Text style={[styles.secondaryButtonLabel, { color: palette.ink }]}>Select Files</Text>
               </View>
             </Pressable>
-          ))}
+          </View>
+
+          <Text style={[styles.hint, { color: error ? "#BA1A1A" : palette.inkMuted }]}>
+            {error ?? status}
+          </Text>
         </View>
 
         <Pressable
@@ -170,9 +159,7 @@ export function LedgerUploadScreen() {
           ]}
           testID="ledger-upload-continue-button"
         >
-          <Text style={[styles.footerButtonLabel, { color: palette.inkOnAccent }]}>
-            {copy.ledger.upload.continue}
-          </Text>
+          <Text style={[styles.footerButtonLabel, { color: palette.inkOnAccent }]}>Review Queue</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -185,17 +172,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 20,
   },
-  avatar: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 30,
-    justifyContent: "center",
-    width: 30,
-  },
-  avatarLabel: {
-    fontSize: 12,
-    fontWeight: "700",
+  buttonStack: {
+    gap: 12,
+    width: "100%",
   },
   container: {
     gap: 18,
@@ -223,31 +202,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 34,
     textAlign: "center",
-  },
-  engineCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    gap: 12,
-    padding: 18,
-  },
-  engineEyebrow: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-  },
-  engineRow: {
-    gap: 4,
-    borderTopWidth: 1,
-    paddingTop: 12,
-  },
-  engineSummary: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  engineTitle: {
-    fontSize: 16,
-    fontWeight: "700",
   },
   eyebrow: {
     fontSize: 11,
@@ -289,10 +243,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 48,
     justifyContent: "center",
-    minWidth: 150,
     shadowOffset: { height: 10, width: 0 },
     shadowOpacity: 0.12,
     shadowRadius: 18,
+    width: "100%",
   },
   primaryButtonContent: {
     alignItems: "center",
@@ -303,73 +257,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
-  readyDot: {
-    borderRadius: 999,
-    height: 8,
-    marginTop: 6,
-    width: 8,
-  },
-  readyRow: {
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    paddingTop: 14,
-  },
-  readyText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  recentBadge: {
-    alignItems: "center",
-    borderRadius: 16,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  recentCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    gap: 10,
-    padding: 18,
-  },
-  recentCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  recentFileName: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  recentHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  recentLink: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  recentRow: {
-    alignItems: "center",
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    padding: 12,
-  },
-  recentStatus: {
-    fontSize: 13,
-  },
-  recentSubtitle: {
-    fontSize: 14,
-  },
-  recentTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-  },
   safeArea: {
     flex: 1,
+  },
+  secondaryButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    width: "100%",
+  },
+  secondaryButtonLabel: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   uploadGlyph: {
     alignItems: "center",

@@ -3,22 +3,29 @@
   "private": true,
   "packageManager": "pnpm@10.28.0",
   "scripts": {
-    "build": "turbo run build",
+    "api:build": "tsc -p tsconfig.api.json --noEmit",
+    "api:dev": "vercel dev",
+    "api:lint": "eslint api --ext .ts",
+    "api:test": "vitest run api --environment node",
+    "api:typecheck": "tsc -p tsconfig.api.json --noEmit",
+    "build": "pnpm api:build && turbo run build",
     "dev": "turbo run dev --parallel",
     "format": "turbo run format",
-    "lint": "turbo run lint",
+    "lint": "pnpm api:lint && turbo run lint",
     "smoke": "turbo run smoke",
-    "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
+    "test": "pnpm api:test && turbo run test",
+    "typecheck": "pnpm api:typecheck && turbo run typecheck",
     "contract:check": "pnpm --filter @creator-cfo/storage test"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@types/node": "^25.5.0",
     "eslint": "^9.21.0",
     "prettier": "^3.5.3",
     "turbo": "^2.5.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.0",
+    "vercel": "^50.38.2",
     "vitest": "^3.2.4"
   }
 }
