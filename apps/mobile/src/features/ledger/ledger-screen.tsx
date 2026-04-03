@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
@@ -18,6 +18,7 @@ import type {
   GeneralLedgerPostingLine,
   LedgerMetricCard,
   LedgerPeriodOption,
+  LedgerScopeId,
   LedgerSectionRow,
   LedgerViewId,
 } from "./ledger-reporting";
@@ -30,6 +31,14 @@ const ledgerViews: ReadonlyArray<{ id: LedgerViewId; label: string }> = [
 ];
 const quarterLabels = ["Q1", "Q2", "Q3", "Q4"] as const;
 const quarterSegmentIds = ["q1", "q2", "q3", "q4"] as const;
+const ledgerScopes: ReadonlyArray<{
+  accessibilityLabel: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  id: LedgerScopeId;
+}> = [
+  { accessibilityLabel: "Business scope", icon: "briefcase-outline", id: "business" },
+  { accessibilityLabel: "Personal scope", icon: "person-outline", id: "personal" },
+];
 
 export function LedgerScreen() {
   const router = useRouter();
@@ -44,7 +53,9 @@ export function LedgerScreen() {
     isRefreshing,
     refresh,
     selectPeriodSegment,
+    selectScope,
     selectView,
+    selectedScope,
     selectYear,
     selectedView,
     selectedYearId,
@@ -136,43 +147,56 @@ export function LedgerScreen() {
             <Text style={styles.periodSummary}>{selectedPeriod.summary}</Text>
           </View>
 
-          <View style={styles.utilityActions}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={openSelector}
-              style={({ pressed }) => [
-                styles.utilityButton,
-                pressed ? styles.utilityButtonPressed : null,
-              ]}
-              testID="ledger-period-picker-button"
-            >
-              <Ionicons color="#002045" name="calendar-outline" size={18} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push("/ledger/upload")}
-              style={({ pressed }) => [
-                styles.utilityButton,
-                pressed ? styles.utilityButtonPressed : null,
-              ]}
-              testID="ledger-upload-button"
-            >
-              <Ionicons color="#002045" name="cloud-upload-outline" size={18} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push("/ledger/parse")}
-              style={({ pressed }) => [
-                styles.utilityButton,
-                pressed ? styles.utilityButtonPressed : null,
-              ]}
-            >
-              <MaterialCommunityIcons
-                color="#002045"
-                name="tune-variant"
-                size={18}
-              />
-            </Pressable>
+          <View style={styles.utilityPanel}>
+            <View style={styles.utilityActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={openSelector}
+                style={({ pressed }) => [
+                  styles.utilityButton,
+                  pressed ? styles.utilityButtonPressed : null,
+                ]}
+                testID="ledger-period-picker-button"
+              >
+                <Ionicons color="#002045" name="calendar-outline" size={18} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push("/ledger/upload")}
+                style={({ pressed }) => [
+                  styles.utilityButton,
+                  pressed ? styles.utilityButtonPressed : null,
+                ]}
+                testID="ledger-upload-button"
+              >
+                <Ionicons color="#002045" name="cloud-upload-outline" size={18} />
+              </Pressable>
+            </View>
+            <View style={styles.scopeSwitch} testID="ledger-scope-switch">
+              {ledgerScopes.map((scope) => {
+                const isActive = scope.id === selectedScope;
+
+                return (
+                  <Pressable
+                    key={scope.id}
+                    accessibilityLabel={scope.accessibilityLabel}
+                    accessibilityRole="button"
+                    onPress={() => selectScope(scope.id)}
+                    style={({ pressed }) => [
+                      styles.scopePill,
+                      isActive ? styles.scopePillActive : null,
+                      pressed ? styles.scopePillPressed : null,
+                    ]}
+                  >
+                    <Ionicons
+                      color={isActive ? "#FFFFFF" : "rgba(0, 32, 69, 0.6)"}
+                      name={scope.icon}
+                      size={17}
+                    />
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
 
@@ -240,8 +264,16 @@ export function LedgerScreen() {
           />
         ) : snapshot.isEmpty ? (
           <StatusCard
-            body="No posted or reconciled business records were found for the selected accounting period."
-            title="No business records in this range"
+            body={
+              selectedScope === "personal"
+                ? "No personal spending records were found for the selected accounting period."
+                : "No posted or reconciled business records were found for the selected accounting period."
+            }
+            title={
+              selectedScope === "personal"
+                ? "No personal spending in this range"
+                : "No business records in this range"
+            }
           />
         ) : (
           <>
@@ -249,7 +281,11 @@ export function LedgerScreen() {
               <>
                 <MetricGrid cards={snapshot.generalLedger.metricCards} />
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Newest first journal entries</Text>
+                  <Text style={styles.sectionTitle}>
+                    {selectedScope === "personal"
+                      ? "Newest first personal spending entries"
+                      : "Newest first journal entries"}
+                  </Text>
                   <Text style={styles.sectionMeta}>
                     {snapshot.generalLedger.recordCountLabel}
                   </Text>
@@ -263,53 +299,70 @@ export function LedgerScreen() {
             ) : null}
 
             {selectedView === "balance-sheet" ? (
-              <>
-                <MetricGrid cards={snapshot.balanceSheet.metricCards} />
-                <View style={styles.equationCard}>
-                  <Text style={styles.equationEyebrow}>Simplified equation</Text>
-                  <Text style={styles.equationTitle}>
-                    {snapshot.balanceSheet.equationSummary}
-                  </Text>
-                  <Text style={styles.equationSummary}>
-                    {snapshot.balanceSheet.netPositionLabel}
-                  </Text>
-                </View>
-                <SectionCard
-                  rows={snapshot.balanceSheet.assetRows}
-                  title="Assets"
+              selectedScope === "personal" ? (
+                <StatusCard
+                  body="Balance Sheet stays business-only. Switch back to Business to review assets, liabilities, and owner equity."
+                  title="Not shown for personal spending"
                 />
-                <SectionCard
-                  rows={snapshot.balanceSheet.liabilityRows}
-                  title="Liabilities"
-                />
-                <SectionCard
-                  rows={snapshot.balanceSheet.equityRows}
-                  title="Owner Equity"
-                />
-              </>
+              ) : (
+                <>
+                  <MetricGrid cards={snapshot.balanceSheet.metricCards} />
+                  <View style={styles.equationCard}>
+                    <Text style={styles.equationEyebrow}>Simplified equation</Text>
+                    <Text style={styles.equationTitle}>
+                      {snapshot.balanceSheet.equationSummary}
+                    </Text>
+                    <Text style={styles.equationSummary}>
+                      {snapshot.balanceSheet.netPositionLabel}
+                    </Text>
+                  </View>
+                  <SectionCard
+                    rows={snapshot.balanceSheet.assetRows}
+                    title="Assets"
+                  />
+                  <SectionCard
+                    rows={snapshot.balanceSheet.liabilityRows}
+                    title="Liabilities"
+                  />
+                  <SectionCard
+                    rows={snapshot.balanceSheet.equityRows}
+                    title="Owner Equity"
+                  />
+                </>
+              )
             ) : null}
 
             {selectedView === "profit-loss" ? (
-              <>
-                <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
-                <View style={styles.equationCard}>
-                  <Text style={styles.equationEyebrow}>Net income</Text>
-                  <Text style={styles.netIncomeValue}>
-                    {snapshot.profitAndLoss.netIncomeLabel}
-                  </Text>
-                  <Text style={styles.equationSummary}>
-                    Revenue minus business expenses for the selected period.
-                  </Text>
-                </View>
-                <SectionCard
-                  rows={snapshot.profitAndLoss.revenueRows}
-                  title="Revenue"
-                />
-                <SectionCard
-                  rows={snapshot.profitAndLoss.expenseRows}
-                  title="Expenses"
-                />
-              </>
+              selectedScope === "personal" ? (
+                <>
+                  <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
+                  <StatusCard
+                    body="Profit & Loss stays business-only. Personal mode is only for reviewing personal spending separately from deductible business expense."
+                    title="Personal spending is not a business P&L"
+                  />
+                </>
+              ) : (
+                <>
+                  <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
+                  <View style={styles.equationCard}>
+                    <Text style={styles.equationEyebrow}>Net income</Text>
+                    <Text style={styles.netIncomeValue}>
+                      {snapshot.profitAndLoss.netIncomeLabel}
+                    </Text>
+                    <Text style={styles.equationSummary}>
+                      Revenue minus business expenses for the selected period.
+                    </Text>
+                  </View>
+                  <SectionCard
+                    rows={snapshot.profitAndLoss.revenueRows}
+                    title="Revenue"
+                  />
+                  <SectionCard
+                    rows={snapshot.profitAndLoss.expenseRows}
+                    title="Expenses"
+                  />
+                </>
+              )
             ) : null}
           </>
         )}
@@ -318,8 +371,8 @@ export function LedgerScreen() {
           <View style={styles.endCapBar} />
           <Text style={styles.endCapLabel}>
             {snapshot.hasData
-              ? `Reporting range ${selectedPeriod.summary}`
-              : "Add and review records to populate this ledger"}
+              ? `${selectedScope === "personal" ? "Personal spending range" : "Reporting range"} ${selectedPeriod.summary}`
+              : `Add and review records to populate this ${selectedScope === "personal" ? "personal spending" : "ledger"} view`}
           </Text>
         </View>
       </ScrollView>
@@ -660,7 +713,9 @@ function GeneralLedgerCard({ entry }: { entry: GeneralLedgerEntry }) {
               styles.transactionIconWrap,
               entry.kindLabel === "Income"
                 ? styles.transactionIconIncome
-                : styles.transactionIconExpense,
+                : entry.kindLabel === "Personal"
+                  ? styles.transactionIconPersonal
+                  : styles.transactionIconExpense,
             ]}
           >
             <Ionicons
@@ -1362,6 +1417,9 @@ const styles = StyleSheet.create({
   transactionIconIncome: {
     backgroundColor: "rgba(195, 233, 197, 0.35)",
   },
+  transactionIconPersonal: {
+    backgroundColor: "rgba(255, 218, 214, 0.42)",
+  },
   transactionIconWrap: {
     alignItems: "center",
     borderRadius: 18,
@@ -1395,8 +1453,38 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   utilityActions: {
+    alignItems: "center",
     flexDirection: "row",
     gap: 10,
+  },
+  utilityPanel: {
+    alignItems: "flex-end",
+    gap: 10,
+  },
+  scopePill: {
+    alignItems: "center",
+    borderRadius: 14,
+    justifyContent: "center",
+    minHeight: 36,
+    minWidth: 46,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  scopePillActive: {
+    backgroundColor: "#002045",
+  },
+  scopePillPressed: {
+    opacity: 0.88,
+  },
+  scopeSwitch: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 48,
+    padding: 6,
   },
   utilityButton: {
     alignItems: "center",

@@ -10,6 +10,7 @@ import {
 } from "./ledger-domain";
 
 export type LedgerViewId = "general-ledger" | "balance-sheet" | "profit-loss";
+export type LedgerScopeId = "business" | "personal";
 
 export type LedgerPeriodSegmentId =
   | "full-year"
@@ -117,6 +118,7 @@ export interface LedgerScreenSnapshot {
   isEmpty: boolean;
   periodOptions: LedgerPeriodOption[];
   profitAndLoss: ProfitAndLossSnapshot;
+  selectedScope: LedgerScopeId;
   segmentOptions: LedgerPeriodSegmentOption[];
   selectedPeriod: LedgerPeriodOption;
   yearOptions: LedgerYearOption[];
@@ -131,7 +133,7 @@ interface LedgerRecordRow {
   memo: string | null;
   occurredOn: string;
   recordId: string;
-  recordKind: "expense" | "income";
+  recordKind: "expense" | "income" | "personal_spending";
   sourceLabel: string;
   targetLabel: string;
   taxLineCode: string | null;
@@ -165,10 +167,16 @@ export async function loadLedgerSnapshot(
     entityId?: string;
     now?: string;
     preferredPeriodId?: string | null;
+    scopeId?: LedgerScopeId;
   } = {},
 ): Promise<LedgerScreenSnapshot> {
   const entityId = input.entityId ?? defaultEntityId;
   const now = normalizeIsoDate(input.now ?? new Date().toISOString().slice(0, 10));
+  const scopeId = input.scopeId ?? "business";
+  const scopeRecordKinds =
+    scopeId === "personal"
+      ? "('personal_spending')"
+      : "('income', 'expense')";
   const bounds =
     (await database.getFirstAsync<LedgerBoundsRow>(
       `SELECT
@@ -177,7 +185,7 @@ export async function loadLedgerSnapshot(
       FROM records
       WHERE entity_id = ?
         AND record_status IN ('posted', 'reconciled')
-        AND record_kind IN ('income', 'expense');`,
+        AND record_kind IN ${scopeRecordKinds};`,
       entityId,
     )) ?? { maxOccurredOn: null, minOccurredOn: null };
 
@@ -211,7 +219,7 @@ export async function loadLedgerSnapshot(
     FROM records
     WHERE entity_id = ?
       AND record_status IN ('posted', 'reconciled')
-      AND record_kind IN ('income', 'expense')
+      AND record_kind IN ${scopeRecordKinds}
       AND occurred_on BETWEEN ? AND ?
     ORDER BY occurred_on DESC, created_at DESC, record_id DESC;`,
     entityId,
@@ -221,6 +229,7 @@ export async function loadLedgerSnapshot(
 
   return buildLedgerSnapshotFromRows(rows, {
     periodOptions,
+    selectedScope: scopeId,
     segmentOptions,
     selectedPeriod,
     yearOptions,
@@ -314,6 +323,7 @@ export function buildLedgerSnapshotFromRows(
   rows: readonly LedgerRecordRow[],
   input: {
     periodOptions: readonly LedgerPeriodOption[];
+    selectedScope: LedgerScopeId;
     segmentOptions: readonly LedgerPeriodSegmentOption[];
     selectedPeriod: LedgerPeriodOption;
     yearOptions: readonly LedgerYearOption[];
@@ -322,16 +332,22 @@ export function buildLedgerSnapshotFromRows(
   const normalizedRows = rows
     .map((row) => ({
       ...row,
-      effectiveAmountCents: applyBusinessUse(row.amountCents, row.businessUseBps),
+      effectiveAmountCents: applyScopeAmount(row, input.selectedScope),
     }))
     .filter((row) => row.effectiveAmountCents > 0);
   const incomeRows = normalizedRows.filter((row) => row.recordKind === "income");
   const expenseRows = normalizedRows.filter((row) => row.recordKind === "expense");
+  const personalRows = normalizedRows.filter((row) => row.recordKind === "personal_spending");
   const incomeTotalCents = sumAmounts(incomeRows.map((row) => row.effectiveAmountCents));
   const expenseTotalCents = sumAmounts(expenseRows.map((row) => row.effectiveAmountCents));
+  const personalTotalCents = sumAmounts(personalRows.map((row) => row.effectiveAmountCents));
   const netIncomeCents = incomeTotalCents - expenseTotalCents;
   const assetTotalCents = Math.max(netIncomeCents, 0);
   const fundingGapCents = Math.max(netIncomeCents * -1, 0);
+  const generalLedgerTotalCents =
+    input.selectedScope === "personal"
+      ? personalTotalCents
+      : sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents));
 
   return {
     balanceSheet: {
@@ -384,20 +400,23 @@ export function buildLedgerSnapshotFromRows(
           : "Negative owner position for this reporting slice",
     },
     generalLedger: {
-      debitTotal: formatCurrencyFromCents(sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents))),
+      debitTotal: formatCurrencyFromCents(generalLedgerTotalCents),
       entries: normalizedRows.map((row) => buildGeneralLedgerEntry(row)),
       metricCards: [
         {
-          accent: "success",
-          id: "debits",
-          label: "Total Debits (Dr)",
-          value: formatCurrencyFromCents(sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents))),
+          accent: input.selectedScope === "personal" ? "danger" : "success",
+          id: "scope-total",
+          label: input.selectedScope === "personal" ? "Personal Spend" : "Total Debits (Dr)",
+          value: formatCurrencyFromCents(generalLedgerTotalCents),
         },
         {
           accent: "neutral",
-          id: "credits",
-          label: "Total Credits (Cr)",
-          value: formatCurrencyFromCents(sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents))),
+          id: "scope-count",
+          label: input.selectedScope === "personal" ? "Transactions" : "Total Credits (Cr)",
+          value:
+            input.selectedScope === "personal"
+              ? String(normalizedRows.length)
+              : formatCurrencyFromCents(generalLedgerTotalCents),
         },
       ],
       recordCountLabel: `${normalizedRows.length} ${normalizedRows.length === 1 ? "record" : "records"}`,
@@ -406,24 +425,35 @@ export function buildLedgerSnapshotFromRows(
     isEmpty: normalizedRows.length === 0,
     periodOptions: [...input.periodOptions],
     profitAndLoss: {
-      expenseRows: buildGroupedSectionRows(expenseRows, "expense"),
+      expenseRows:
+        input.selectedScope === "personal"
+          ? []
+          : buildGroupedSectionRows(expenseRows, "expense"),
       metricCards: [
         {
-          accent: "success",
+          accent: input.selectedScope === "personal" ? "neutral" : "success",
           id: "revenue-total",
-          label: "Gross Revenue",
-          value: formatCurrencyFromCents(incomeTotalCents),
+          label: input.selectedScope === "personal" ? "Business Revenue" : "Gross Revenue",
+          value: formatCurrencyFromCents(input.selectedScope === "personal" ? 0 : incomeTotalCents),
         },
         {
-          accent: "danger",
+          accent: input.selectedScope === "personal" ? "danger" : "danger",
           id: "expense-total",
-          label: "Total Expenses",
-          value: formatCurrencyFromCents(expenseTotalCents),
+          label: input.selectedScope === "personal" ? "Personal Spend" : "Total Expenses",
+          value: formatCurrencyFromCents(
+            input.selectedScope === "personal" ? personalTotalCents : expenseTotalCents,
+          ),
         },
       ],
-      netIncomeLabel: formatCurrencyFromCents(netIncomeCents),
-      revenueRows: buildGroupedSectionRows(incomeRows, "income"),
+      netIncomeLabel: formatCurrencyFromCents(
+        input.selectedScope === "personal" ? personalTotalCents * -1 : netIncomeCents,
+      ),
+      revenueRows:
+        input.selectedScope === "personal"
+          ? []
+          : buildGroupedSectionRows(incomeRows, "income"),
     },
+    selectedScope: input.selectedScope,
     segmentOptions: [...input.segmentOptions],
     selectedPeriod: input.selectedPeriod,
     yearOptions: [...input.yearOptions],
@@ -442,6 +472,7 @@ export function createEmptyLedgerSnapshot(now = new Date().toISOString().slice(0
 
   return buildLedgerSnapshotFromRows([], {
     periodOptions: buildLedgerPeriodOptions(yearOptions),
+    selectedScope: "business",
     segmentOptions: buildLedgerSegmentOptions(selectedPeriod.year),
     selectedPeriod,
     yearOptions,
@@ -573,7 +604,10 @@ function buildGeneralLedgerEntry(
         ]
       : [
           {
-            accountName: buildExpenseAccountName(row.taxLineCode),
+            accountName:
+              row.recordKind === "personal_spending"
+                ? "Personal Spending"
+                : buildExpenseAccountName(row.taxLineCode),
             amount,
             detail: normalizeLabel(row.description),
             id: `${row.recordId}-debit`,
@@ -592,7 +626,12 @@ function buildGeneralLedgerEntry(
     amount,
     dateLabel: formatDisplayDate(row.occurredOn),
     id: row.recordId,
-    kindLabel: row.recordKind === "income" ? "Income" : "Expense",
+    kindLabel:
+      row.recordKind === "income"
+        ? "Income"
+        : row.recordKind === "personal_spending"
+          ? "Personal"
+          : "Expense",
     lines,
     subtitle: row.memo?.trim() || `${formatDisplayDate(row.occurredOn)} • Ref: ${row.recordId}`,
     title: normalizeLabel(row.description),
@@ -636,6 +675,17 @@ function buildExpenseAccountName(taxLineCode: string | null): string {
   }
 
   return `Expense ${taxLineCode.toUpperCase()}`;
+}
+
+function applyScopeAmount(
+  row: LedgerRecordRow,
+  scopeId: LedgerScopeId,
+): number {
+  if (scopeId === "personal" || row.recordKind === "personal_spending") {
+    return row.amountCents;
+  }
+
+  return applyBusinessUse(row.amountCents, row.businessUseBps);
 }
 
 function buildRevenueAccountName(sourceLabel: string): string {

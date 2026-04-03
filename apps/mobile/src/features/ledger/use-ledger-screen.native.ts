@@ -6,6 +6,7 @@ import {
   getDefaultLedgerPeriodId,
   loadLedgerSnapshot,
   type LedgerPeriodSegmentId,
+  type LedgerScopeId,
   type LedgerScreenSnapshot,
   type LedgerViewId,
 } from "./ledger-reporting";
@@ -23,10 +24,12 @@ export interface UseLedgerScreenResult {
   isRefreshing: boolean;
   refresh: () => Promise<void>;
   selectPeriodSegment: (segmentId: LedgerPeriodSegmentId) => void;
+  selectScope: (scopeId: LedgerScopeId) => void;
   selectView: (view: LedgerViewId) => void;
   selectYear: (yearId: string) => void;
   selectedPeriodId: string;
   selectedSegmentId: LedgerPeriodSegmentId;
+  selectedScope: LedgerScopeId;
   selectedView: LedgerViewId;
   selectedYearId: string;
   snapshot: LedgerScreenSnapshot;
@@ -39,6 +42,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [selectedPeriodId, setSelectedPeriodId] = useState(getDefaultLedgerPeriodId);
+  const [selectedScope, setSelectedScope] = useState<LedgerScopeId>("business");
   const [selectedView, setSelectedView] = useState<LedgerViewId>("general-ledger");
   const [snapshot, setSnapshot] = useState<LedgerScreenSnapshot>(createEmptyLedgerSnapshot);
 
@@ -48,7 +52,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
     setIsRefreshing(true);
     setError(null);
 
-    loadSnapshot(database, selectedPeriodId)
+    loadSnapshot(database, selectedPeriodId, selectedScope)
       .then((nextSnapshot) => {
         if (!isMounted) {
           return;
@@ -75,7 +79,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
     return () => {
       isMounted = false;
     };
-  }, [database, refreshNonce, selectedPeriodId]);
+  }, [database, refreshNonce, selectedPeriodId, selectedScope]);
 
   return {
     error,
@@ -87,6 +91,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
     selectPeriodSegment: (segmentId) => {
       setSelectedPeriodId(buildLedgerPeriodIdForSegment(snapshot.selectedPeriod.year, segmentId));
     },
+    selectScope: setSelectedScope,
     selectView: setSelectedView,
     selectYear: (yearId) => {
       const nextPeriodId = buildLedgerPeriodIdForYear(yearId, snapshot.selectedPeriod.segmentId);
@@ -99,15 +104,21 @@ export function useLedgerScreen(): UseLedgerScreenResult {
     },
     selectedPeriodId,
     selectedSegmentId: snapshot.selectedPeriod.segmentId,
+    selectedScope,
     selectedView,
     selectedYearId: String(snapshot.selectedPeriod.year),
     snapshot,
   };
 }
 
-async function loadSnapshot(database: LedgerDatabase, preferredPeriodId: string) {
+async function loadSnapshot(
+  database: LedgerDatabase,
+  preferredPeriodId: string,
+  scopeId: LedgerScopeId,
+) {
   return loadLedgerSnapshot(createReadableStorageDatabase(database), {
     preferredPeriodId,
+    scopeId,
   });
 }
 

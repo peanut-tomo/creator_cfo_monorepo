@@ -134,6 +134,67 @@ describe("ledger reporting", () => {
       "$950.00",
       "$0.00",
     ]);
+    expect(snapshot.selectedScope).toBe("business");
+  });
+
+  it("loads personal spending separately when the ledger scope switches to personal", async () => {
+    const database = createFakeLedgerDatabase([
+      {
+        amountCents: 120_000,
+        businessUseBps: 10_000,
+        createdAt: "2026-04-02T10:00:00Z",
+        currency: "USD",
+        description: "Brand sponsorship",
+        entityId: "entity-main",
+        memo: null,
+        occurredOn: "2026-04-02",
+        recordId: "record-income-april",
+        recordKind: "income",
+        recordStatus: "posted",
+        sourceLabel: "TechDaily",
+        targetLabel: "Creator CFO",
+        taxLineCode: "line1",
+      },
+      {
+        amountCents: 6_000,
+        businessUseBps: 2_500,
+        createdAt: "2026-04-01T13:00:00Z",
+        currency: "USD",
+        description: "Personal lunch",
+        entityId: "entity-main",
+        memo: null,
+        occurredOn: "2026-04-01",
+        recordId: "record-personal-april",
+        recordKind: "personal_spending",
+        recordStatus: "posted",
+        sourceLabel: "Creator CFO",
+        targetLabel: "Cafe",
+        taxLineCode: null,
+      },
+    ]);
+
+    const snapshot = await loadLedgerSnapshot(database, {
+      now: "2026-04-03",
+      preferredPeriodId: buildLedgerPeriodId(2026, "m04"),
+      scopeId: "personal",
+    });
+
+    expect(snapshot.selectedScope).toBe("personal");
+    expect(snapshot.generalLedger.entries).toHaveLength(1);
+    expect(snapshot.generalLedger.entries[0]?.title).toBe("Personal lunch");
+    expect(snapshot.generalLedger.entries[0]?.kindLabel).toBe("Personal");
+    expect(snapshot.generalLedger.metricCards.map((card) => card.value)).toEqual([
+      "$60.00",
+      "1",
+    ]);
+    expect(snapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
+      "$0.00",
+      "$60.00",
+    ]);
+    expect(snapshot.balanceSheet.metricCards.map((card) => card.value)).toEqual([
+      "$0.00",
+      "$0.00",
+    ]);
   });
 
   it("supports year, quarter, and month selection while respecting business-use adjustments", async () => {
@@ -267,9 +328,10 @@ function createFakeLedgerDatabase(
       }
 
       const [entityId, startDate, endDate] = params as [string, string, string];
+      const allowedKinds = getAllowedKindsFromQuery(source);
       const filtered = rows
         .filter((row) => row.entityId === entityId)
-        .filter((row) => row.recordKind === "income" || row.recordKind === "expense")
+        .filter((row) => allowedKinds.includes(row.recordKind))
         .filter((row) => ledgerPostableStatuses.includes(row.recordStatus as (typeof ledgerPostableStatuses)[number]))
         .filter((row) => row.occurredOn >= startDate && row.occurredOn <= endDate)
         .sort((left, right) =>
@@ -300,9 +362,10 @@ function createFakeLedgerDatabase(
       }
 
       const [entityId] = params as [string];
+      const allowedKinds = getAllowedKindsFromQuery(source);
       const filtered = rows
         .filter((row) => row.entityId === entityId)
-        .filter((row) => row.recordKind === "income" || row.recordKind === "expense")
+        .filter((row) => allowedKinds.includes(row.recordKind))
         .filter((row) => ledgerPostableStatuses.includes(row.recordStatus as (typeof ledgerPostableStatuses)[number]));
 
       if (!filtered.length) {
@@ -320,4 +383,12 @@ function createFakeLedgerDatabase(
       } as Row;
     },
   };
+}
+
+function getAllowedKindsFromQuery(source: string): FakeLedgerRecordRow["recordKind"][] {
+  if (source.includes("('personal_spending')")) {
+    return ["personal_spending"];
+  }
+
+  return ["income", "expense"];
 }
