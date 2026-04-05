@@ -1,6 +1,9 @@
 import * as FileSystem from "expo-file-system/legacy";
 import { openDatabaseAsync } from "expo-sqlite";
-import type { StorageSqlValue } from "@creator-cfo/storage";
+import {
+  createReadableStorageDatabase,
+  type StorageSqlValue,
+} from "@creator-cfo/storage";
 
 import {
   validateDatabasePackageOrThrow,
@@ -28,12 +31,12 @@ export async function validateDatabasePackageDirectoryOrThrow(input: {
 }
 
 function createReadableDatabaseView(database: Awaited<ReturnType<typeof openDatabaseAsync>>) {
-  return {
+  return createReadableStorageDatabase({
     async getAllAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return database.getAllAsync<Row>(source, ...(params as []));
     },
     async getFirstAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return database.getFirstAsync<Row>(source, ...(params as []));
     },
-  };
+  });
 }

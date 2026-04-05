@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { structuredStoreContract, type StorageSqlValue } from "@creator-cfo/storage";
+import {
+  createReadableStorageDatabase,
+  structuredStoreContract,
+  type StorageSqlValue,
+} from "@creator-cfo/storage";
 import { validateDatabasePackageOrThrow } from "../src/storage/storage-package-integrity";
 
 function createStorageDatabase(): DatabaseSync {
@@ -27,14 +31,14 @@ function createStorageDatabase(): DatabaseSync {
 }
 
 function createReadableDatabase(database: DatabaseSync) {
-  return {
+  return createReadableStorageDatabase({
     async getAllAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return database.prepare(source).all({}, ...params) as Row[];
     },
     async getFirstAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return (database.prepare(source).get({}, ...params) as Row | undefined) ?? null;
     },
-  };
+  });
 }
 
 function seedEvidencePath(database: DatabaseSync, relativePath: string) {

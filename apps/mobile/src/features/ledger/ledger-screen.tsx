@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -23,14 +23,18 @@ import type {
   LedgerViewId,
 } from "./ledger-reporting";
 import { useLedgerScreen } from "./use-ledger-screen";
+import {
+  buildLedgerPeriodIdForYearAndSegment,
+  getAvailableQuarterPickerOptions,
+  type LedgerQuarterPickerOption,
+  type LedgerQuarterSegmentId,
+} from "./ledger-screen-state";
 
 const ledgerViews: ReadonlyArray<{ id: LedgerViewId; label: string }> = [
   { id: "general-ledger", label: "General Ledger" },
   { id: "balance-sheet", label: "Balance Sheet" },
   { id: "profit-loss", label: "Profit & Loss" },
 ];
-const quarterLabels = ["Q1", "Q2", "Q3", "Q4"] as const;
-const quarterSegmentIds = ["q1", "q2", "q3", "q4"] as const;
 const ledgerScopes: ReadonlyArray<{
   accessibilityLabel: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -45,24 +49,24 @@ export function LedgerScreen() {
   const { copy, palette } = useAppShell();
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [pickerStep, setPickerStep] = useState<"month" | "quarter" | "year">("year");
-  const [draftQuarterId, setDraftQuarterId] = useState<(typeof quarterSegmentIds)[number] | null>(null);
+  const [draftQuarterId, setDraftQuarterId] = useState<LedgerQuarterSegmentId | null>(null);
   const [draftYearId, setDraftYearId] = useState<string>("");
   const {
     error,
     isLoaded,
     isRefreshing,
     refresh,
-    selectPeriodSegment,
+    selectPeriodId,
     selectScope,
     selectView,
     selectedScope,
-    selectYear,
     selectedView,
     selectedYearId,
     snapshot,
   } = useLedgerScreen();
 
   const selectedPeriod = snapshot.selectedPeriod;
+  const hasSelectablePeriods = snapshot.yearOptions.length > 0;
   const selectedQuarterId = useMemo(
     () => getQuarterIdForSegment(selectedPeriod.segmentId),
     [selectedPeriod.segmentId],
@@ -76,8 +80,22 @@ export function LedgerScreen() {
         : [],
     [draftQuarterId, draftYearId, snapshot.periodOptions],
   );
+  const quarterOptions = useMemo(
+    () => getAvailableQuarterPickerOptions(snapshot.periodOptions, draftYearId),
+    [draftYearId, snapshot.periodOptions],
+  );
+
+  useEffect(() => {
+    if (!hasSelectablePeriods && isSelectorOpen) {
+      closeSelector();
+    }
+  }, [hasSelectablePeriods, isSelectorOpen]);
 
   const openSelector = () => {
+    if (!hasSelectablePeriods) {
+      return;
+    }
+
     setDraftYearId(selectedYearId);
     setDraftQuarterId(selectedQuarterId);
     setPickerStep("year");
@@ -93,30 +111,39 @@ export function LedgerScreen() {
 
   const handleYearChoice = (yearId: string) => {
     setDraftYearId(yearId);
-    setDraftQuarterId(selectedQuarterId);
+    setDraftQuarterId(null);
     setPickerStep("quarter");
   };
 
   const handleWholeYearChoice = (yearId: string) => {
-    selectYear(yearId);
-    selectPeriodSegment("full-year");
+    const nextPeriodId = buildLedgerPeriodIdForYearAndSegment(yearId, "full-year");
+
+    if (!nextPeriodId) {
+      return;
+    }
+
+    selectPeriodId(nextPeriodId);
     closeSelector();
   };
 
-  const handleQuarterChoice = (quarterId: (typeof quarterSegmentIds)[number]) => {
+  const handleQuarterChoice = (quarterId: LedgerQuarterSegmentId) => {
     setDraftQuarterId(quarterId);
     setPickerStep("month");
   };
 
-  const handleWholeQuarterChoice = (quarterId: (typeof quarterSegmentIds)[number]) => {
-    selectYear(draftYearId);
-    selectPeriodSegment(quarterId);
+  const handleWholeQuarterChoice = (quarterId: LedgerQuarterSegmentId) => {
+    const nextPeriodId = buildLedgerPeriodIdForYearAndSegment(draftYearId, quarterId);
+
+    if (!nextPeriodId) {
+      return;
+    }
+
+    selectPeriodId(nextPeriodId);
     closeSelector();
   };
 
   const handleMonthChoice = (period: LedgerPeriodOption) => {
-    selectYear(String(period.year));
-    selectPeriodSegment(period.segmentId);
+    selectPeriodId(period.id);
     closeSelector();
   };
 
@@ -151,10 +178,12 @@ export function LedgerScreen() {
             <View style={styles.utilityActions}>
               <Pressable
                 accessibilityRole="button"
-                onPress={openSelector}
+                disabled={!hasSelectablePeriods}
+                onPress={hasSelectablePeriods ? openSelector : undefined}
                 style={({ pressed }) => [
                   styles.utilityButton,
-                  pressed ? styles.utilityButtonPressed : null,
+                  !hasSelectablePeriods ? styles.utilityButtonDisabled : null,
+                  pressed && hasSelectablePeriods ? styles.utilityButtonPressed : null,
                 ]}
                 testID="ledger-period-picker-button"
               >
@@ -202,10 +231,12 @@ export function LedgerScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={openSelector}
+          disabled={!hasSelectablePeriods}
+          onPress={hasSelectablePeriods ? openSelector : undefined}
           style={({ pressed }) => [
             styles.periodSummaryCard,
-            pressed ? styles.periodSummaryCardPressed : null,
+            !hasSelectablePeriods ? styles.periodSummaryCardDisabled : null,
+            pressed && hasSelectablePeriods ? styles.periodSummaryCardPressed : null,
           ]}
         >
           <View style={styles.periodSummaryCardCopy}>
@@ -214,7 +245,9 @@ export function LedgerScreen() {
               {formatPopupSelection(selectedPeriod)}
             </Text>
             <Text style={styles.periodSummaryCardDetail}>
-              Tap to pick a year, then a quarter, then a month. Whole year and whole quarter stay available as default choices.
+              {hasSelectablePeriods
+                ? "Tap to pick a year, then a quarter, then a month. Whole year and whole quarter stay available as default choices."
+                : "No record-backed ranges are available for this scope yet."}
             </Text>
           </View>
           <Ionicons color="#002045" name="chevron-forward" size={18} />
@@ -390,6 +423,7 @@ export function LedgerScreen() {
         onWholeYearChoice={handleWholeYearChoice}
         onYearChoice={handleYearChoice}
         pickerStep={pickerStep}
+        quarterOptions={quarterOptions}
         yearOptions={snapshot.yearOptions}
       />
     </SafeAreaView>
@@ -409,20 +443,22 @@ function LedgerPeriodPickerModal({
   onWholeYearChoice,
   onYearChoice,
   pickerStep,
+  quarterOptions,
   yearOptions,
 }: {
   currentPeriod: LedgerPeriodOption;
-  draftQuarterId: (typeof quarterSegmentIds)[number] | null;
+  draftQuarterId: LedgerQuarterSegmentId | null;
   draftYearId: string;
   isOpen: boolean;
   monthOptions: readonly LedgerPeriodOption[];
   onClose: () => void;
   onMonthChoice: (period: LedgerPeriodOption) => void;
-  onQuarterChoice: (quarterId: (typeof quarterSegmentIds)[number]) => void;
-  onWholeQuarterChoice: (quarterId: (typeof quarterSegmentIds)[number]) => void;
+  onQuarterChoice: (quarterId: LedgerQuarterSegmentId) => void;
+  onWholeQuarterChoice: (quarterId: LedgerQuarterSegmentId) => void;
   onWholeYearChoice: (yearId: string) => void;
   onYearChoice: (yearId: string) => void;
   pickerStep: "month" | "quarter" | "year";
+  quarterOptions: readonly LedgerQuarterPickerOption[];
   yearOptions: readonly { id: string; label: string; year: number }[];
 }) {
   return (
@@ -528,29 +564,29 @@ function LedgerPeriodPickerModal({
                 <Text style={styles.modalDefaultChoiceNote}>Use the complete year without drilling into a quarter.</Text>
               </Pressable>
               <View style={styles.modalGrid}>
-                {quarterSegmentIds.map((quarterId, index) => (
-                  <View key={quarterId} style={styles.modalGridCell}>
+                {quarterOptions.map((quarterOption) => (
+                  <View key={quarterOption.id} style={styles.modalGridCell}>
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => onQuarterChoice(quarterId)}
+                      onPress={() => onQuarterChoice(quarterOption.id)}
                       style={({ pressed }) => [
                         styles.modalBlock,
-                        quarterId === draftQuarterId ? styles.modalBlockActive : null,
+                        quarterOption.id === draftQuarterId ? styles.modalBlockActive : null,
                         pressed ? styles.modalBlockPressed : null,
                       ]}
                     >
                       <Text
                         style={[
                           styles.modalBlockTitle,
-                          quarterId === draftQuarterId ? styles.modalBlockTitleActive : null,
+                          quarterOption.id === draftQuarterId ? styles.modalBlockTitleActive : null,
                         ]}
                       >
-                        {quarterLabels[index]}
+                        {quarterOption.label}
                       </Text>
                       <Text
                         style={[
                           styles.modalBlockNote,
-                          quarterId === draftQuarterId ? styles.modalBlockNoteActive : null,
+                          quarterOption.id === draftQuarterId ? styles.modalBlockNoteActive : null,
                         ]}
                       >
                         Open the months in this quarter
@@ -558,13 +594,13 @@ function LedgerPeriodPickerModal({
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => onWholeQuarterChoice(quarterId)}
+                      onPress={() => onWholeQuarterChoice(quarterOption.id)}
                       style={({ pressed }) => [
                         styles.modalSubAction,
                         pressed ? styles.modalSubActionPressed : null,
                       ]}
                     >
-                      <Text style={styles.modalSubActionLabel}>All {quarterLabels[index]}</Text>
+                      <Text style={styles.modalSubActionLabel}>{quarterOption.wholeLabel}</Text>
                     </Pressable>
                   </View>
                 ))}
@@ -647,7 +683,7 @@ function StepPill({ active, label }: { active: boolean; label: string }) {
 
 function getQuarterIdForSegment(
   segmentId: LedgerPeriodOption["segmentId"],
-): (typeof quarterSegmentIds)[number] | null {
+): LedgerQuarterSegmentId | null {
   if (segmentId === "q1" || segmentId === "m01" || segmentId === "m02" || segmentId === "m03") {
     return "q1";
   }
@@ -668,6 +704,10 @@ function getQuarterIdForSegment(
 }
 
 function formatPopupSelection(period: LedgerPeriodOption): string {
+  if (period.year < 1) {
+    return period.label;
+  }
+
   if (period.segmentId === "full-year") {
     return `All ${period.year}`;
   }
@@ -1171,6 +1211,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 16,
   },
+  periodSummaryCardDisabled: {
+    opacity: 0.72,
+  },
   periodSummaryCardCopy: {
     flex: 1,
     gap: 4,
@@ -1495,6 +1538,9 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: "center",
     width: 48,
+  },
+  utilityButtonDisabled: {
+    opacity: 0.55,
   },
   utilityButtonPressed: {
     backgroundColor: "#F0F4F8",

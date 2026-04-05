@@ -139,12 +139,10 @@ interface LedgerRecordRow {
   taxLineCode: string | null;
 }
 
-interface LedgerBoundsRow {
-  maxOccurredOn: string | null;
-  minOccurredOn: string | null;
+interface LedgerAvailableDateRow {
+  occurredOn: string;
 }
 
-const earliestLedgerYear = 2018;
 const monthSegmentIds = [
   "m01",
   "m02",
@@ -160,79 +158,78 @@ const monthSegmentIds = [
   "m12",
 ] as const satisfies readonly LedgerPeriodSegmentId[];
 const quarterSegmentIds = ["q1", "q2", "q3", "q4"] as const satisfies readonly LedgerPeriodSegmentId[];
+const unavailableLedgerPeriodId = "unavailable";
 
 export async function loadLedgerSnapshot(
   database: ReadableStorageDatabase,
   input: {
     entityId?: string;
+    forceDefaultSelection?: boolean;
     now?: string;
     preferredPeriodId?: string | null;
     scopeId?: LedgerScopeId;
   } = {},
 ): Promise<LedgerScreenSnapshot> {
   const entityId = input.entityId ?? defaultEntityId;
-  const now = normalizeIsoDate(input.now ?? new Date().toISOString().slice(0, 10));
   const scopeId = input.scopeId ?? "business";
   const scopeRecordKinds =
     scopeId === "personal"
       ? "('personal_spending')"
       : "('income', 'expense')";
-  const bounds =
-    (await database.getFirstAsync<LedgerBoundsRow>(
-      `SELECT
-        MIN(occurred_on) AS minOccurredOn,
-        MAX(occurred_on) AS maxOccurredOn
-      FROM records
-      WHERE entity_id = ?
-        AND record_status IN ('posted', 'reconciled')
-        AND record_kind IN ${scopeRecordKinds};`,
-      entityId,
-    )) ?? { maxOccurredOn: null, minOccurredOn: null };
-
-  const yearOptions = buildLedgerYearOptions({
-    maxOccurredOn: bounds.maxOccurredOn,
-    now,
-  });
-  const defaultPeriodId = getDefaultLedgerPeriodId(now);
-  const selectedPeriod =
-    resolveLedgerPeriodOption(input.preferredPeriodId ?? defaultPeriodId, yearOptions) ??
-    resolveLedgerPeriodOption(defaultPeriodId, yearOptions) ??
-    resolveLedgerPeriodOption(buildLedgerPeriodId(Number(now.slice(0, 4)), "full-year"), yearOptions) ??
-    buildLedgerPeriodOption(Number(now.slice(0, 4)), "full-year");
-  const segmentOptions = buildLedgerSegmentOptions(selectedPeriod.year);
-  const periodOptions = buildLedgerPeriodOptions(yearOptions);
-
-  const rows = await database.getAllAsync<LedgerRecordRow>(
-    `SELECT
-      record_id AS recordId,
-      description,
-      memo,
-      occurred_on AS occurredOn,
-      created_at AS createdAt,
-      currency,
-      amount_cents AS amountCents,
-      record_kind AS recordKind,
-      source_label AS sourceLabel,
-      target_label AS targetLabel,
-      COALESCE(business_use_bps, 10000) AS businessUseBps,
-      tax_line_code AS taxLineCode
+  const occurredOnRows = await database.getAllAsync<LedgerAvailableDateRow>(
+    `SELECT DISTINCT
+      occurred_on AS occurredOn
     FROM records
     WHERE entity_id = ?
       AND record_status IN ('posted', 'reconciled')
       AND record_kind IN ${scopeRecordKinds}
-      AND occurred_on BETWEEN ? AND ?
-    ORDER BY occurred_on DESC, created_at DESC, record_id DESC;`,
+    ORDER BY occurred_on DESC;`,
     entityId,
-    selectedPeriod.startDate,
-    selectedPeriod.endDate,
   );
 
+  const availability = buildLedgerAvailability(
+    occurredOnRows.map((row) => normalizeIsoDate(row.occurredOn)),
+  );
+  const selectedPeriod = resolveSelectedLedgerPeriod({
+    forceDefaultSelection: input.forceDefaultSelection ?? false,
+    periodOptions: availability.periodOptions,
+    preferredPeriodId: input.preferredPeriodId ?? null,
+    yearOptions: availability.yearOptions,
+  });
+  const segmentOptions = availability.segmentOptionsByYear.get(selectedPeriod.year) ?? [];
+  const rows =
+    availability.periodOptions.length > 0
+      ? await database.searchRecordsByDateRangeAsync<LedgerRecordRow>({
+          dateRange: {
+            endOn: selectedPeriod.endDate,
+            startOn: selectedPeriod.startDate,
+          },
+          entityId,
+          orderBy: "r.occurred_on DESC, r.created_at DESC, r.record_id DESC",
+          recordKinds:
+            scopeId === "personal" ? ["personal_spending"] : ["income", "expense"],
+          recordStatuses: ledgerPostableStatuses,
+          select: `r.record_id AS recordId,
+            r.description,
+            r.memo,
+            r.occurred_on AS occurredOn,
+            r.created_at AS createdAt,
+            r.currency,
+            r.amount_cents AS amountCents,
+            r.record_kind AS recordKind,
+            r.source_label AS sourceLabel,
+            r.target_label AS targetLabel,
+            COALESCE(r.business_use_bps, 10000) AS businessUseBps,
+            r.tax_line_code AS taxLineCode`,
+        })
+      : [];
+
   return buildLedgerSnapshotFromRows(rows, {
-    periodOptions,
+    periodOptions: availability.periodOptions,
     selectedScope: scopeId,
     segmentOptions,
     selectedPeriod,
-    yearOptions,
+    yearOptions: availability.yearOptions,
   });
 }
 
@@ -240,45 +237,47 @@ export function buildLedgerPeriodId(year: number, segmentId: LedgerPeriodSegment
   return `${year}:${segmentId}`;
 }
 
-export function getDefaultLedgerPeriodId(now = new Date().toISOString().slice(0, 10)): string {
-  const normalizedNow = normalizeIsoDate(now);
-  return buildLedgerPeriodId(
-    Number(normalizedNow.slice(0, 4)),
-    `m${normalizedNow.slice(5, 7)}` as LedgerPeriodSegmentId,
-  );
+export function getDefaultLedgerPeriodId(
+  yearOptions: readonly LedgerYearOption[],
+): string | null {
+  const latestYear = yearOptions[0]?.year;
+  return typeof latestYear === "number"
+    ? buildLedgerPeriodId(latestYear, "full-year")
+    : null;
 }
 
-export function buildLedgerYearOptions(input: {
-  maxOccurredOn: string | null;
-  now: string;
-}): LedgerYearOption[] {
-  const nowYear = Number(normalizeIsoDate(input.now).slice(0, 4));
-  const maxOccurredYear = input.maxOccurredOn ? Number(normalizeIsoDate(input.maxOccurredOn).slice(0, 4)) : nowYear;
-  const lastYear = Math.max(nowYear, maxOccurredYear, earliestLedgerYear);
-  const options: LedgerYearOption[] = [];
-
-  for (let year = lastYear; year >= earliestLedgerYear; year -= 1) {
-    options.push({
+export function buildLedgerYearOptions(years: readonly number[]): LedgerYearOption[] {
+  return [...years]
+    .sort((left, right) => right - left)
+    .map((year) => ({
       id: String(year),
       label: String(year),
       year,
-    });
-  }
-
-  return options;
+    }));
 }
 
-export function buildLedgerSegmentOptions(year: number): LedgerPeriodSegmentOption[] {
-  const options: LedgerPeriodSegmentOption[] = [
-    buildLedgerSegmentOption(year, "full-year"),
-  ];
+export function buildLedgerSegmentOptions(
+  year: number,
+  availableSegmentIds?: ReadonlySet<LedgerPeriodSegmentId>,
+): LedgerPeriodSegmentOption[] {
+  const options: LedgerPeriodSegmentOption[] = [];
+  const includeSegment = (segmentId: LedgerPeriodSegmentId) =>
+    !availableSegmentIds || availableSegmentIds.has(segmentId);
+
+  if (includeSegment("full-year")) {
+    options.push(buildLedgerSegmentOption(year, "full-year"));
+  }
 
   for (const segmentId of quarterSegmentIds) {
-    options.push(buildLedgerSegmentOption(year, segmentId));
+    if (includeSegment(segmentId)) {
+      options.push(buildLedgerSegmentOption(year, segmentId));
+    }
   }
 
   for (const segmentId of monthSegmentIds) {
-    options.push(buildLedgerSegmentOption(year, segmentId));
+    if (includeSegment(segmentId)) {
+      options.push(buildLedgerSegmentOption(year, segmentId));
+    }
   }
 
   return options;
@@ -286,9 +285,10 @@ export function buildLedgerSegmentOptions(year: number): LedgerPeriodSegmentOpti
 
 export function buildLedgerPeriodOptions(
   yearOptions: readonly LedgerYearOption[],
+  segmentIdsByYear?: ReadonlyMap<number, ReadonlySet<LedgerPeriodSegmentId>>,
 ): LedgerPeriodOption[] {
   return yearOptions.flatMap((option) =>
-    buildLedgerSegmentOptions(option.year).map((segment) => ({
+    buildLedgerSegmentOptions(option.year, segmentIdsByYear?.get(option.year)).map((segment) => ({
       ...segment,
       id: buildLedgerPeriodId(option.year, segment.id),
       label: formatLedgerPeriodLabel(option.year, segment.id),
@@ -300,23 +300,13 @@ export function buildLedgerPeriodOptions(
 
 export function resolveLedgerPeriodOption(
   periodId: string | null | undefined,
-  yearOptions: readonly LedgerYearOption[],
+  periodOptions: readonly LedgerPeriodOption[],
 ): LedgerPeriodOption | null {
   if (!periodId) {
     return null;
   }
 
-  const parsed = parseLedgerPeriodId(periodId);
-
-  if (!parsed) {
-    return null;
-  }
-
-  if (!yearOptions.some((option) => option.year === parsed.year)) {
-    return null;
-  }
-
-  return buildLedgerPeriodOption(parsed.year, parsed.segmentId);
+  return periodOptions.find((option) => option.id === periodId) ?? null;
 }
 
 export function buildLedgerSnapshotFromRows(
@@ -460,45 +450,21 @@ export function buildLedgerSnapshotFromRows(
   };
 }
 
-export function createEmptyLedgerSnapshot(now = new Date().toISOString().slice(0, 10)): LedgerScreenSnapshot {
-  const normalizedNow = normalizeIsoDate(now);
-  const yearOptions = buildLedgerYearOptions({
-    maxOccurredOn: null,
-    now: normalizedNow,
-  });
-  const selectedPeriod =
-    resolveLedgerPeriodOption(getDefaultLedgerPeriodId(normalizedNow), yearOptions) ??
-    buildLedgerPeriodOption(Number(normalizedNow.slice(0, 4)), "full-year");
-
+export function createEmptyLedgerSnapshot(): LedgerScreenSnapshot {
   return buildLedgerSnapshotFromRows([], {
-    periodOptions: buildLedgerPeriodOptions(yearOptions),
+    periodOptions: [],
     selectedScope: "business",
-    segmentOptions: buildLedgerSegmentOptions(selectedPeriod.year),
-    selectedPeriod,
-    yearOptions,
+    segmentOptions: [],
+    selectedPeriod: createUnavailableLedgerPeriodOption(),
+    yearOptions: [],
   });
-}
-
-function buildLedgerPeriodOption(
-  year: number,
-  segmentId: LedgerPeriodSegmentId,
-): LedgerPeriodOption {
-  const segment = buildLedgerSegmentOption(year, segmentId);
-
-  return {
-    ...segment,
-    id: buildLedgerPeriodId(year, segmentId),
-    label: formatLedgerPeriodLabel(year, segmentId),
-    segmentId,
-    year,
-  };
 }
 
 function parseLedgerPeriodId(periodId: string): { segmentId: LedgerPeriodSegmentId; year: number } | null {
   const [yearValue, segmentId] = periodId.split(":");
   const year = Number(yearValue);
 
-  if (!Number.isInteger(year) || year < earliestLedgerYear || !isLedgerSegmentId(segmentId)) {
+  if (!Number.isInteger(year) || year < 1 || !isLedgerSegmentId(segmentId)) {
     return null;
   }
 
@@ -576,6 +542,142 @@ function formatLedgerPeriodLabel(year: number, segmentId: LedgerPeriodSegmentId)
 
   const monthNumber = Number(segmentId.slice(1));
   return `${monthNamesLong[monthNumber - 1] ?? "Month"} ${year}`;
+}
+
+function buildLedgerAvailability(
+  occurredOnValues: readonly string[],
+): {
+  periodOptions: LedgerPeriodOption[];
+  segmentOptionsByYear: Map<number, LedgerPeriodSegmentOption[]>;
+  yearOptions: LedgerYearOption[];
+} {
+  const segmentIdsByYear = new Map<number, Set<LedgerPeriodSegmentId>>();
+
+  for (const occurredOn of occurredOnValues) {
+    const year = Number(occurredOn.slice(0, 4));
+    const monthNumber = Number(occurredOn.slice(5, 7));
+
+    if (!Number.isInteger(year) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+      continue;
+    }
+
+    const availableSegments = segmentIdsByYear.get(year) ?? new Set<LedgerPeriodSegmentId>();
+    const quarterId = quarterSegmentIds[Math.floor((monthNumber - 1) / 3)];
+    const monthId = `m${padMonth(monthNumber)}` as LedgerPeriodSegmentId;
+
+    availableSegments.add("full-year");
+    if (quarterId) {
+      availableSegments.add(quarterId);
+    }
+    availableSegments.add(monthId);
+    segmentIdsByYear.set(year, availableSegments);
+  }
+
+  const yearOptions = buildLedgerYearOptions([...segmentIdsByYear.keys()]);
+  const readonlySegmentIdsByYear = new Map<number, ReadonlySet<LedgerPeriodSegmentId>>(
+    [...segmentIdsByYear.entries()].map(([year, segmentIds]) => [year, segmentIds]),
+  );
+  const segmentOptionsByYear = new Map<number, LedgerPeriodSegmentOption[]>(
+    yearOptions.map((option) => [
+      option.year,
+      buildLedgerSegmentOptions(option.year, readonlySegmentIdsByYear.get(option.year)),
+    ]),
+  );
+
+  return {
+    periodOptions: buildLedgerPeriodOptions(yearOptions, readonlySegmentIdsByYear),
+    segmentOptionsByYear,
+    yearOptions,
+  };
+}
+
+function resolveSelectedLedgerPeriod(input: {
+  forceDefaultSelection: boolean;
+  periodOptions: readonly LedgerPeriodOption[];
+  preferredPeriodId: string | null;
+  yearOptions: readonly LedgerYearOption[];
+}): LedgerPeriodOption {
+  const defaultPeriodId = getDefaultLedgerPeriodId(input.yearOptions);
+  const defaultPeriod =
+    resolveLedgerPeriodOption(defaultPeriodId, input.periodOptions) ?? null;
+
+  if (input.forceDefaultSelection) {
+    return defaultPeriod ?? createUnavailableLedgerPeriodOption();
+  }
+
+  return (
+    resolveLedgerPeriodOption(input.preferredPeriodId, input.periodOptions) ??
+    resolveLedgerFallbackPeriodOption(input.preferredPeriodId, input.periodOptions, defaultPeriod) ??
+    defaultPeriod ??
+    createUnavailableLedgerPeriodOption()
+  );
+}
+
+function resolveLedgerFallbackPeriodOption(
+  preferredPeriodId: string | null,
+  periodOptions: readonly LedgerPeriodOption[],
+  defaultPeriod: LedgerPeriodOption | null,
+): LedgerPeriodOption | null {
+  if (!preferredPeriodId) {
+    return null;
+  }
+
+  const parsed = parseLedgerPeriodId(preferredPeriodId);
+
+  if (!parsed) {
+    return null;
+  }
+
+  const latestMonth = pickLatestLedgerPeriodOption(periodOptions, "month");
+  const latestQuarter = pickLatestLedgerPeriodOption(periodOptions, "quarter");
+
+  switch (getLedgerPeriodGranularity(parsed.segmentId)) {
+    case "month":
+      return latestMonth ?? latestQuarter ?? defaultPeriod;
+    case "quarter":
+      return latestQuarter ?? defaultPeriod;
+    case "full-year":
+    default:
+      return defaultPeriod;
+  }
+}
+
+function pickLatestLedgerPeriodOption(
+  periodOptions: readonly LedgerPeriodOption[],
+  granularity: "full-year" | "month" | "quarter",
+): LedgerPeriodOption | null {
+  return [...periodOptions]
+    .filter((option) => getLedgerPeriodGranularity(option.segmentId) === granularity)
+    .sort(compareLedgerPeriodRecency)[0] ?? null;
+}
+
+function compareLedgerPeriodRecency(left: LedgerPeriodOption, right: LedgerPeriodOption): number {
+  return (
+    right.endDate.localeCompare(left.endDate) ||
+    right.startDate.localeCompare(left.startDate)
+  );
+}
+
+function getLedgerPeriodGranularity(
+  segmentId: LedgerPeriodSegmentId,
+): "full-year" | "month" | "quarter" {
+  if (segmentId === "full-year") {
+    return "full-year";
+  }
+
+  return segmentId.startsWith("q") ? "quarter" : "month";
+}
+
+function createUnavailableLedgerPeriodOption(): LedgerPeriodOption {
+  return {
+    endDate: "",
+    id: unavailableLedgerPeriodId,
+    label: "No records yet",
+    segmentId: "full-year",
+    startDate: "",
+    summary: "No record-backed ranges are available for this scope.",
+    year: 0,
+  };
 }
 
 function buildGeneralLedgerEntry(

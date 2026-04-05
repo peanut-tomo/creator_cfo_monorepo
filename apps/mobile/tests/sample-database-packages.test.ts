@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  createReadableStorageDatabase,
   loadScheduleCAggregation,
   loadScheduleSEPreview,
   scheduleCSupportedLineDefinitions,
@@ -21,14 +22,14 @@ const packageARoot = join(fixturesRoot, "package-a-clean", "creator-cfo-vault");
 const packageBRoot = join(fixturesRoot, "package-b-mixed", "creator-cfo-vault");
 
 function createReadableDatabase(database: DatabaseSync) {
-  return {
+  return createReadableStorageDatabase({
     async getAllAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return database.prepare(source).all({}, ...params) as Row[];
     },
     async getFirstAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return (database.prepare(source).get({}, ...params) as Row | undefined) ?? null;
     },
-  };
+  });
 }
 
 function openDatabase(packageRoot: string) {

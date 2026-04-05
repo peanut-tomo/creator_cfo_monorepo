@@ -1,6 +1,10 @@
 import * as FileSystem from "expo-file-system/legacy";
 import type { SQLiteDatabase } from "expo-sqlite";
-import { structuredStoreContract, type StorageSqlValue } from "@creator-cfo/storage";
+import {
+  createReadableStorageDatabase,
+  structuredStoreContract,
+  type StorageSqlValue,
+} from "@creator-cfo/storage";
 
 import { initializeLocalDatabase } from "./database";
 import { validateDatabasePackageOrThrow } from "./storage-package-integrity";
@@ -37,14 +41,14 @@ export async function initializeActivePackageDatabase(database: SQLiteDatabase):
 }
 
 function createReadableDatabaseView(database: SQLiteDatabase) {
-  return {
+  return createReadableStorageDatabase({
     async getAllAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return database.getAllAsync<Row>(source, ...(params as []));
     },
     async getFirstAsync<Row>(source: string, ...params: StorageSqlValue[]) {
       return database.getFirstAsync<Row>(source, ...(params as []));
     },
-  };
+  });
 }
 
 export async function ensureEvidenceColumns(database: SQLiteDatabase): Promise<void> {
