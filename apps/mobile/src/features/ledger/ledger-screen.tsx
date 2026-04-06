@@ -22,6 +22,7 @@ import type {
   LedgerSectionRow,
   LedgerViewId,
 } from "./ledger-reporting";
+import { LedgerTaxHelper } from "./ledger-tax-helper";
 import { useLedgerScreen } from "./use-ledger-screen";
 import {
   buildLedgerPeriodIdForYearAndSegment,
@@ -399,6 +400,11 @@ export function LedgerScreen() {
             ) : null}
           </>
         )}
+
+        <LedgerTaxHelper
+          selectedScope={selectedScope}
+          yearOptions={snapshot.yearOptions}
+        />
 
         <View style={styles.endCap}>
           <View style={styles.endCapBar} />
