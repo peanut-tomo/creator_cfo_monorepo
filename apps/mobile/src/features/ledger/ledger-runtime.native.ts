@@ -306,7 +306,7 @@ export async function runPlanner(input: {
       entityId: defaultEntityId,
       evidenceId,
       evidenceKind: input.mimeType?.startsWith("image/") ? "receipt_photo" : "receipt_document",
-      filePath: input.fileName,
+      filePath: "",
       files: [
         {
           capturedAt: now,
@@ -314,7 +314,7 @@ export async function runPlanner(input: {
           isPrimary: true,
           mimeType: input.mimeType,
           originalFileName: input.fileName,
-          relativePath: input.fileName,
+          relativePath: "",
           sha256Hex: "0000000000",
           sizeBytes: null,
           vaultCollection: "evidence-objects",
