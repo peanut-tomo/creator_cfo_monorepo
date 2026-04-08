@@ -135,6 +135,7 @@ export async function runPlanner(input: {
   fileName: string;
   mimeType: string | null;
   model: string;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
   rawText: string;
 }): Promise<PlannerResult> {
@@ -148,6 +149,7 @@ export async function runPlanner(input: {
     evidenceId,
     fileName: input.fileName,
     mimeType: input.mimeType,
+    profileInfo: input.profileInfo,
     rawJson: input.rawJson,
   });
 

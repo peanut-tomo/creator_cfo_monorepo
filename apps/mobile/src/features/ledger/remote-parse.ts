@@ -23,6 +23,7 @@ export async function planEvidenceDbUpdates(input: {
   evidenceId: string;
   fileName: string;
   mimeType: string | null;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
 }): Promise<ReceiptPlannerPayload> {
   const { normalizeReceiptPlannerPayload } = await import("@creator-cfo/schemas");
@@ -92,14 +93,23 @@ export async function planEvidenceDbUpdates(input: {
     "Example output:",
     exampleOutput,
     "",
+    "When sourceProfileInfo is provided in the user prompt, use it to determine which party in the transaction is the current user/entity.",
+    "The profile owner is typically the payer (source) for expenses, or the payee (target) for income.",
+    "Map sourceLabel / targetLabel accordingly based on the transaction direction and profile identity.",
+    "If sourceProfileInfo is null, proceed without assuming source identity — flag in warnings if ambiguous.",
+    "",
     "Return JSON only. No markdown, no code blocks, no explanations.",
   ].join("\n");
+
+  const hasProfileInfo = input.profileInfo &&
+    (input.profileInfo.name || input.profileInfo.email || input.profileInfo.phone);
 
   const userPrompt = JSON.stringify({
     evidenceId: input.evidenceId,
     fileName: input.fileName,
     mimeType: input.mimeType,
     parsedData: input.rawJson,
+    sourceProfileInfo: hasProfileInfo ? input.profileInfo : null,
   });
 
   const apiInput = [

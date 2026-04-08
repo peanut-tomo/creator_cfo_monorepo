@@ -7,6 +7,7 @@ import { SectionCard } from "@creator-cfo/ui";
 import { localePreferenceOptions, themePreferenceOptions } from "../app-shell/copy";
 import { useAppShell } from "../app-shell/provider";
 import type { LocalePreference, ThemePreference } from "../app-shell/types";
+import type { ProfileInfo } from "../app-shell/types";
 import { pickAndImportDatabasePackageAsync } from "../../storage/database-import";
 
 function PreferencePill(props: {
@@ -51,16 +52,19 @@ export function ProfileScreen() {
     openAiApiKey,
     palette,
     refreshStorageGateState,
+    profileInfo,
     session,
     sessionDisplayName,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
+    setProfileInfo,
     setThemePreference,
     signOut,
     themePreference,
   } = useAppShell();
   const [apiKeyDraft, setApiKeyDraft] = useState(openAiApiKey);
+  const [draftProfile, setDraftProfile] = useState<ProfileInfo>(profileInfo);
   const [databaseImportMessage, setDatabaseImportMessage] = useState<{
     tone: "error" | "success";
     value: string;
@@ -71,6 +75,9 @@ export function ProfileScreen() {
     setApiKeyDraft(openAiApiKey);
   }, [openAiApiKey]);
 
+  useEffect(() => {
+    setDraftProfile(profileInfo);
+  }, [profileInfo]);
   const themeLabels: Record<ThemePreference, string> = {
     dark: copy.common.dark,
     light: copy.common.light,
@@ -136,10 +143,99 @@ export function ProfileScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard eyebrow="AI Parse" palette={palette} title="Vercel Parse API">
+        <SectionCard eyebrow="Profile" palette={palette} title="Profile">
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
-            Store your OpenAI API key locally on this device. The parse base URL and model come from
-            runtime env config, and the key is only sent in the request header, not saved to SQLite.
+            Your profile info is stored locally on this device and used as source context when mapping receipts.
+          </Text>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Name</Text>
+            <TextInput
+              autoCapitalize="words"
+              autoCorrect={false}
+              onChangeText={(value) => setDraftProfile((prev) => ({ ...prev, name: value }))}
+              placeholder="Your name"
+              placeholderTextColor={palette.inkMuted}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              testID="profile-name-input"
+              value={draftProfile.name}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Email</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              onChangeText={(value) => setDraftProfile((prev) => ({ ...prev, email: value }))}
+              placeholder="you@example.com"
+              placeholderTextColor={palette.inkMuted}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              testID="profile-email-input"
+              value={draftProfile.email}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Phone</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="phone-pad"
+              onChangeText={(value) => setDraftProfile((prev) => ({ ...prev, phone: value }))}
+              placeholder="+1 555-0100"
+              placeholderTextColor={palette.inkMuted}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              testID="profile-phone-input"
+              value={draftProfile.phone}
+            />
+          </View>
+
+          <View style={styles.optionRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                void setProfileInfo(draftProfile);
+              }}
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: palette.ink,
+                },
+              ]}
+              testID="profile-save-button"
+            >
+              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save Profile</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+
+        <SectionCard eyebrow="AI" palette={palette} title="OpenAI API Key">
+          <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
+            Store your OpenAI API key locally on this device. Upload parsing will send the key only in
+            the request header and will not save it to SQLite.
           </Text>
 
           <View style={styles.fieldBlock}>
@@ -176,7 +272,7 @@ export function ProfileScreen() {
                 },
               ]}
             >
-              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save API Settings</Text>
+              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save API Key</Text>
             </Pressable>
 
             <Pressable
@@ -311,7 +407,7 @@ const styles = StyleSheet.create({
   container: {
     gap: 16,
     padding: 20,
-    paddingBottom: 36,
+    paddingBottom: 120,
   },
   databaseMessage: {
     fontSize: 13,

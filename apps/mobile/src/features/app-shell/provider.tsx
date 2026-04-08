@@ -20,6 +20,7 @@ import {
   loadPersistedAppState,
   persistLocalePreference,
   persistOpenAiApiKey,
+  persistProfileInfo,
   persistSession,
   persistThemePreference,
 } from "./storage";
@@ -27,6 +28,7 @@ import type {
   AppSession,
   LocalePreference,
   PersistedAppState,
+  ProfileInfo,
   ThemePreference,
 } from "./types";
 
@@ -40,12 +42,14 @@ interface AppShellContextValue {
   localePreference: LocalePreference;
   openAiApiKey: string;
   palette: (typeof surfaceThemes)[keyof typeof surfaceThemes];
+  profileInfo: ProfileInfo;
   session: AppSession | null;
   sessionDisplayName: string;
   refreshStorageGateState: () => Promise<StorageGateState>;
   setStorageSuspended: (value: boolean) => void;
   setLocalePreference: (value: LocalePreference) => Promise<void>;
   setOpenAiApiKey: (value: string) => Promise<void>;
+  setProfileInfo: (value: ProfileInfo) => Promise<void>;
   setThemePreference: (value: ThemePreference) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithApple: (input: {
@@ -64,11 +68,7 @@ const AppShellContext = createContext<AppShellContextValue | null>(null);
 const initialState: PersistedAppState = {
   localePreference: "system",
   openAiApiKey: "",
-  profileInfo: {
-    email: "",
-    name: "",
-    phone: "",
-  },
+  profileInfo: { email: "", name: "", phone: "" },
   session: null,
   themePreference: "system",
 };
@@ -146,6 +146,10 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     await persistOpenAiApiKey(normalized);
   };
 
+  const setProfileInfo = async (value: ProfileInfo) => {
+    setState((current) => ({ ...current, profileInfo: value }));
+    await persistProfileInfo(value);
+  };
   const setSession = async (session: AppSession | null) => {
     setState((current) => ({ ...current, session }));
     await persistSession(session);
@@ -170,12 +174,14 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     localePreference: state.localePreference,
     openAiApiKey: state.openAiApiKey,
     palette,
+    profileInfo: state.profileInfo,
     session: state.session,
     sessionDisplayName: getSessionDisplayName(state.session),
     refreshStorageGateState,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
+    setProfileInfo,
     setThemePreference,
     signOut: async () => {
       await setSession(null);

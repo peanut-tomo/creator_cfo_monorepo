@@ -2,6 +2,12 @@
 
 本目录存放 **Harness / Testor / Dev** 三个角色的提示词与行为边界（`harness.md`、`testor.md`、`dev.md`）。
 
+当前基线已包含：
+
+- Harness 的代码 review、打回重做、结构化 handoff / 上下文爆炸兜底要求
+- Testor 的真实设备 / 模拟器逐项点击验收要求
+- 与 `.cursor/rules/work_flow.md` 对齐的证据门禁
+
 ## 维护约定（给人类与 Agent）
 
 - 这些文件属于**仓库级、长期稳定**的角色配置，不是「当前需求的草稿纸」。

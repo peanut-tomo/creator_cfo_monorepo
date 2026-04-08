@@ -80,3 +80,4 @@ pnpm smoke
 15. 在「设置」中执行退出登录，确认应用回到登录页。
 16. 若在支持的 iOS 设备上，验证 Apple 登录可进入主壳层；若当前环境不支持，确认会优雅提示并允许游客继续。
 17. 运行 `pnpm contract:check`，确认本地存储与设备状态契约测试通过。
+18. 在「设置」页确认 Profile 模块可见（Name / Email / Phone 三个字段），输入后点击 Save Profile，退出重进后回显正确。设置页不再出现 "Vercel API Base URL" 或等价配置项。上传文件 → Map to Records → 确认 planner 不报错且 source / target 映射合理（若已填写 Profile，source 应优先归属到 Profile 主体）。

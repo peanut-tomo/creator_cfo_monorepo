@@ -10,7 +10,7 @@ import { usePlannerWorkflow } from "./use-planner-workflow";
 
 export function LedgerParseScreen() {
   const router = useRouter();
-  const { palette } = useAppShell();
+  const { palette, profileInfo } = useAppShell();
   const params = useLocalSearchParams<{
     fileName?: string;
     rawJson?: string;
@@ -46,6 +46,7 @@ export function LedgerParseScreen() {
     fileName,
     mimeType,
     model,
+    profileInfo,
     rawJson: parsedRawJson,
     rawText,
   });
