@@ -50,20 +50,17 @@ export function ProfileScreen() {
     localePreference,
     openAiApiKey,
     palette,
-    parseApiBaseUrl,
     refreshStorageGateState,
     session,
     sessionDisplayName,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
-    setParseApiBaseUrl,
     setThemePreference,
     signOut,
     themePreference,
   } = useAppShell();
   const [apiKeyDraft, setApiKeyDraft] = useState(openAiApiKey);
-  const [baseUrlDraft, setBaseUrlDraft] = useState(parseApiBaseUrl);
   const [databaseImportMessage, setDatabaseImportMessage] = useState<{
     tone: "error" | "success";
     value: string;
@@ -73,10 +70,6 @@ export function ProfileScreen() {
   useEffect(() => {
     setApiKeyDraft(openAiApiKey);
   }, [openAiApiKey]);
-
-  useEffect(() => {
-    setBaseUrlDraft(parseApiBaseUrl);
-  }, [parseApiBaseUrl]);
 
   const themeLabels: Record<ThemePreference, string> = {
     dark: copy.common.dark,
@@ -145,29 +138,9 @@ export function ProfileScreen() {
 
         <SectionCard eyebrow="AI Parse" palette={palette} title="Vercel Parse API">
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
-            Store your Vercel API URL and OpenAI API key locally on this device. Upload parsing will
-            send the key only in the request header and will not save it to SQLite.
+            Store your OpenAI API key locally on this device. The parse base URL and model come from
+            runtime env config, and the key is only sent in the request header, not saved to SQLite.
           </Text>
-
-          <View style={styles.fieldBlock}>
-            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Vercel API Base URL</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={setBaseUrlDraft}
-              placeholder="https://your-project.vercel.app"
-              placeholderTextColor={palette.inkMuted}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: palette.paperMuted,
-                  borderColor: palette.border,
-                  color: palette.ink,
-                },
-              ]}
-              value={baseUrlDraft}
-            />
-          </View>
 
           <View style={styles.fieldBlock}>
             <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>OpenAI API Key</Text>
@@ -194,10 +167,7 @@ export function ProfileScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                void Promise.all([
-                  setParseApiBaseUrl(baseUrlDraft),
-                  setOpenAiApiKey(apiKeyDraft),
-                ]);
+                void setOpenAiApiKey(apiKeyDraft);
               }}
               style={[
                 styles.actionButton,
@@ -213,8 +183,7 @@ export function ProfileScreen() {
               accessibilityRole="button"
               onPress={() => {
                 setApiKeyDraft("");
-                setBaseUrlDraft("");
-                void Promise.all([setOpenAiApiKey(""), setParseApiBaseUrl("")]);
+                void setOpenAiApiKey("");
               }}
               style={[
                 styles.actionButton,
