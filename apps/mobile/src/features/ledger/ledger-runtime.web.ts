@@ -387,7 +387,10 @@ function loadRecords(): HomeRecentRecord[] {
 
 export function resetLedgerWebRuntimeStateForTests() {
   plannerStateStore.clear();
-  if (typeof localStorage !== "undefined") {
+  if (
+    typeof localStorage !== "undefined" &&
+    typeof localStorage.removeItem === "function"
+  ) {
     localStorage.removeItem(storageKey);
   }
 }

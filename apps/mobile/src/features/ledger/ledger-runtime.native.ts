@@ -2,13 +2,12 @@ import * as Crypto from "expo-crypto";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
-import { Platform } from "react-native";
 import { buildEvidenceUploadPath } from "@creator-cfo/storage";
 import type { EvidenceExtractedData } from "@creator-cfo/schemas";
 
 import {
+  buildExtractedData,
   buildFailedExtractedData,
-  buildRemoteExtractedData,
   buildStoredUploadFileName,
   defaultEntityId,
   type EvidenceQueueItem,
@@ -26,7 +25,7 @@ import {
   loadEvidenceQueue,
   updateEvidenceExtraction,
 } from "./ledger-store";
-import { parseEvidenceMultipartFromNative, parseFileWithOpenAi, type ParseResult } from "./remote-parse";
+import { parseFileWithOpenAi, type ParseResult } from "./remote-parse";
 import type { PlannerSummary } from "@creator-cfo/schemas";
 import { loadHomeSnapshot, type HomeSnapshot } from "../home/home-data";
 import { getActivePackageRootDirectory } from "../../storage/package-environment.native";
@@ -625,6 +624,7 @@ async function createImportedBundles(
     }
 
     bundles.push({
+      batchId: `batch-${createOpaqueId(groupKey)}`,
       capturedAt,
       entityId: defaultEntityId,
       evidenceId,
@@ -643,19 +643,28 @@ async function extractEvidenceData(evidence: EvidenceQueueItem): Promise<Evidenc
   const absolutePath = await buildAbsoluteVaultPath(evidence.filePath);
 
   try {
-    const result = await parseEvidenceMultipartFromNative({
+    const result = await parseFileWithOpenAi({
       fileName: evidence.originalFileName,
       fileUri: absolutePath,
       mimeType: evidence.mimeType,
-      sourcePlatform: Platform.OS === "ios" ? "ios" : "android",
     });
 
-    return buildRemoteExtractedData({
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    const extractedData = buildExtractedData({
       fallbackDate,
       fileName: evidence.originalFileName,
-      response: result,
+      parser: "openai_gpt",
+      rawLines: result.rawText.split(/\r?\n/).filter((line) => line.trim().length > 0),
+      rawText: result.rawText,
       sourceLabel: "Vercel OpenAI GPT",
     });
+    extractedData.model = result.model;
+    extractedData.originData = (result.rawJson ?? null) as never;
+
+    return extractedData;
   } catch (error) {
     return buildFailedExtractedData({
       fallbackDate,
