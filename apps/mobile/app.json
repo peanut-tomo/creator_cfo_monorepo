@@ -32,6 +32,19 @@
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
+      [
+        "expo-file-system",
+        {
+          "enableFileSharing": true,
+          "supportsOpeningDocumentsInPlace": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Creator CFO to access your photo library so you can upload receipt images for parsing."
+        }
+      ],
       "expo-sqlite",
       "expo-localization"
     ],

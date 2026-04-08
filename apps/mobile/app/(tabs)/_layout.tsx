@@ -1,5 +1,6 @@
 import { Redirect, Tabs } from "expo-router";
 import { Text } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LaunchScreen } from "../../src/features/app-shell/launch-screen";
 import { AppIcon } from "../../src/components/app-icon";
@@ -9,7 +10,12 @@ import { buildTabScreenSpecs } from "../../src/features/navigation/tab-config";
 
 export default function TabLayout() {
   const { copy, isHydrated, session } = useAppShell();
+  const insets = useSafeAreaInsets();
   const tabScreens = buildTabScreenSpecs(copy);
+  const tabBarBottomOffset = 12;
+  const tabBarHorizontalInset = 16;
+  const tabBarHeight = 68 + Math.max(insets.bottom, 16);
+  const sceneBottomClearance = tabBarHeight + tabBarBottomOffset + 8;
 
   if (!isHydrated) {
     return <LaunchScreen />;
@@ -25,6 +31,7 @@ export default function TabLayout() {
         headerShown: false,
         sceneStyle: {
           backgroundColor: "#F9F9F7",
+          paddingBottom: sceneBottomClearance,
         },
         tabBarActiveTintColor: "#002045",
         tabBarInactiveTintColor: "rgba(0, 32, 69, 0.4)",
@@ -44,16 +51,19 @@ export default function TabLayout() {
         },
         tabBarStyle: {
           backgroundColor: "rgba(249, 249, 247, 0.8)",
+          bottom: tabBarBottomOffset,
           borderTopColor: "transparent",
           borderTopLeftRadius: 32,
           borderTopRightRadius: 32,
           borderTopWidth: 0,
           elevation: 0,
-          height: 96,
-          paddingBottom: 28,
+          height: tabBarHeight,
+          left: tabBarHorizontalInset,
+          paddingBottom: Math.max(insets.bottom, 16),
           paddingHorizontal: 24,
           paddingTop: 12,
           position: "absolute",
+          right: tabBarHorizontalInset,
           shadowColor: "rgba(0, 0, 0, 0.04)",
           shadowOffset: { height: -8, width: 0 },
           shadowOpacity: 1,

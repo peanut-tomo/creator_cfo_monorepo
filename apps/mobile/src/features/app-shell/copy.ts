@@ -119,6 +119,24 @@ export interface AppCopy {
     summary: string;
     title: string;
   };
+  homeScreen: {
+    emptySummary: string;
+    emptyTitle: string;
+    income: string;
+    loadMore: string;
+    loadingMore: string;
+    loadingTitle: string;
+    monthlyProfit: string;
+    net: string;
+    newRecords: string;
+    notificationsLabel: string;
+    outflow: string;
+    recentActivitySubtitle: string;
+    recentActivityTitle: string;
+    seeAll: string;
+    trendSubtitle: string;
+    trendTitle: string;
+  };
   home: {
     cashTitle: string;
     cashValue: string;
@@ -189,6 +207,12 @@ export interface AppCopy {
     title: string;
   };
   meScreen: {
+    databaseDescription: string;
+    databaseImportAction: string;
+    databaseImportFailure: string;
+    databaseImportInProgress: string;
+    databaseImportSuccess: string;
+    databaseTitle: string;
     localeDescription: string;
     logoutDescription: string;
     sessionDescription: string;
@@ -358,6 +382,24 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         "Scan the latest operating signals, then open a detail page when you want the full context.",
       title: "Discover",
     },
+    homeScreen: {
+      emptySummary: "Upload and confirm a receipt to populate Home with real totals and activity.",
+      emptyTitle: "No records yet",
+      income: "Income",
+      loadMore: "Load More",
+      loadingMore: "Loading...",
+      loadingTitle: "Loading records...",
+      monthlyProfit: "Monthly Profit",
+      net: "Net",
+      newRecords: "New Records",
+      notificationsLabel: "Notifications",
+      outflow: "Outflow",
+      recentActivitySubtitle: "Newest records synced from the local ledger",
+      recentActivityTitle: "Recent Activity",
+      seeAll: "See All",
+      trendSubtitle: "Pulled from local SQLite records",
+      trendTitle: "30-Day Income Trend",
+    },
     home: {
       cashTitle: "Cash confidence",
       cashValue: "14 days",
@@ -451,6 +493,13 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title: "One calm place for creator cash.",
     },
     meScreen: {
+      databaseDescription:
+        "Import a CFO database package from Files or iCloud Drive. The selected database must keep its evidence files beside it under package-relative paths. On iPhone and iPad, choose the creator-cfo-vault folder, or a folder that contains it, in the folder picker.",
+      databaseImportAction: "Import Database",
+      databaseImportFailure: "Database import failed.",
+      databaseImportInProgress: "Importing database package...",
+      databaseImportSuccess: "Imported database package successfully.",
+      databaseTitle: "Local database package",
       localeDescription: "Switch shell copy instantly and keep the choice on device.",
       logoutDescription: "Clear the local session summary and return to the login gate.",
       sessionDescription: "Session state is stored locally for guest mode or Apple sign-in preview.",
@@ -615,6 +664,24 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       summary: "本阶段先保持轻量，但会为后续的增长功能预留清晰的产品位置。",
       title: "给创作者财务决策一个更冷静的观察层。",
     },
+    homeScreen: {
+      emptySummary: "上传并确认一张票据后，首页就会展示真实汇总和最近活动。",
+      emptyTitle: "还没有记录",
+      income: "收入",
+      loadMore: "加载更多",
+      loadingMore: "加载中...",
+      loadingTitle: "正在加载记录...",
+      monthlyProfit: "月度利润",
+      net: "净额",
+      newRecords: "新增记录",
+      notificationsLabel: "通知",
+      outflow: "流出",
+      recentActivitySubtitle: "最新记录已从本地账本同步",
+      recentActivityTitle: "最近活动",
+      seeAll: "查看全部",
+      trendSubtitle: "从本地 SQLite 记录生成",
+      trendTitle: "30 天收入趋势",
+    },
     home: {
       cashTitle: "现金把控",
       cashValue: "14 天",
@@ -707,6 +774,13 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title: "先给创作者现金流一个安静入口。",
     },
     meScreen: {
+      databaseDescription:
+        "从文件或 iCloud Drive 导入一个 CFO 数据库包。所选数据库必须把凭证文件按相对路径放在数据库旁边。在 iPhone 和 iPad 上，请在文件夹选择器里选择 creator-cfo-vault 文件夹，或选择包含它的上级文件夹。",
+      databaseImportAction: "导入数据库",
+      databaseImportFailure: "数据库导入失败。",
+      databaseImportInProgress: "正在导入数据库包...",
+      databaseImportSuccess: "数据库包导入成功。",
+      databaseTitle: "本地数据库包",
       localeDescription: "立即切换界面语言，并把选择保存在设备本地。",
       logoutDescription: "清除本地会话摘要，并返回登录入口。",
       sessionDescription: "游客态和 Apple 登录态都只保存在本机，方便本地优先阶段验证体验。",

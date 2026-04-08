@@ -25,6 +25,7 @@ export function HomeScreen() {
   const router = useRouter();
   const { copy, palette } = useAppShell();
   const { error, isLoaded, isLoadingMore, isRefreshing, loadMore, refresh, snapshot } = useHomeScreenData();
+  const screenCopy = copy.homeScreen;
 
   const incomeLabel = formatCurrencyFromCents(snapshot.metrics.incomeCents);
   const outflowLabel = formatCurrencyFromCents(snapshot.metrics.outflowCents);
@@ -44,7 +45,7 @@ export function HomeScreen() {
             <Text style={[styles.brand, { color: palette.ink }]}>{copy.common.appName}</Text>
           </View>
           <Pressable
-            accessibilityLabel="Notifications"
+            accessibilityLabel={screenCopy.notificationsLabel}
             accessibilityRole="button"
             style={({ pressed }) => [
               styles.notificationButton,
@@ -57,20 +58,20 @@ export function HomeScreen() {
         </View>
 
         <View style={styles.heroBlock}>
-          <Text style={[styles.heroTitle, { color: "rgba(0, 32, 69, 0.6)" }]}>Monthly Profit</Text>
+          <Text style={[styles.heroTitle, { color: "rgba(0, 32, 69, 0.6)" }]}>{screenCopy.monthlyProfit}</Text>
           <Text style={[styles.heroAmount, { color: "#002045" }]}>{netLabel}</Text>
 
           <View style={styles.metricStrip}>
             <View style={styles.metricItem}>
-              <Text style={styles.metricLabel}>Income</Text>
+              <Text style={styles.metricLabel}>{screenCopy.income}</Text>
               <Text style={styles.metricValue}>{incomeLabel}</Text>
             </View>
             <View style={styles.metricItem}>
-              <Text style={styles.metricLabel}>Outflow</Text>
+              <Text style={styles.metricLabel}>{screenCopy.outflow}</Text>
               <Text style={styles.metricValue}>{outflowLabel}</Text>
             </View>
             <View style={styles.metricItem}>
-              <Text style={styles.metricLabel}>Net</Text>
+              <Text style={styles.metricLabel}>{screenCopy.net}</Text>
               <Text style={styles.metricValue}>{netLabel}</Text>
             </View>
           </View>
@@ -87,7 +88,7 @@ export function HomeScreen() {
           >
             <View style={styles.heroActionContent}>
               <AppIcon color="#FFFFFF" name="add" size={11} />
-              <Text style={styles.heroActionLabel}>New Records</Text>
+              <Text style={styles.heroActionLabel}>{screenCopy.newRecords}</Text>
             </View>
           </Pressable>
         </View>
@@ -95,8 +96,8 @@ export function HomeScreen() {
         <View style={styles.profitCard}>
           <View style={styles.profitHeader}>
             <View>
-              <Text style={styles.profitTitle}>30-Day Income Trend</Text>
-              <Text style={styles.profitSubtitle}>Pulled from local SQLite records</Text>
+              <Text style={styles.profitTitle}>{screenCopy.trendTitle}</Text>
+              <Text style={styles.profitSubtitle}>{screenCopy.trendSubtitle}</Text>
             </View>
           </View>
 
@@ -124,21 +125,21 @@ export function HomeScreen() {
         <View style={styles.activitySection}>
           <View style={styles.activityHeader}>
             <View style={styles.activityHeaderCopy}>
-              <Text style={styles.activityTitle}>Recent Activity</Text>
-              <Text style={styles.activitySubtitle}>Newest records synced from the local ledger</Text>
+              <Text style={styles.activityTitle}>{screenCopy.recentActivityTitle}</Text>
+              <Text style={styles.activitySubtitle}>{screenCopy.recentActivitySubtitle}</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/ledger")}>
-              <Text style={styles.seeAllLink}>See All</Text>
+              <Text style={styles.seeAllLink}>{screenCopy.seeAll}</Text>
             </Pressable>
           </View>
 
           <View style={styles.activityCard}>
             {snapshot.recentRecords.length === 0 ? (
               <View style={styles.emptyCardState}>
-                <Text style={styles.emptyCardTitle}>{isLoaded ? "No records yet" : "Loading records..."}</Text>
-                <Text style={styles.emptyCardSummary}>
-                  Upload and confirm a receipt to populate Home with real totals and activity.
+                <Text style={styles.emptyCardTitle}>
+                  {isLoaded ? screenCopy.emptyTitle : screenCopy.loadingTitle}
                 </Text>
+                <Text style={styles.emptyCardSummary}>{screenCopy.emptySummary}</Text>
               </View>
             ) : (
               snapshot.recentRecords.map((item, index) => {
@@ -158,8 +159,10 @@ export function HomeScreen() {
                         <ActivityIcon color={accent} icon={icon} />
                       </View>
                       <View style={styles.activityCopy}>
-                        <Text style={styles.activityItemTitle}>{item.description}</Text>
-                        <Text style={[styles.activityItemType, { color: accent }]}>
+                        <Text numberOfLines={2} style={styles.activityItemTitle}>
+                          {item.description}
+                        </Text>
+                        <Text numberOfLines={1} style={[styles.activityItemType, { color: accent }]}>
                           {income ? item.sourceLabel : item.targetLabel}
                         </Text>
                       </View>
@@ -188,7 +191,9 @@ export function HomeScreen() {
                 { backgroundColor: pressed ? "#ECECE8" : "#F4F4F2" },
               ]}
             >
-              <Text style={styles.loadMoreLabel}>{isLoadingMore ? "Loading..." : "Load More"}</Text>
+              <Text style={styles.loadMoreLabel}>
+                {isLoadingMore ? screenCopy.loadingMore : screenCopy.loadMore}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -256,6 +261,7 @@ const styles = StyleSheet.create({
   activityCopy: {
     flex: 1,
     gap: 3,
+    minWidth: 0,
   },
   activityDate: {
     color: "#74777F",
@@ -270,7 +276,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   activityHeaderCopy: {
+    flex: 1,
     gap: 4,
+    marginRight: 12,
+    minWidth: 0,
   },
   activityIconWrap: {
     alignItems: "center",
@@ -281,11 +290,13 @@ const styles = StyleSheet.create({
   },
   activityItemTitle: {
     color: "#002045",
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "700",
     lineHeight: 20,
   },
   activityItemType: {
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 18,
@@ -295,10 +306,13 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     gap: 12,
+    minWidth: 0,
   },
   activityRight: {
     gap: 4,
     marginLeft: 12,
+    maxWidth: "34%",
+    minWidth: 72,
   },
   activityRow: {
     alignItems: "center",
@@ -321,6 +335,7 @@ const styles = StyleSheet.create({
   },
   activityTitle: {
     color: "#002045",
+    flexShrink: 1,
     fontSize: 22,
     fontWeight: "800",
     lineHeight: 28,
@@ -381,7 +396,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#F9F9F7",
     gap: 18,
-    paddingBottom: 140,
+    paddingBottom: 32,
     paddingHorizontal: 24,
     paddingTop: 16,
   },
@@ -416,6 +431,7 @@ const styles = StyleSheet.create({
   },
   heroActionLabel: {
     color: "#FFFFFF",
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -451,8 +467,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   metricItem: {
+    flex: 1,
     gap: 4,
-    minWidth: 86,
+    minWidth: 0,
   },
   metricLabel: {
     color: "rgba(0, 32, 69, 0.5)",
@@ -463,7 +480,7 @@ const styles = StyleSheet.create({
   },
   metricStrip: {
     flexDirection: "row",
-    gap: 18,
+    gap: 12,
     marginTop: 2,
   },
   metricValue: {
@@ -503,12 +520,14 @@ const styles = StyleSheet.create({
   },
   profitSubtitle: {
     color: "#74777F",
+    flexShrink: 1,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 4,
   },
   profitTitle: {
     color: "#002045",
+    flexShrink: 1,
     fontSize: 22,
     fontWeight: "800",
     lineHeight: 28,
