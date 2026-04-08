@@ -1,7 +1,7 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
-import type { JsonValue, PlannerSummary, ReceiptPlannerPayload } from "@creator-cfo/schemas";
+import type { JsonValue, PlannerSummary } from "@creator-cfo/schemas";
 
 import { parseFileWithOpenAiFromBlob, planEvidenceDbUpdates, type ParseResult } from "./remote-parse";
 import {

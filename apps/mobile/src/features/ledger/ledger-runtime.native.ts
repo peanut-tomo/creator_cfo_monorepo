@@ -451,7 +451,7 @@ export async function approveWriteProposal(
   writeProposalId: string,
   review?: LedgerReviewValues,
 ): Promise<PlannerResult> {
-  const { approveWorkflowWriteProposal, updateUploadBatchState } = await import("./ledger-store");
+  const { approveWorkflowWriteProposal } = await import("./ledger-store");
 
   return withWritableLocalDatabase(async ({ writableDatabase }) => {
     const now = new Date().toISOString();
