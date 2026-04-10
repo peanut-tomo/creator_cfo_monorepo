@@ -1,12 +1,13 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SectionCard } from "@creator-cfo/ui";
 
 import { localePreferenceOptions, themePreferenceOptions } from "../app-shell/copy";
 import { useAppShell } from "../app-shell/provider";
-import type { LocalePreference, ThemePreference } from "../app-shell/types";
+import type { AiProvider, LocalePreference, ThemePreference } from "../app-shell/types";
+import type { ProfileInfo } from "../app-shell/types";
 import { pickAndImportDatabasePackageAsync } from "../../storage/database-import";
 
 function PreferencePill(props: {
@@ -45,22 +46,31 @@ function PreferencePill(props: {
 export function ProfileScreen() {
   const router = useRouter();
   const {
+    aiProvider,
     bumpStorageRevision,
     copy,
+    geminiApiKey,
     localePreference,
     openAiApiKey,
     palette,
     refreshStorageGateState,
+    profileInfo,
     session,
     sessionDisplayName,
+    setAiProvider,
+    setGeminiApiKey,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
+    setProfileInfo,
     setThemePreference,
     signOut,
     themePreference,
   } = useAppShell();
+  const [aiProviderDraft, setAiProviderDraft] = useState<AiProvider>(aiProvider);
   const [apiKeyDraft, setApiKeyDraft] = useState(openAiApiKey);
+  const [geminiKeyDraft, setGeminiKeyDraft] = useState(geminiApiKey);
+  const [draftProfile, setDraftProfile] = useState<ProfileInfo>(profileInfo);
   const [databaseImportMessage, setDatabaseImportMessage] = useState<{
     tone: "error" | "success";
     value: string;
@@ -68,9 +78,20 @@ export function ProfileScreen() {
   const [isImportingDatabase, setIsImportingDatabase] = useState(false);
 
   useEffect(() => {
+    setAiProviderDraft(aiProvider);
+  }, [aiProvider]);
+
+  useEffect(() => {
     setApiKeyDraft(openAiApiKey);
   }, [openAiApiKey]);
 
+  useEffect(() => {
+    setGeminiKeyDraft(geminiApiKey);
+  }, [geminiApiKey]);
+
+  useEffect(() => {
+    setDraftProfile(profileInfo);
+  }, [profileInfo]);
   const themeLabels: Record<ThemePreference, string> = {
     dark: copy.common.dark,
     light: copy.common.light,
@@ -136,21 +157,19 @@ export function ProfileScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard eyebrow="AI Parse" palette={palette} title="Vercel Parse API">
+        <SectionCard eyebrow="Profile" palette={palette} title="Profile">
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
-            Store your OpenAI API key locally on this device. The parse base URL and model come from
-            runtime env config, and the key is only sent in the request header, not saved to SQLite.
+            Your profile info is stored locally on this device and used as source context when mapping receipts.
           </Text>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>OpenAI API Key</Text>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Name</Text>
             <TextInput
-              autoCapitalize="none"
+              autoCapitalize="words"
               autoCorrect={false}
-              onChangeText={setApiKeyDraft}
-              placeholder="sk-..."
+              onChangeText={(value) => setDraftProfile((prev) => ({ ...prev, name: value }))}
+              placeholder="Your name"
               placeholderTextColor={palette.inkMuted}
-              secureTextEntry
               style={[
                 styles.input,
                 {
@@ -159,7 +178,52 @@ export function ProfileScreen() {
                   color: palette.ink,
                 },
               ]}
-              value={apiKeyDraft}
+              testID="profile-name-input"
+              value={draftProfile.name}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Email</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              onChangeText={(value) => setDraftProfile((prev) => ({ ...prev, email: value }))}
+              placeholder="you@example.com"
+              placeholderTextColor={palette.inkMuted}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              testID="profile-email-input"
+              value={draftProfile.email}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Phone</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="phone-pad"
+              onChangeText={(value) => setDraftProfile((prev) => ({ ...prev, phone: value }))}
+              placeholder="+1 555-0100"
+              placeholderTextColor={palette.inkMuted}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              testID="profile-phone-input"
+              value={draftProfile.phone}
             />
           </View>
 
@@ -167,7 +231,7 @@ export function ProfileScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                void setOpenAiApiKey(apiKeyDraft);
+                void setProfileInfo(draftProfile);
               }}
               style={[
                 styles.actionButton,
@@ -175,15 +239,121 @@ export function ProfileScreen() {
                   backgroundColor: palette.ink,
                 },
               ]}
+              testID="profile-save-button"
             >
-              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save API Settings</Text>
+              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save Profile</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+
+        <SectionCard eyebrow="AI" palette={palette} title="AI Provider">
+          <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
+            Select your AI provider and enter the corresponding API key. The provider and key are
+            stored locally on this device and used only in parse request headers.
+          </Text>
+
+          <View style={styles.optionRow}>
+            <PreferencePill
+              active={aiProviderDraft === "openai"}
+              label="OpenAI"
+              onPress={() => setAiProviderDraft("openai")}
+              palette={palette}
+            />
+            <PreferencePill
+              active={aiProviderDraft === "gemini"}
+              label="Google AI Studio Gemini"
+              onPress={() => setAiProviderDraft("gemini")}
+              palette={palette}
+            />
+          </View>
+
+          {aiProviderDraft === "openai" ? (
+            <View style={styles.fieldBlock}>
+              <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>OpenAI API Key</Text>
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={setApiKeyDraft}
+                placeholder="sk-..."
+                placeholderTextColor={palette.inkMuted}
+                secureTextEntry
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: palette.paperMuted,
+                    borderColor: palette.border,
+                    color: palette.ink,
+                  },
+                ]}
+                testID="openai-api-key-input"
+                value={apiKeyDraft}
+              />
+            </View>
+          ) : (
+            <View style={styles.fieldBlock}>
+              <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Gemini API Key</Text>
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={setGeminiKeyDraft}
+                placeholder="AIza..."
+                placeholderTextColor={palette.inkMuted}
+                secureTextEntry
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: palette.paperMuted,
+                    borderColor: palette.border,
+                    color: palette.ink,
+                  },
+                ]}
+                testID="gemini-api-key-input"
+                value={geminiKeyDraft}
+              />
+            </View>
+          )}
+
+          <View style={styles.optionRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (aiProviderDraft === "openai") {
+                  if (!apiKeyDraft.trim()) {
+                    Alert.alert("请填入 OpenAI API Key");
+                    return;
+                  }
+                  void setAiProvider("openai");
+                  void setOpenAiApiKey(apiKeyDraft);
+                } else {
+                  if (!geminiKeyDraft.trim()) {
+                    Alert.alert("请填入 Gemini API Key");
+                    return;
+                  }
+                  void setAiProvider("gemini");
+                  void setGeminiApiKey(geminiKeyDraft);
+                }
+              }}
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: palette.ink,
+                },
+              ]}
+              testID="ai-provider-save-button"
+            >
+              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save</Text>
             </Pressable>
 
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                setApiKeyDraft("");
-                void setOpenAiApiKey("");
+                if (aiProviderDraft === "openai") {
+                  setApiKeyDraft("");
+                  void setOpenAiApiKey("");
+                } else {
+                  setGeminiKeyDraft("");
+                  void setGeminiApiKey("");
+                }
               }}
               style={[
                 styles.actionButton,
@@ -311,7 +481,7 @@ const styles = StyleSheet.create({
   container: {
     gap: 16,
     padding: 20,
-    paddingBottom: 36,
+    paddingBottom: 120,
   },
   databaseMessage: {
     fontSize: 13,

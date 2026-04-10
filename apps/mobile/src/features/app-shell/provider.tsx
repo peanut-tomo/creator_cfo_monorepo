@@ -18,34 +18,45 @@ import {
 } from "./model";
 import {
   loadPersistedAppState,
+  persistAiProvider,
+  persistGeminiApiKey,
   persistLocalePreference,
   persistOpenAiApiKey,
+  persistProfileInfo,
   persistSession,
   persistThemePreference,
 } from "./storage";
 import type {
+  AiProvider,
   AppSession,
   LocalePreference,
   PersistedAppState,
+  ProfileInfo,
   ThemePreference,
 } from "./types";
 
 interface AppShellContextValue {
+  aiProvider: AiProvider;
   bumpStorageRevision: () => void;
   continueAsGuest: () => Promise<void>;
   copy: ReturnType<typeof getAppCopy>;
   initializeEmptyStorage: () => Promise<void>;
+  geminiApiKey: string;
   isStorageSuspended: boolean;
   isHydrated: boolean;
   localePreference: LocalePreference;
   openAiApiKey: string;
   palette: (typeof surfaceThemes)[keyof typeof surfaceThemes];
+  profileInfo: ProfileInfo;
   session: AppSession | null;
   sessionDisplayName: string;
   refreshStorageGateState: () => Promise<StorageGateState>;
+  setAiProvider: (value: AiProvider) => Promise<void>;
+  setGeminiApiKey: (value: string) => Promise<void>;
   setStorageSuspended: (value: boolean) => void;
   setLocalePreference: (value: LocalePreference) => Promise<void>;
   setOpenAiApiKey: (value: string) => Promise<void>;
+  setProfileInfo: (value: ProfileInfo) => Promise<void>;
   setThemePreference: (value: ThemePreference) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithApple: (input: {
@@ -62,13 +73,11 @@ interface AppShellContextValue {
 const AppShellContext = createContext<AppShellContextValue | null>(null);
 
 const initialState: PersistedAppState = {
+  aiProvider: "openai",
+  geminiApiKey: "",
   localePreference: "system",
   openAiApiKey: "",
-  profileInfo: {
-    email: "",
-    name: "",
-    phone: "",
-  },
+  profileInfo: { email: "", name: "", phone: "" },
   session: null,
   themePreference: "system",
 };
@@ -140,18 +149,34 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     await persistLocalePreference(value);
   };
 
+  const setAiProvider = async (value: AiProvider) => {
+    setState((current) => ({ ...current, aiProvider: value }));
+    await persistAiProvider(value);
+  };
+
+  const setGeminiApiKey = async (value: string) => {
+    const normalized = value.trim();
+    setState((current) => ({ ...current, geminiApiKey: normalized }));
+    await persistGeminiApiKey(normalized);
+  };
+
   const setOpenAiApiKey = async (value: string) => {
     const normalized = value.trim();
     setState((current) => ({ ...current, openAiApiKey: normalized }));
     await persistOpenAiApiKey(normalized);
   };
 
+  const setProfileInfo = async (value: ProfileInfo) => {
+    setState((current) => ({ ...current, profileInfo: value }));
+    await persistProfileInfo(value);
+  };
   const setSession = async (session: AppSession | null) => {
     setState((current) => ({ ...current, session }));
     await persistSession(session);
   };
 
   const contextValue: AppShellContextValue = {
+    aiProvider: state.aiProvider,
     bumpStorageRevision: () => {
       setStorageRevision((current) => current + 1);
     },
@@ -165,17 +190,22 @@ export function AppShellProvider({ children }: PropsWithChildren) {
       setStorageRevision((current) => current + 1);
       await refreshStorageGateState();
     },
+    geminiApiKey: state.geminiApiKey,
     isStorageSuspended,
     isHydrated,
     localePreference: state.localePreference,
     openAiApiKey: state.openAiApiKey,
     palette,
+    profileInfo: state.profileInfo,
     session: state.session,
     sessionDisplayName: getSessionDisplayName(state.session),
     refreshStorageGateState,
+    setAiProvider,
+    setGeminiApiKey,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
+    setProfileInfo,
     setThemePreference,
     signOut: async () => {
       await setSession(null);
