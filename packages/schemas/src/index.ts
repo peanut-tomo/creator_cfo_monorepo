@@ -12,7 +12,7 @@ export interface WorkflowPrinciple {
 export const evidenceParseStatuses = ["pending", "parsed", "failed"] as const;
 export type EvidenceParseStatus = (typeof evidenceParseStatuses)[number];
 
-export const evidenceParserKinds = ["openai_gpt", "rule_fallback"] as const;
+export const evidenceParserKinds = ["openai_gpt", "gemini", "rule_fallback"] as const;
 export type EvidenceParserKind = (typeof evidenceParserKinds)[number];
 
 export const parseSourcePlatforms = ["ios", "android", "web"] as const;
@@ -136,6 +136,7 @@ export interface PlannerReadTask {
 export interface CounterpartyResolution {
   confidence: "high" | "low" | "medium";
   displayName: string;
+  matchedDisplayNames: string[];
   matchedCounterpartyIds: string[];
   role: "source" | "target";
   status: "ambiguous" | "matched" | "proposed_new";
@@ -161,7 +162,9 @@ export interface WorkflowWriteProposalPayload {
   dependencyIds?: string[];
   proposalType:
     | "create_counterparty"
+    | "merge_counterparty"
     | "persist_candidate_record"
+    | "resolve_duplicate_receipt"
     | "update_candidate_record"
     | "update_workflow_state";
   reviewFields?: Array<"amount" | "date" | "source" | "target">;
@@ -441,6 +444,7 @@ function normalizeCounterpartyResolutions(value: JsonValue | undefined): Counter
     const record = asJsonObject(item);
     const confidence = normalizeConfidence(record?.confidence);
     const displayName = asRequiredString(record?.displayName);
+    const matchedDisplayNames = asOptionalStringArray(record?.matchedDisplayNames);
     const matchedCounterpartyIds = asRequiredStringArray(record?.matchedCounterpartyIds);
     const role = normalizeResolutionRole(record?.role);
     const status = normalizeResolutionStatus(record?.status);
@@ -449,6 +453,7 @@ function normalizeCounterpartyResolutions(value: JsonValue | undefined): Counter
       !record ||
       confidence === null ||
       displayName === null ||
+      matchedDisplayNames === null ||
       matchedCounterpartyIds === null ||
       role === null ||
       status === null
@@ -459,6 +464,7 @@ function normalizeCounterpartyResolutions(value: JsonValue | undefined): Counter
     normalized.push({
       confidence,
       displayName,
+      matchedDisplayNames,
       matchedCounterpartyIds,
       role,
       status,
@@ -563,7 +569,7 @@ function normalizeDuplicateKinds(value: JsonValue | undefined): DuplicateKind[] 
 }
 
 function normalizeEvidenceParserKind(value: JsonValue | undefined, fallback: EvidenceParserKind): EvidenceParserKind {
-  return value === "openai_gpt" || value === "rule_fallback" ? value : fallback;
+  return value === "openai_gpt" || value === "gemini" || value === "rule_fallback" ? value : fallback;
 }
 
 function normalizeConfidence(value: JsonValue | undefined): ClassifiedParseField["confidence"] | null {
@@ -598,7 +604,9 @@ function normalizeRecordKind(value: JsonValue | undefined): CandidateRecordPaylo
 
 function normalizeProposalType(value: JsonValue | undefined): WorkflowWriteProposalPayload["proposalType"] | null {
   return value === "create_counterparty" ||
+    value === "merge_counterparty" ||
     value === "persist_candidate_record" ||
+    value === "resolve_duplicate_receipt" ||
     value === "update_candidate_record" ||
     value === "update_workflow_state"
     ? value

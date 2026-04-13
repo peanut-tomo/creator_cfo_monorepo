@@ -9,6 +9,11 @@ import {
 import { useColorScheme } from "react-native";
 import { surfaceThemes } from "@creator-cfo/ui";
 
+import {
+  initializeEmptyStorageFromSetup,
+  inspectStorageGateState,
+  type StorageGateState,
+} from "../../storage/startup";
 import { getAppCopy } from "./copy";
 import {
   createAppleSession,
@@ -19,13 +24,16 @@ import {
 } from "./model";
 import {
   loadPersistedAppState,
+  persistAiProvider,
+  persistGeminiApiKey,
   persistLocalePreference,
   persistOpenAiApiKey,
-  persistParseApiBaseUrl,
+  persistProfileInfo,
   persistSession,
   persistThemePreference,
 } from "./storage";
 import type {
+  AiProvider,
   AppSession,
   LocalePreference,
   PersistedAppState,
@@ -34,9 +42,12 @@ import type {
 } from "./types";
 
 interface AppShellContextValue {
+  aiProvider: AiProvider;
   bumpStorageRevision: () => void;
   continueAsGuest: () => Promise<void>;
   copy: ReturnType<typeof getAppCopy>;
+  initializeEmptyStorage: () => Promise<void>;
+  geminiApiKey: string;
   isStorageSuspended: boolean;
   isHydrated: boolean;
   localePreference: LocalePreference;
@@ -46,10 +57,13 @@ interface AppShellContextValue {
   resolvedLocale: ResolvedLocale;
   session: AppSession | null;
   sessionDisplayName: string;
+  refreshStorageGateState: () => Promise<StorageGateState>;
+  setAiProvider: (value: AiProvider) => Promise<void>;
+  setGeminiApiKey: (value: string) => Promise<void>;
   setStorageSuspended: (value: boolean) => void;
   setLocalePreference: (value: LocalePreference) => Promise<void>;
   setOpenAiApiKey: (value: string) => Promise<void>;
-  setParseApiBaseUrl: (value: string) => Promise<void>;
+  setProfileInfo: (value: ProfileInfo) => Promise<void>;
   setThemePreference: (value: ThemePreference) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithApple: (input: {
@@ -58,6 +72,7 @@ interface AppShellContextValue {
     givenName?: string | null;
     user: string;
   }) => Promise<void>;
+  storageGateState: StorageGateState | { kind: "checking" };
   storageRevision: number;
   themePreference: ThemePreference;
 }
@@ -65,6 +80,8 @@ interface AppShellContextValue {
 const AppShellContext = createContext<AppShellContextValue | null>(null);
 
 const initialState: PersistedAppState = {
+  aiProvider: "openai",
+  geminiApiKey: "",
   localePreference: "system",
   openAiApiKey: "",
   parseApiBaseUrl: "",
@@ -84,6 +101,9 @@ export function AppShellProvider({ children }: PropsWithChildren) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isStorageSuspended, setStorageSuspended] = useState(false);
   const [storageRevision, setStorageRevision] = useState(0);
+  const [storageGateState, setStorageGateState] = useState<StorageGateState | { kind: "checking" }>(
+    Platform.OS === "web" ? { kind: "ready" } : { kind: "checking" },
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -105,6 +125,14 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void refreshStorageGateState();
+  }, [isHydrated]);
+
   const resolvedTheme = resolveThemeName(state.themePreference, systemTheme);
   const resolvedLocale = resolveLocale(
     state.localePreference,
@@ -112,6 +140,19 @@ export function AppShellProvider({ children }: PropsWithChildren) {
   );
   const palette = surfaceThemes[resolvedTheme];
   const copy = getAppCopy(resolvedLocale);
+
+  const refreshStorageGateState = async (): Promise<StorageGateState> => {
+    if (Platform.OS === "web") {
+      const readyState: StorageGateState = { kind: "ready" };
+      setStorageGateState(readyState);
+      return readyState;
+    }
+
+    setStorageGateState({ kind: "checking" });
+    const nextState = await inspectStorageGateState();
+    setStorageGateState(nextState);
+    return nextState;
+  };
 
   const setThemePreference = async (value: ThemePreference) => {
     setState((current) => ({ ...current, themePreference: value }));
@@ -123,24 +164,34 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     await persistLocalePreference(value);
   };
 
+  const setAiProvider = async (value: AiProvider) => {
+    setState((current) => ({ ...current, aiProvider: value }));
+    await persistAiProvider(value);
+  };
+
+  const setGeminiApiKey = async (value: string) => {
+    const normalized = value.trim();
+    setState((current) => ({ ...current, geminiApiKey: normalized }));
+    await persistGeminiApiKey(normalized);
+  };
+
   const setOpenAiApiKey = async (value: string) => {
     const normalized = value.trim();
     setState((current) => ({ ...current, openAiApiKey: normalized }));
     await persistOpenAiApiKey(normalized);
   };
 
-  const setParseApiBaseUrl = async (value: string) => {
-    const normalized = value.trim().replace(/\/+$/g, "");
-    setState((current) => ({ ...current, parseApiBaseUrl: normalized }));
-    await persistParseApiBaseUrl(normalized);
+  const setProfileInfo = async (value: ProfileInfo) => {
+    setState((current) => ({ ...current, profileInfo: value }));
+    await persistProfileInfo(value);
   };
-
   const setSession = async (session: AppSession | null) => {
     setState((current) => ({ ...current, session }));
     await persistSession(session);
   };
 
   const contextValue: AppShellContextValue = {
+    aiProvider: state.aiProvider,
     bumpStorageRevision: () => {
       setStorageRevision((current) => current + 1);
     },
@@ -148,6 +199,13 @@ export function AppShellProvider({ children }: PropsWithChildren) {
       await setSession(createGuestSession());
     },
     copy,
+    initializeEmptyStorage: async () => {
+      setStorageGateState({ kind: "checking" });
+      await initializeEmptyStorageFromSetup();
+      setStorageRevision((current) => current + 1);
+      await refreshStorageGateState();
+    },
+    geminiApiKey: state.geminiApiKey,
     isStorageSuspended,
     isHydrated,
     localePreference: state.localePreference,
@@ -157,10 +215,13 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     resolvedLocale,
     session: state.session,
     sessionDisplayName: getSessionDisplayName(state.session),
+    refreshStorageGateState,
+    setAiProvider,
+    setGeminiApiKey,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
-    setParseApiBaseUrl,
+    setProfileInfo,
     setThemePreference,
     signOut: async () => {
       await setSession(null);
@@ -168,6 +229,7 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     signInWithApple: async (input) => {
       await setSession(createAppleSession(input));
     },
+    storageGateState,
     storageRevision,
     themePreference: state.themePreference,
   };

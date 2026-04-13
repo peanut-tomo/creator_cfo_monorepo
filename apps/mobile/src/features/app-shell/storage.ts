@@ -9,6 +9,8 @@ import {
 import type { AppSession, PersistedAppState, ProfileInfo } from "./types";
 
 const STORAGE_KEYS = {
+  aiProvider: buildDeviceStateStorageKey("ai_provider"),
+  geminiApiKey: buildDeviceStateStorageKey("gemini_api_key"),
   localePreference: buildDeviceStateStorageKey("locale_preference"),
   openAiApiKey: buildDeviceStateStorageKey("openai_api_key"),
   parseApiBaseUrl: "@creator-cfo/mobile/parse_api_base_url",
@@ -24,6 +26,12 @@ const defaultProfileInfo: ProfileInfo = {
   name: "",
   phone: "",
 };
+
+const runtimeOverrides: Partial<PersistedAppState> = {};
+
+function hasRuntimeOverride<Key extends keyof PersistedAppState>(key: Key): boolean {
+  return Object.prototype.hasOwnProperty.call(runtimeOverrides, key);
+}
 
 export async function loadPersistedAppState(): Promise<PersistedAppState> {
   const entries = await AsyncStorage.multiGet(Object.values(STORAGE_KEYS));
@@ -47,6 +55,12 @@ export async function loadPersistedAppState(): Promise<PersistedAppState> {
       values[STORAGE_KEYS.themePreference],
     ),
   };
+
+  return {
+    ...persistedState,
+    ...runtimeOverrides,
+    profileInfo: runtimeOverrides.profileInfo ?? persistedState.profileInfo,
+  };
 }
 
 export async function persistThemePreference(
@@ -62,6 +76,7 @@ export async function persistLocalePreference(
 }
 
 export async function persistSession(session: AppSession | null) {
+  runtimeOverrides.session = session;
   if (session) {
     await AsyncStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
     return;
@@ -70,8 +85,26 @@ export async function persistSession(session: AppSession | null) {
   await AsyncStorage.removeItem(STORAGE_KEYS.session);
 }
 
+export async function persistAiProvider(value: AiProvider) {
+  runtimeOverrides.aiProvider = value;
+  await AsyncStorage.setItem(STORAGE_KEYS.aiProvider, value);
+}
+
+export async function persistGeminiApiKey(value: string) {
+  const normalized = value.trim();
+  runtimeOverrides.geminiApiKey = normalized;
+
+  if (normalized) {
+    await AsyncStorage.setItem(STORAGE_KEYS.geminiApiKey, normalized);
+    return;
+  }
+
+  await AsyncStorage.removeItem(STORAGE_KEYS.geminiApiKey);
+}
+
 export async function persistOpenAiApiKey(value: string) {
   const normalized = value.trim();
+  runtimeOverrides.openAiApiKey = normalized;
 
   if (normalized) {
     await AsyncStorage.setItem(STORAGE_KEYS.openAiApiKey, normalized);
@@ -94,6 +127,7 @@ export async function persistParseApiBaseUrl(value: string) {
 
 export async function persistProfileInfo(value: ProfileInfo) {
   const normalized = normalizeProfileInfo(value);
+  runtimeOverrides.profileInfo = normalized;
 
   await AsyncStorage.multiSet([
     [STORAGE_KEYS.profileName, normalized.name],
@@ -103,6 +137,10 @@ export async function persistProfileInfo(value: ProfileInfo) {
 }
 
 export async function loadPersistedProfileInfo(): Promise<ProfileInfo> {
+  if (runtimeOverrides.profileInfo) {
+    return runtimeOverrides.profileInfo;
+  }
+
   const entries = await AsyncStorage.multiGet([
     STORAGE_KEYS.profileName,
     STORAGE_KEYS.profileEmail,
@@ -115,6 +153,23 @@ export async function loadPersistedProfileInfo(): Promise<ProfileInfo> {
     name: String(values[STORAGE_KEYS.profileName] ?? "").trim(),
     phone: String(values[STORAGE_KEYS.profilePhone] ?? "").trim(),
   };
+}
+
+export async function loadPersistedAiProvider(): Promise<AiProvider> {
+  if (hasRuntimeOverride("aiProvider")) {
+    return runtimeOverrides.aiProvider ?? "openai";
+  }
+
+  const raw = String((await AsyncStorage.getItem(STORAGE_KEYS.aiProvider)) ?? "").trim();
+  return raw === "gemini" ? "gemini" : "openai";
+}
+
+export async function loadPersistedGeminiApiKey(): Promise<string> {
+  if (hasRuntimeOverride("geminiApiKey")) {
+    return runtimeOverrides.geminiApiKey ?? "";
+  }
+
+  return String((await AsyncStorage.getItem(STORAGE_KEYS.geminiApiKey)) ?? "").trim();
 }
 
 export async function loadPersistedOpenAiApiKey(): Promise<string> {

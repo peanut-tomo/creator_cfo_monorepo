@@ -158,7 +158,7 @@ const structuredTables = [
   },
   {
     name: "upload_batches",
-    summary: "Operator-visible upload workflow batches that summarize parse, planning, and approval state.",
+    summary: "Operator-visible upload workflow batches that summarize parse, planning, approval state, and duplicate-receipt context.",
     createStatement: `CREATE TABLE IF NOT EXISTS upload_batches (
       batch_id TEXT PRIMARY KEY NOT NULL,
       evidence_id TEXT,
@@ -287,7 +287,7 @@ const structuredTables = [
   },
   {
     name: "workflow_write_proposals",
-    summary: "Approval-gated workflow proposals produced by planner runs before mutating counterparties or final records.",
+    summary: "Approval-gated workflow proposals produced by planner runs before mutating counterparties, resolving duplicate receipts, or writing final records.",
     createStatement: `CREATE TABLE IF NOT EXISTS workflow_write_proposals (
       write_proposal_id TEXT PRIMARY KEY NOT NULL,
       planner_run_id TEXT NOT NULL,
@@ -527,7 +527,7 @@ export const fileVaultContract = {
 export const deviceStateContract = {
   storageEngine: "AsyncStorage",
   namespace: "@creator-cfo/mobile",
-  version: 4,
+  version: 5,
   records: [
     {
       key: "theme_preference",
@@ -550,6 +550,18 @@ export const deviceStateContract = {
       key: "openai_api_key",
       summary:
         "Persist the user-provided OpenAI API key locally on-device for direct OpenAI parse requests.",
+      valueShape: "string",
+    },
+    {
+      key: "ai_provider",
+      summary:
+        "Persist the user's selected AI provider for document parsing and planning.",
+      valueShape: '"openai" | "gemini"',
+    },
+    {
+      key: "gemini_api_key",
+      summary:
+        "Persist the user-provided Gemini API key locally on-device for direct Gemini parse requests.",
       valueShape: "string",
     },
     {

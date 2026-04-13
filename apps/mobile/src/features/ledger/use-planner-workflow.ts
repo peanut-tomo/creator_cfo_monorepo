@@ -13,6 +13,8 @@ export function usePlannerWorkflow(input: {
   fileName: string;
   mimeType: string | null;
   model: string;
+  parserKind?: string;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
   rawText: string;
 }) {
@@ -44,6 +46,8 @@ export function usePlannerWorkflow(input: {
         fileName: input.fileName,
         mimeType: input.mimeType,
         model: input.model,
+        parserKind: input.parserKind,
+        profileInfo: input.profileInfo,
         rawJson: input.rawJson,
         rawText: input.rawText,
       });

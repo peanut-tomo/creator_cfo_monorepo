@@ -31,6 +31,7 @@ export function LedgerParseScreen() {
     model?: string;
     parseError?: string;
     mimeType?: string;
+    parserKind?: string;
   }>();
 
   const fileName = params.fileName ?? parseCopy.unknownFile;
@@ -39,9 +40,11 @@ export function LedgerParseScreen() {
   const model = params.model ?? "";
   const parseError = params.parseError ?? "";
   const mimeType = params.mimeType ?? null;
+  const parserKind = params.parserKind || undefined;
 
   const hasData = rawJson || rawText;
   const formattedJson = formatJson(rawJson);
+  const providerLabel = parserKind === "gemini" ? "Gemini" : "OpenAI";
 
   const parsedRawJson = rawJson ? tryParse(rawJson) : null;
 
@@ -59,6 +62,8 @@ export function LedgerParseScreen() {
     fileName,
     mimeType,
     model,
+    parserKind,
+    profileInfo,
     rawJson: parsedRawJson,
     rawText,
   });
@@ -700,6 +705,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 16,
   },
+  proposalDetailLine: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  proposalDetailList: {
+    gap: 4,
+  },
   proposalHeader: {
     alignItems: "center",
     flexDirection: "row",
@@ -708,6 +720,11 @@ const styles = StyleSheet.create({
   proposalRationale: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  proposalSummary: {
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 19,
   },
   proposalType: {
     fontSize: 16,

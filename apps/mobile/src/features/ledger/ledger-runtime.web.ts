@@ -13,7 +13,7 @@ import {
   type ParseResult,
 } from "./remote-parse";
 import {
-  buildExtractedData,
+  buildRemoteExtractedData,
   type LedgerReviewValues,
   type WorkflowCandidateRecord,
   type WorkflowWriteProposalItem,
@@ -118,6 +118,7 @@ export async function parseFile(
       rawText: "",
       model: "",
       error: `Unable to read selected file: ${response.status}`,
+      parserKind: "openai_gpt",
     };
   }
 
@@ -181,6 +182,8 @@ export async function runPlanner(input: {
   fileName: string;
   mimeType: string | null;
   model: string;
+  parserKind?: string;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
   rawText: string;
 }): Promise<PlannerResult> {
@@ -194,26 +197,26 @@ export async function runPlanner(input: {
     evidenceId,
     fileName: input.fileName,
     mimeType: input.mimeType,
+    profileInfo: input.profileInfo,
     rawJson: input.rawJson,
   });
 
   // Build extracted data for planner summary
-  const extractedData = buildExtractedData({
-    fallbackDate: now.slice(0, 10),
+  const extractedData = buildRemoteExtractedData({
     fileName: input.fileName,
-    parser: "openai_gpt",
-    rawLines: input.rawText.split("\n").filter((l) => l.trim()),
-    rawText: input.rawText,
-    sourceLabel: "openai_upload",
+    parsePayload: input.rawJson as ReceiptParsePayload,
+    scheme: {},
+    sourceLabel: input.parserKind === "gemini" ? "gemini_upload" : "openai_upload",
   });
-  extractedData.model = input.model;
-  extractedData.originData = input.rawJson as JsonValue;
 
   // Build read results (empty for web - no local DB)
   const readResults: PlannerReadResults = {
     duplicateRecordIds: [],
+    duplicateReceiptMatches: [],
     sourceCounterpartyMatches: [],
+    sourceCounterpartySuggestions: [],
     targetCounterpartyMatches: [],
+    targetCounterpartySuggestions: [],
   };
 
   const evidence = {
@@ -332,7 +335,6 @@ export async function approveWriteProposal(
     throw new Error("Write proposal not found.");
   }
 
-  // Mark proposal as executed
   proposal.state = "executed";
   proposal.updatedAt = new Date().toISOString();
 
@@ -346,12 +348,32 @@ export async function approveWriteProposal(
               ?.state === "executed",
         );
 
-        if (allDepsExecuted) {
-          p.state = "pending_approval";
-          p.updatedAt = new Date().toISOString();
-        }
+  if (proposal.proposalType === "merge_counterparty") {
+    applyWebCounterpartySelection(state, proposal, {
+      displayName: readFirstString(proposal.payload.existingDisplayName, proposal.payload.displayName),
+      counterpartyId: readFirstString(proposal.payload.existingCounterpartyId) ?? `counterparty-web-${proposal.writeProposalId}`,
+    });
+    rejectSiblingWebCounterpartyCreate(state, proposal);
+    releaseResolvedWebDependencies(state);
+    state.batchState = "review_required";
+    return state;
+  }
+
+  if (proposal.proposalType === "resolve_duplicate_receipt") {
+    if (state.candidateRecords[0]) {
+      state.candidateRecords[0].state = "approved";
+      state.candidateRecords[0].updatedAt = proposal.updatedAt;
+    }
+
+    for (const item of state.writeProposals) {
+      if (item.writeProposalId !== writeProposalId && (item.state === "pending_approval" || item.state === "blocked")) {
+        item.state = "rejected";
+        item.updatedAt = proposal.updatedAt;
       }
     }
+
+    state.batchState = "approved";
+    return state;
   }
 
   if (
@@ -400,6 +422,15 @@ export async function rejectWriteProposal(
         p.updatedAt = new Date().toISOString();
       }
     }
+
+    state.batchState = "rejected";
+    return state;
+  }
+
+  if (proposal.proposalType === "merge_counterparty" || proposal.proposalType === "resolve_duplicate_receipt") {
+    releaseResolvedWebDependencies(state);
+    state.batchState = "review_required";
+    return state;
   }
 
   if (
@@ -407,6 +438,7 @@ export async function rejectWriteProposal(
     state.candidateRecords[0]
   ) {
     state.candidateRecords[0].state = "rejected";
+    state.candidateRecords[0].updatedAt = proposal.updatedAt;
   }
 
   state.batchState = "rejected";
@@ -456,7 +488,10 @@ function loadRecords(): HomeRecentRecord[] {
 
 export function resetLedgerWebRuntimeStateForTests() {
   plannerStateStore.clear();
-  if (typeof localStorage !== "undefined") {
+  if (
+    typeof localStorage !== "undefined" &&
+    typeof localStorage.removeItem === "function"
+  ) {
     localStorage.removeItem(storageKey);
   }
 }

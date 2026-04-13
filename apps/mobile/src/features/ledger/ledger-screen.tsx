@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
@@ -33,7 +32,6 @@ import {
 } from "./ledger-screen-state";
 
 export function LedgerScreen() {
-  const router = useRouter();
   const { copy, palette } = useAppShell();
   const screenCopy = copy.ledgerScreen;
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -101,6 +99,28 @@ export function LedgerScreen() {
   const quarterOptions = useMemo(
     () => getAvailableQuarterPickerOptions(snapshot.periodOptions, draftYearId),
     [draftYearId, snapshot.periodOptions],
+  );
+  const balanceSheetAssetRows = useMemo(
+    () => {
+      if (selectedScope === "personal") {
+        const personalSpendingRow = snapshot.balanceSheet.carryForwardRows.find(
+          (row) => row.id === "current-year-personal-spending",
+        );
+
+        return personalSpendingRow
+          ? [...snapshot.balanceSheet.assetRows, personalSpendingRow]
+          : snapshot.balanceSheet.assetRows;
+      }
+
+      return snapshot.balanceSheet.carryForwardRows.filter(
+        (row) => row.id !== "closing-business-asset",
+      );
+    },
+    [
+      selectedScope,
+      snapshot.balanceSheet.assetRows,
+      snapshot.balanceSheet.carryForwardRows,
+    ],
   );
 
   useEffect(() => {
@@ -258,7 +278,10 @@ export function LedgerScreen() {
               })}
             </View>
           </View>
-        </View>
+          <View style={styles.periodHeaderSecondary}>
+            <View style={styles.viewSwitch} testID="ledger-view-switch">
+              {ledgerViews.map((tab) => {
+                const isActive = tab.id === selectedView;
 
         <Pressable
           accessibilityRole="button"
@@ -277,34 +300,6 @@ export function LedgerScreen() {
             </Text>
             <Text style={styles.periodSummaryCardDetail}>{rangeHint}</Text>
           </View>
-          <Ionicons color="#002045" name="chevron-forward" size={18} />
-        </Pressable>
-
-        <View style={styles.segmentedControl}>
-          {ledgerViews.map((tab) => {
-            const isActive = tab.id === selectedView;
-
-            return (
-              <Pressable
-                key={tab.id}
-                accessibilityRole="button"
-                onPress={() => selectView(tab.id)}
-                style={[
-                  styles.segmentedItem,
-                  isActive ? styles.segmentedItemActive : null,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.segmentedLabel,
-                    isActive ? styles.segmentedLabelActive : null,
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
         </View>
 
         {!isLoaded ? (
@@ -396,6 +391,15 @@ export function LedgerScreen() {
               selectedScope === "personal" ? (
                 <>
                   <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
+                  <View style={styles.equationCard}>
+                    <Text style={styles.equationEyebrow}>Personal profit</Text>
+                    <Text style={styles.netIncomeValue}>
+                      {snapshot.profitAndLoss.netIncomeLabel}
+                    </Text>
+                    <Text style={styles.equationSummary}>
+                      Selected-slice business profit minus selected-slice personal spending. Personal General Ledger remains personal-spending only.
+                    </Text>
+                  </View>
                   <StatusCard
                     body={screenCopy.sections.pnlOnlyBody}
                     title={screenCopy.sections.pnlOnlyTitle}
@@ -881,6 +885,81 @@ function SectionCard({
   );
 }
 
+function BalanceSheetFormulaCard({
+  netPositionLabel,
+  rows,
+  scopeId,
+}: {
+  netPositionLabel: string;
+  rows: readonly LedgerSectionRow[];
+  scopeId: LedgerScopeId;
+}) {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.formulaCard}>
+      <Text style={styles.formulaEyebrow}>Computation formula</Text>
+      <Text style={styles.formulaTitle}>
+        {scopeId === "personal" ? "Personal balance-sheet formula" : "Business balance-sheet formula"}
+      </Text>
+      <View style={styles.formulaTable}>
+        <View style={styles.formulaTableHeader}>
+          <Text style={styles.formulaTableHeaderLabel}>Line item</Text>
+          <Text style={styles.formulaTableHeaderAmount}>Signed value</Text>
+        </View>
+        {rows.map((row, index) => {
+          const isResult = index === rows.length - 1;
+
+          return (
+            <View
+              key={row.id}
+              style={[
+                styles.formulaTableRow,
+                isResult ? styles.formulaTableRowResult : null,
+              ]}
+            >
+              <View style={styles.formulaTableCopy}>
+                <Text
+                  style={[
+                    styles.formulaTableLabel,
+                    isResult ? styles.formulaTableLabelResult : null,
+                  ]}
+                >
+                  {row.label}
+                </Text>
+                <Text style={styles.formulaTableNote}>{row.note}</Text>
+              </View>
+              <Text
+                style={[
+                  styles.formulaTableAmount,
+                  isResult ? styles.formulaTableAmountResult : null,
+                ]}
+              >
+                {formatFormulaAmount(row.amount, isResult)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+      <Text style={styles.formulaSummary}>{netPositionLabel}</Text>
+    </View>
+  );
+}
+
+function formatFormulaAmount(amount: string, isResult: boolean): string {
+  if (isResult) {
+    return `= ${amount}`;
+  }
+
+  if (amount.startsWith("-")) {
+    return `- ${amount.slice(1)}`;
+  }
+
+  return `+ ${amount}`;
+}
+
 function StatusCard({
   actionLabel,
   body,
@@ -1242,25 +1321,32 @@ const styles = StyleSheet.create({
   },
   periodCopy: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
   periodEyebrow: {
     color: "rgba(0, 32, 69, 0.5)",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     textTransform: "uppercase",
   },
   periodHeader: {
-    alignItems: "flex-start",
+    alignItems: "stretch",
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
   },
+  periodHeaderPrimary: {
+    flex: 1,
+    gap: 10,
+  },
+  periodHeaderSecondary: {
+    width: 138,
+  },
   periodSelectorContent: {
     paddingRight: 14,
   },
-  periodSummaryCard: {
+  periodTrigger: {
     alignItems: "center",
     backgroundColor: "#FFFDF8",
     borderColor: "rgba(0, 32, 69, 0.08)",
@@ -1269,9 +1355,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flex: 1,
   },
-  periodSummaryCardDisabled: {
+  periodTriggerDisabled: {
     opacity: 0.72,
   },
   periodSummaryCardCopy: {
@@ -1294,12 +1382,6 @@ const styles = StyleSheet.create({
   periodSummaryCardPressed: {
     opacity: 0.92,
   },
-  periodSummaryCardValue: {
-    color: "#002045",
-    fontSize: 18,
-    fontWeight: "800",
-    lineHeight: 24,
-  },
   yearChip: {
     backgroundColor: "#FFFFFF",
     borderColor: "rgba(0, 32, 69, 0.08)",
@@ -1318,14 +1400,14 @@ const styles = StyleSheet.create({
   },
   periodSummary: {
     color: "rgba(0, 32, 69, 0.62)",
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
   },
   periodTitle: {
     color: "#002045",
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
-    lineHeight: 34,
+    lineHeight: 30,
   },
   postingLineAmount: {
     color: "#002045",
@@ -1379,36 +1461,6 @@ const styles = StyleSheet.create({
     color: "#002045",
     fontSize: 17,
     fontWeight: "800",
-  },
-  segmentedControl: {
-    backgroundColor: "#ECEAE3",
-    borderRadius: 22,
-    flexDirection: "row",
-    gap: 6,
-    padding: 6,
-  },
-  segmentedItem: {
-    borderRadius: 16,
-    flex: 1,
-    minHeight: 50,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-  },
-  segmentedItemActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#002045",
-    shadowOffset: { height: 10, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-  },
-  segmentedLabel: {
-    color: "rgba(0, 32, 69, 0.5)",
-    fontSize: 13,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  segmentedLabelActive: {
-    color: "#002045",
   },
   sheetAmount: {
     color: "#002045",
@@ -1556,14 +1608,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 20,
   },
-  utilityActions: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  utilityPanel: {
-    alignItems: "flex-end",
-    gap: 10,
+  utilityButtonPressed: {
+    backgroundColor: "#F0F4F8",
   },
   scopePill: {
     alignItems: "center",
@@ -1600,20 +1646,35 @@ const styles = StyleSheet.create({
     minHeight: 48,
     padding: 6,
   },
-  utilityButton: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
+  viewSwitch: {
+    backgroundColor: "#ECEAE3",
     borderRadius: 18,
-    borderWidth: 1,
-    height: 48,
+    gap: 6,
+    padding: 7,
+  },
+  viewSwitchItem: {
+    alignItems: "center",
+    borderRadius: 12,
     justifyContent: "center",
-    width: 48,
+    minHeight: 46,
+    paddingHorizontal: 10,
+    paddingVertical: 11,
   },
-  utilityButtonDisabled: {
-    opacity: 0.55,
+  viewSwitchItemActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#002045",
+    shadowOffset: { height: 6, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
   },
-  utilityButtonPressed: {
-    backgroundColor: "#F0F4F8",
+  viewSwitchLabel: {
+    color: "rgba(0, 32, 69, 0.56)",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  viewSwitchLabelActive: {
+    color: "#002045",
   },
 });

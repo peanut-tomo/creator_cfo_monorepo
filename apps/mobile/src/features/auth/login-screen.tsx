@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LaunchScreen } from "../app-shell/launch-screen";
 import { useAppShell } from "../app-shell/provider";
+import { resolveEntryHref } from "../app-shell/storage-entry";
 
 function isCancelledAppleRequest(error: unknown): boolean {
   return (
@@ -51,17 +52,23 @@ export function LoginScreen() {
     };
   }, []);
 
-  if (!isHydrated) {
+  const redirectHref = resolveEntryHref({
+    isHydrated,
+    session: Boolean(session),
+    storageGateState,
+  });
+
+  if (!isHydrated || (session && redirectHref === null)) {
     return <LaunchScreen />;
   }
 
-  if (session) {
-    return <Redirect href="/(tabs)" />;
+  if (session && redirectHref) {
+    return <Redirect href={redirectHref} />;
   }
 
   const handleGuestMode = async () => {
     await continueAsGuest();
-    router.replace("/(tabs)");
+    router.replace("/");
   };
 
   const handleAppleSignIn = async () => {
@@ -85,7 +92,7 @@ export function LoginScreen() {
         user: credential.user,
       });
 
-      router.replace("/(tabs)");
+      router.replace("/");
     } catch (error) {
       setAppleMessageState(
         isCancelledAppleRequest(error) ? "cancelled" : "unavailable",

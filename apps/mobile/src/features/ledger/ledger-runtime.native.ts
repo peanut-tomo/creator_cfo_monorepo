@@ -2,7 +2,6 @@ import * as Crypto from "expo-crypto";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
-import { Platform } from "react-native";
 import { buildEvidenceUploadPath } from "@creator-cfo/storage";
 import {
   normalizeReceiptParsePayload,
@@ -318,11 +317,13 @@ export async function runPlanner(input: {
   fileName: string;
   mimeType: string | null;
   model: string;
+  parserKind?: string;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
   rawText: string;
 }): Promise<PlannerResult> {
   const { planEvidenceDbUpdates } = await import("./remote-parse");
-  const { buildExtractedData } = await import("./ledger-domain");
+  const { buildRemoteExtractedData } = await import("./ledger-domain");
   const {
     createExtractionRun,
     createPlannerRun,
@@ -411,17 +412,13 @@ export async function runPlanner(input: {
       updatedAt: now,
     });
 
-    // 7. Build extracted data for the evidence row
-    const extractedData = buildExtractedData({
-      fallbackDate: now.slice(0, 10),
+    // 7. Build extracted data for the evidence row from the validated parse payload
+    const extractedData = buildRemoteExtractedData({
       fileName: input.fileName,
-      parser: "openai_gpt",
-      rawLines: input.rawText.split("\n").filter((l: string) => l.trim()),
-      rawText: input.rawText,
-      sourceLabel: "openai_upload",
+      parsePayload: input.rawJson as ReceiptParsePayload,
+      scheme: {},
+      sourceLabel: input.parserKind === "gemini" ? "gemini_upload" : "openai_upload",
     });
-    extractedData.model = input.model;
-    extractedData.originData = input.rawJson as never;
 
     await writableDatabase.runAsync(
       `UPDATE evidences SET parse_status = 'parsed', extracted_data = ? WHERE evidence_id = ?;`,
@@ -441,6 +438,7 @@ export async function runPlanner(input: {
       evidenceId,
       fileName: input.fileName,
       mimeType: input.mimeType,
+      profileInfo: input.profileInfo,
       rawJson: input.rawJson,
     });
 
@@ -564,12 +562,6 @@ export async function rejectWriteProposal(
     await rejectWorkflowWriteProposal(writableDatabase, {
       updatedAt: now,
       writeProposalId,
-    });
-
-    await updateUploadBatchState(writableDatabase, {
-      batchId,
-      state: "rejected",
-      updatedAt: now,
     });
 
     const evidence = await loadEvidenceById(writableDatabase, batch.evidenceId);
@@ -745,6 +737,8 @@ async function extractEvidenceData(
       scheme: buildRecordSchemeTemplate(),
       sourceLabel: "Vercel OpenAI GPT",
     });
+
+    return extractedData;
   } catch (error) {
     return buildFailedExtractedData({
       fallbackDate,

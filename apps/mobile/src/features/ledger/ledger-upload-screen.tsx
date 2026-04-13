@@ -1,7 +1,7 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackHeaderBar } from "../../components/back-header-bar";
@@ -11,7 +11,10 @@ import {
   pickDocumentUploadCandidates,
   pickPhotoUploadCandidates,
 } from "./ledger-runtime";
+import { describeUploadCandidate } from "./ledger-ui-copy";
 import { useAppShell } from "../app-shell/provider";
+
+type UploadCandidate = Awaited<ReturnType<typeof pickDocumentUploadCandidates>>[number];
 
 export function LedgerUploadScreen() {
   const router = useRouter();
@@ -27,7 +30,7 @@ export function LedgerUploadScreen() {
   });
 
   async function handleImport(source: "documents" | "photos"): Promise<void> {
-    setIsBusy(true);
+    setIsSelecting(true);
     setError(null);
 
     try {
@@ -52,11 +55,13 @@ export function LedgerUploadScreen() {
 
       router.push({
         params: {
-          fileName: first.originalFileName,
+          fileName: selectedCandidate.originalFileName,
+          mimeType: selectedCandidate.mimeType ?? "",
           rawJson: result.rawJson != null ? JSON.stringify(result.rawJson) : "",
           rawText: result.rawText,
           model: result.model,
           parseError: result.error ?? "",
+          parserKind: result.parserKind ?? "",
         },
         pathname: "/ledger/parse",
       });
@@ -67,7 +72,7 @@ export function LedgerUploadScreen() {
           : uploadCopy.errorFallback,
       );
     } finally {
-      setIsBusy(false);
+      setIsParsing(false);
     }
   }
 
@@ -196,8 +201,106 @@ export function LedgerUploadScreen() {
                   {uploadCopy.selectFiles}
                 </Text>
               </View>
-            </Pressable>
-          </View>
+
+              {isParsing ? (
+                <View style={styles.parsingState} testID="ledger-upload-parsing-state">
+                  <ActivityIndicator color={palette.accent} size="large" />
+                  <Text style={[styles.parsingTitle, { color: palette.ink }]}>Parsing {selectedCandidate.originalFileName}</Text>
+                  <Text style={[styles.parsingSummary, { color: palette.inkMuted }]}>
+                    The upload is locked while the loading circle is active.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.buttonStack}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isBusy}
+                    onPress={handleParseSelection}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      {
+                        backgroundColor: pressed ? palette.heroEnd : palette.ink,
+                        opacity: isBusy ? 0.7 : 1,
+                        shadowColor: palette.shadow,
+                      },
+                    ]}
+                    testID="ledger-upload-parse-button"
+                  >
+                    <View style={styles.primaryButtonContent}>
+                      <MaterialCommunityIcons color={palette.inkOnAccent} name="progress-upload" size={18} />
+                      <Text style={[styles.primaryButtonLabel, { color: palette.inkOnAccent }]}>Parse</Text>
+                    </View>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isBusy}
+                    onPress={handleBackToPicker}
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      {
+                        backgroundColor: pressed ? palette.paperMuted : palette.paper,
+                        borderColor: palette.border,
+                        opacity: isBusy ? 0.7 : 1,
+                      },
+                    ]}
+                    testID="ledger-upload-back-button"
+                  >
+                    <View style={styles.primaryButtonContent}>
+                      <MaterialCommunityIcons color={palette.ink} name="arrow-left" size={18} />
+                      <Text style={[styles.secondaryButtonLabel, { color: palette.ink }]}>Back</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.buttonStack}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isBusy}
+                onPress={() => handleImport("photos")}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  {
+                    backgroundColor: pressed ? palette.heroEnd : palette.ink,
+                    opacity: isBusy ? 0.7 : 1,
+                    shadowColor: palette.shadow,
+                  },
+                ]}
+                testID="ledger-upload-select-photos-button"
+              >
+                <View style={styles.primaryButtonContent}>
+                  <MaterialCommunityIcons color={palette.inkOnAccent} name="image-multiple-outline" size={18} />
+                  <Text style={[styles.primaryButtonLabel, { color: palette.inkOnAccent }]}>
+                    {isSelecting ? "Opening..." : "Select Photos"}
+                  </Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                disabled={isBusy}
+                onPress={() => handleImport("documents")}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  {
+                    backgroundColor: pressed ? palette.paperMuted : palette.paper,
+                    borderColor: palette.border,
+                    opacity: isBusy ? 0.7 : 1,
+                  },
+                ]}
+                testID="ledger-upload-select-button"
+              >
+                <View style={styles.primaryButtonContent}>
+                  <MaterialCommunityIcons color={palette.ink} name="file-upload-outline" size={18} />
+                  <Text style={[styles.secondaryButtonLabel, { color: palette.ink }]}>
+                    {isSelecting ? "Opening..." : "Select Files"}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          )}
 
           <Text
             style={[
@@ -227,6 +330,28 @@ const styles = StyleSheet.create({
     gap: 18,
     padding: 20,
     paddingBottom: 34,
+  },
+  documentPreviewBody: {
+    flex: 1,
+    gap: 2,
+  },
+  documentPreviewCard: {
+    alignItems: "center",
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    width: "100%",
+  },
+  documentPreviewMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  documentPreviewName: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   dropCard: {
     alignItems: "center",
@@ -274,6 +399,29 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: "center",
   },
+  metadataCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    width: "100%",
+  },
+  parsingState: {
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+  },
+  parsingSummary: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  parsingTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   primaryButton: {
     alignItems: "center",
     borderRadius: 999,
@@ -292,6 +440,24 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: 15,
     fontWeight: "700",
+  },
+  previewFileName: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  previewImage: {
+    borderRadius: 20,
+    borderWidth: 1,
+    height: 220,
+    width: "100%",
+  },
+  previewMetaLine: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  previewStack: {
+    gap: 12,
+    width: "100%",
   },
   safeArea: {
     flex: 1,

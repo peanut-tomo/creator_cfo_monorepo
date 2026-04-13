@@ -108,6 +108,7 @@ export interface GeneralLedgerSnapshot {
 
 export interface BalanceSheetSnapshot {
   assetRows: LedgerSectionRow[];
+  carryForwardRows: LedgerSectionRow[];
   equationSummary: string;
   equityAmount: string;
   equityRows: LedgerSectionRow[];
@@ -170,6 +171,18 @@ const monthSegmentIds = [
   "m12",
 ] as const satisfies readonly LedgerPeriodSegmentId[];
 const quarterSegmentIds = ["q1", "q2", "q3", "q4"] as const satisfies readonly LedgerPeriodSegmentId[];
+const businessLedgerRecordKinds = [
+  "income",
+  "expense",
+] as const satisfies readonly LedgerRecordRow["recordKind"][];
+const personalLedgerRecordKinds = [
+  "personal_spending",
+] as const satisfies readonly LedgerRecordRow["recordKind"][];
+const balanceSheetLedgerRecordKinds = [
+  "income",
+  "expense",
+  "personal_spending",
+] as const satisfies readonly LedgerRecordRow["recordKind"][];
 const unavailableLedgerPeriodId = "unavailable";
 
 export async function loadLedgerSnapshot(
@@ -186,17 +199,16 @@ export async function loadLedgerSnapshot(
   const entityId = input.entityId ?? defaultEntityId;
   const locale = input.locale ?? "en";
   const scopeId = input.scopeId ?? "business";
-  const scopeRecordKinds =
-    scopeId === "personal"
-      ? "('personal_spending')"
-      : "('income', 'expense')";
+  const scopeRecordKinds = buildScopeRecordKinds(scopeId);
+  const availabilityRecordKinds = buildBalanceSheetRecordKinds();
+  const availabilityRecordKindsLiteral = buildRecordKindsLiteral(availabilityRecordKinds);
   const occurredOnRows = await database.getAllAsync<LedgerAvailableDateRow>(
     `SELECT DISTINCT
       occurred_on AS occurredOn
     FROM records
     WHERE entity_id = ?
       AND record_status IN ('posted', 'reconciled')
-      AND record_kind IN ${scopeRecordKinds}
+      AND record_kind IN ${availabilityRecordKindsLiteral}
     ORDER BY occurred_on DESC;`,
     entityId,
   );
@@ -213,30 +225,34 @@ export async function loadLedgerSnapshot(
     yearOptions: availability.yearOptions,
   });
   const segmentOptions = availability.segmentOptionsByYear.get(selectedPeriod.year) ?? [];
-  const rows =
+  const earliestOccurredOn = occurredOnRows[occurredOnRows.length - 1]?.occurredOn
+    ? normalizeIsoDate(occurredOnRows[occurredOnRows.length - 1].occurredOn)
+    : null;
+  const periodRows =
     availability.periodOptions.length > 0
-      ? await database.searchRecordsByDateRangeAsync<LedgerRecordRow>({
-          dateRange: {
-            endOn: selectedPeriod.endDate,
-            startOn: selectedPeriod.startDate,
-          },
+      ? await loadLedgerRowsForRange(database, {
+          endDate: selectedPeriod.endDate,
           entityId,
-          orderBy: "r.occurred_on DESC, r.created_at DESC, r.record_id DESC",
-          recordKinds:
-            scopeId === "personal" ? ["personal_spending"] : ["income", "expense"],
-          recordStatuses: ledgerPostableStatuses,
-          select: `r.record_id AS recordId,
-            r.description,
-            r.memo,
-            r.occurred_on AS occurredOn,
-            r.created_at AS createdAt,
-            r.currency,
-            r.amount_cents AS amountCents,
-            r.record_kind AS recordKind,
-            r.source_label AS sourceLabel,
-            r.target_label AS targetLabel,
-            COALESCE(r.business_use_bps, 10000) AS businessUseBps,
-            r.tax_line_code AS taxLineCode`,
+          recordKinds: scopeRecordKinds,
+          startDate: selectedPeriod.startDate,
+        })
+      : [];
+  const profitLossRows =
+    availability.periodOptions.length > 0
+      ? await loadLedgerRowsForRange(database, {
+          endDate: selectedPeriod.endDate,
+          entityId,
+          recordKinds: availabilityRecordKinds,
+          startDate: selectedPeriod.startDate,
+        })
+      : [];
+  const balanceSheetRows =
+    availability.periodOptions.length > 0 && earliestOccurredOn
+      ? await loadLedgerRowsForRange(database, {
+          endDate: selectedPeriod.endDate,
+          entityId,
+          recordKinds: availabilityRecordKinds,
+          startDate: earliestOccurredOn,
         })
       : [];
 
@@ -358,8 +374,19 @@ export function buildLedgerSnapshotFromRows(
   const fundingGapCents = Math.max(netIncomeCents * -1, 0);
   const generalLedgerTotalCents =
     input.selectedScope === "personal"
-      ? personalTotalCents
+      ? sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents))
       : sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents));
+  const balanceSheet = buildBalanceSheetSnapshot(
+    normalizedBalanceSheetRows,
+    {
+      scopeId: input.selectedScope,
+      selectedPeriod: input.selectedPeriod,
+    },
+  );
+  const profitAndLoss = buildProfitAndLossSnapshot(
+    normalizedProfitLossRows,
+    input.selectedScope,
+  );
 
   return {
     balanceSheet: {
@@ -441,8 +468,8 @@ export function buildLedgerSnapshotFromRows(
       ],
       recordCountLabel: formatLedgerRecordCount(normalizedRows.length, locale),
     },
-    hasData: normalizedRows.length > 0,
-    isEmpty: normalizedRows.length === 0,
+    hasData: normalizedRows.length > 0 || hasBalanceSheetData,
+    isEmpty: normalizedRows.length === 0 && !hasBalanceSheetData,
     periodOptions: [...input.periodOptions],
     profitAndLoss: {
       expenseRows:
