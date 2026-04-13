@@ -1,10 +1,21 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SectionCard } from "@creator-cfo/ui";
 
-import { localePreferenceOptions, themePreferenceOptions } from "../app-shell/copy";
+import {
+  localePreferenceOptions,
+  themePreferenceOptions,
+} from "../app-shell/copy";
 import { useAppShell } from "../app-shell/provider";
 import type { LocalePreference, ThemePreference } from "../app-shell/types";
 import { pickAndImportDatabasePackageAsync } from "../../storage/database-import";
@@ -16,7 +27,8 @@ function PreferencePill(props: {
   palette: ReturnType<typeof useAppShell>["palette"];
 }) {
   const { active, label, onPress, palette } = props;
-  const activeLabelColor = palette.name === "dark" ? palette.shell : palette.inkOnAccent;
+  const activeLabelColor =
+    palette.name === "dark" ? palette.shell : palette.inkOnAccent;
 
   return (
     <Pressable
@@ -52,7 +64,6 @@ export function ProfileScreen() {
     palette,
     parseApiBaseUrl,
     session,
-    sessionDisplayName,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
@@ -90,21 +101,43 @@ export function ProfileScreen() {
   };
 
   const sessionKindLabel =
-    session?.kind === "apple" ? "Apple ID" : session?.kind === "guest" ? copy.common.guest : "None";
-  const destructiveLabelColor = palette.name === "dark" ? palette.shell : palette.inkOnAccent;
+    session?.kind === "apple"
+      ? copy.meScreen.sessionApple
+      : session?.kind === "guest"
+        ? copy.common.guest
+        : copy.meScreen.sessionNone;
+  const sessionTitle =
+    session?.kind === "apple"
+      ? (session.displayName ?? session.email ?? copy.meScreen.sessionApple)
+      : session?.kind === "guest"
+        ? copy.meScreen.sessionGuest
+        : copy.meScreen.sessionNone;
+  const destructiveLabelColor =
+    palette.name === "dark" ? palette.shell : palette.inkOnAccent;
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: palette.shell }]}>
+    <SafeAreaView
+      edges={["top", "left", "right"]}
+      style={[styles.safeArea, { backgroundColor: palette.shell }]}
+    >
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.hero}>
-          <Text style={[styles.eyebrow, { color: palette.accent }]}>{copy.tabs.profile}</Text>
-          <Text style={[styles.title, { color: palette.ink }]}>{copy.meScreen.title}</Text>
+          <Text style={[styles.eyebrow, { color: palette.accent }]}>
+            {copy.tabs.profile}
+          </Text>
+          <Text style={[styles.title, { color: palette.ink }]}>
+            {copy.meScreen.title}
+          </Text>
           <Text style={[styles.summary, { color: palette.inkMuted }]}>
             {copy.meScreen.sessionDescription}
           </Text>
         </View>
 
-        <SectionCard eyebrow={copy.common.theme} palette={palette} title={copy.common.theme}>
+        <SectionCard
+          eyebrow={copy.common.theme}
+          palette={palette}
+          title={copy.common.theme}
+        >
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
             {copy.meScreen.themeDescription}
           </Text>
@@ -123,7 +156,11 @@ export function ProfileScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard eyebrow={copy.common.language} palette={palette} title={copy.common.language}>
+        <SectionCard
+          eyebrow={copy.common.language}
+          palette={palette}
+          title={copy.common.language}
+        >
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
             {copy.meScreen.localeDescription}
           </Text>
@@ -142,19 +179,24 @@ export function ProfileScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard eyebrow="AI Parse" palette={palette} title="Vercel Parse API">
+        <SectionCard
+          eyebrow={copy.meScreen.apiSectionEyebrow}
+          palette={palette}
+          title={copy.meScreen.apiSectionTitle}
+        >
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
-            Store your Vercel API URL and OpenAI API key locally on this device. Upload parsing will
-            send the key only in the request header and will not save it to SQLite.
+            {copy.meScreen.apiSectionDescription}
           </Text>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Vercel API Base URL</Text>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+              {copy.meScreen.apiBaseUrlLabel}
+            </Text>
             <TextInput
               autoCapitalize="none"
               autoCorrect={false}
               onChangeText={setBaseUrlDraft}
-              placeholder="https://your-project.vercel.app"
+              placeholder={copy.meScreen.apiBaseUrlPlaceholder}
               placeholderTextColor={palette.inkMuted}
               style={[
                 styles.input,
@@ -169,12 +211,14 @@ export function ProfileScreen() {
           </View>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>OpenAI API Key</Text>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+              {copy.meScreen.apiKeyLabel}
+            </Text>
             <TextInput
               autoCapitalize="none"
               autoCorrect={false}
               onChangeText={setApiKeyDraft}
-              placeholder="sk-..."
+              placeholder={copy.meScreen.apiKeyPlaceholder}
               placeholderTextColor={palette.inkMuted}
               secureTextEntry
               style={[
@@ -205,7 +249,14 @@ export function ProfileScreen() {
                 },
               ]}
             >
-              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>Save API Settings</Text>
+              <Text
+                style={[
+                  styles.actionButtonLabel,
+                  { color: palette.inkOnAccent },
+                ]}
+              >
+                {copy.meScreen.apiSave}
+              </Text>
             </Pressable>
 
             <Pressable
@@ -223,13 +274,21 @@ export function ProfileScreen() {
                 },
               ]}
             >
-              <Text style={[styles.secondaryActionLabel, { color: palette.ink }]}>Clear</Text>
+              <Text
+                style={[styles.secondaryActionLabel, { color: palette.ink }]}
+              >
+                {copy.meScreen.apiClear}
+              </Text>
             </Pressable>
           </View>
         </SectionCard>
 
         {Platform.OS !== "web" ? (
-          <SectionCard eyebrow="Storage" palette={palette} title={copy.meScreen.databaseTitle}>
+          <SectionCard
+            eyebrow={copy.meScreen.storageEyebrow}
+            palette={palette}
+            title={copy.meScreen.databaseTitle}
+          >
             <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
               {copy.meScreen.databaseDescription}
             </Text>
@@ -240,7 +299,9 @@ export function ProfileScreen() {
                   styles.databaseMessage,
                   {
                     color:
-                      databaseImportMessage.tone === "error" ? palette.destructive : palette.accent,
+                      databaseImportMessage.tone === "error"
+                        ? palette.destructive
+                        : palette.accent,
                   },
                 ]}
               >
@@ -270,11 +331,15 @@ export function ProfileScreen() {
                   importSucceeded = true;
                   setDatabaseImportMessage({
                     tone: "success",
-                    value: `${copy.meScreen.databaseImportSuccess} ${result.importedDatabaseName} · ${result.checkedPathCount} path(s) checked.`,
+                    value:
+                      `${copy.meScreen.databaseImportSuccess} ${result.importedDatabaseName} · ` +
+                      `${result.checkedPathCount} ${copy.meScreen.databaseImportCheckedSuffix}`,
                   });
                 } catch (error) {
                   const message =
-                    error instanceof Error ? error.message : copy.meScreen.databaseImportFailure;
+                    error instanceof Error
+                      ? error.message
+                      : copy.meScreen.databaseImportFailure;
                   setDatabaseImportMessage({
                     tone: "error",
                     value: `${copy.meScreen.databaseImportFailure} ${message}`,
@@ -297,7 +362,12 @@ export function ProfileScreen() {
                 },
               ]}
             >
-              <Text style={[styles.actionButtonLabel, { color: palette.inkOnAccent }]}>
+              <Text
+                style={[
+                  styles.actionButtonLabel,
+                  { color: palette.inkOnAccent },
+                ]}
+              >
                 {isImportingDatabase
                   ? copy.meScreen.databaseImportInProgress
                   : copy.meScreen.databaseImportAction}
@@ -306,8 +376,14 @@ export function ProfileScreen() {
           </SectionCard>
         ) : null}
 
-        <SectionCard eyebrow={copy.meScreen.sessionTitle} palette={palette} title={sessionDisplayName}>
-          <Text style={[styles.sessionKind, { color: palette.accent }]}>{sessionKindLabel}</Text>
+        <SectionCard
+          eyebrow={copy.meScreen.sessionTitle}
+          palette={palette}
+          title={sessionTitle}
+        >
+          <Text style={[styles.sessionKind, { color: palette.accent }]}>
+            {sessionKindLabel}
+          </Text>
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
             {copy.meScreen.logoutDescription}
           </Text>
@@ -317,9 +393,14 @@ export function ProfileScreen() {
               await signOut();
               router.replace("/login");
             }}
-            style={[styles.logoutButton, { backgroundColor: palette.destructive }]}
+            style={[
+              styles.logoutButton,
+              { backgroundColor: palette.destructive },
+            ]}
           >
-            <Text style={[styles.logoutLabel, { color: destructiveLabelColor }]}>
+            <Text
+              style={[styles.logoutLabel, { color: destructiveLabelColor }]}
+            >
               {copy.common.signOut}
             </Text>
           </Pressable>

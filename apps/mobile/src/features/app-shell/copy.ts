@@ -1,4 +1,8 @@
-import type { LocalePreference, ResolvedLocale, ThemePreference } from "./types";
+import type {
+  LocalePreference,
+  ResolvedLocale,
+  ThemePreference,
+} from "./types";
 
 export interface AppCopy {
   common: {
@@ -134,6 +138,8 @@ export interface AppCopy {
     recentActivitySubtitle: string;
     recentActivityTitle: string;
     seeAll: string;
+    trendEmptySummary: string;
+    trendEmptyTitle: string;
     trendSubtitle: string;
     trendTitle: string;
   };
@@ -173,13 +179,65 @@ export interface AppCopy {
   ledger: {
     cards: Array<{ summary: string; title: string }>;
     parse: {
+      approvalFailed: string;
+      approve: string;
       backToLedger: string;
+      backToUpload: string;
+      descriptionField: string;
       detectedDocsTitle: string;
+      editRecordTitle: string;
+      emptySummary: string;
+      emptyTitle: string;
+      errorTitle: string;
+      fieldAmount: string;
+      fieldDate: string;
+      fieldDescription: string;
+      fieldSource: string;
+      fieldTarget: string;
+      heroEyebrow: string;
+      heroTitle: string;
+      mapToRecords: string;
+      mapping: string;
+      modelLabel: string;
+      noData: string;
+      parsedJsonTitle: string;
+      plannerErrorTitle: string;
+      plannerFailed: string;
+      plannerSummaryTitle: string;
       progressTitle: string;
+      proposalStateApproved: string;
+      proposalStateBlocked: string;
+      proposalStateExecuted: string;
+      proposalStateFailed: string;
+      proposalStatePendingApproval: string;
+      proposalStateRejected: string;
+      proposalTypeCreateCounterparty: string;
+      proposalTypePersistCandidateRecord: string;
+      proposalTypeUpdateCandidateRecord: string;
+      proposalTypeUpdateWorkflowState: string;
+      recordSavedSummary: string;
+      recordSavedTitle: string;
+      reject: string;
+      rejectionFailed: string;
       retry: string;
+      reviewStateApproved: string;
+      reviewStateCandidate: string;
+      reviewStateDuplicate: string;
+      reviewStateFailed: string;
+      reviewStateNeedsReview: string;
+      reviewStatePersistedDraft: string;
+      reviewStatePersistedFinal: string;
+      reviewStateProposedWritePending: string;
+      reviewStateRejected: string;
+      reviewStateValidated: string;
+      statCandidates: string;
+      statProposals: string;
+      statReadTasks: string;
       summary: string;
       title: string;
       totalsTitle: string;
+      unknownFile: string;
+      writeProposalsTitle: string;
     };
     primaryAction: string;
     secondaryAction: string;
@@ -188,10 +246,96 @@ export interface AppCopy {
     title: string;
     upload: {
       continue: string;
+      emptySelection: string;
+      eyebrow: string;
+      errorFallback: string;
       hint: string;
+      parsing: string;
+      parsingStatusPrefix: string;
+      selectFiles: string;
+      selectPhotos: string;
       sourceTitle: string;
       summary: string;
       title: string;
+      uploadCardSummary: string;
+      uploadCardTitle: string;
+    };
+  };
+  ledgerScreen: {
+    badge: {
+      business: string;
+      personal: string;
+    };
+    footer: {
+      emptyBusiness: string;
+      emptyPersonal: string;
+      personalRange: string;
+      reportingRange: string;
+    };
+    modal: {
+      chooseRange: string;
+      month: string;
+      monthHint: string;
+      monthTitle: string;
+      openMonths: string;
+      openQuarters: string;
+      pickerEyebrow: string;
+      quarter: string;
+      quarterHint: string;
+      quarterTitle: string;
+      reviewFullQuarter: string;
+      reviewFullYear: string;
+      stepMonth: string;
+      stepQuarter: string;
+      stepYear: string;
+      year: string;
+      yearTitle: string;
+    };
+    range: {
+      fullQuarter: string;
+      fullYear: string;
+      noBusiness: string;
+      noPersonal: string;
+      reportingRange: string;
+      selectedRange: string;
+      yearsAvailablePlural: string;
+      yearsAvailableSingular: string;
+    };
+    scopes: {
+      business: string;
+      businessA11y: string;
+      personal: string;
+      personalA11y: string;
+    };
+    sections: {
+      assets: string;
+      balanceOnlyBody: string;
+      balanceOnlyTitle: string;
+      credit: string;
+      debit: string;
+      equity: string;
+      equation: string;
+      expenses: string;
+      journalPersonal: string;
+      journalRecent: string;
+      liabilities: string;
+      netIncome: string;
+      netIncomeSummary: string;
+      noBusinessBody: string;
+      noBusinessTitle: string;
+      noPersonalBody: string;
+      noPersonalTitle: string;
+      pnlOnlyBody: string;
+      pnlOnlyTitle: string;
+      preparingBody: string;
+      preparingTitle: string;
+      retry: string;
+      retrying: string;
+      revenue: string;
+      unavailableTitle: string;
+      viewBalance: string;
+      viewJournal: string;
+      viewPnl: string;
     };
   };
   login: {
@@ -199,24 +343,42 @@ export interface AppCopy {
     appleCancelled: string;
     appleHint: string;
     appleUnavailable: string;
+    brandSubtitle: string;
     body: string;
     caption: string;
     eyebrow: string;
+    privacyEyebrow: string;
+    privacyMetrics: [string, string];
+    privacySummary: string;
     signals: [string, string, string];
     skip: string;
     title: string;
   };
   meScreen: {
+    apiBaseUrlLabel: string;
+    apiBaseUrlPlaceholder: string;
+    apiClear: string;
+    apiKeyLabel: string;
+    apiKeyPlaceholder: string;
+    apiSave: string;
+    apiSectionDescription: string;
+    apiSectionEyebrow: string;
+    apiSectionTitle: string;
     databaseDescription: string;
     databaseImportAction: string;
+    databaseImportCheckedSuffix: string;
     databaseImportFailure: string;
     databaseImportInProgress: string;
     databaseImportSuccess: string;
     databaseTitle: string;
     localeDescription: string;
     logoutDescription: string;
+    sessionApple: string;
     sessionDescription: string;
+    sessionGuest: string;
+    sessionNone: string;
     sessionTitle: string;
+    storageEyebrow: string;
     themeDescription: string;
     title: string;
   };
@@ -250,11 +412,13 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       cards: [
         {
           title: "Creator benchmarks",
-          summary: "Preview runway, take-rate, and tax reserve signals before deeper sync arrives.",
+          summary:
+            "Preview runway, take-rate, and tax reserve signals before deeper sync arrives.",
         },
         {
           title: "Template vault",
-          summary: "Keep future invoice drafts, receipts, and filing kits in one device-local command center.",
+          summary:
+            "Keep future invoice drafts, receipts, and filing kits in one device-local command center.",
         },
       ],
       emptySummary:
@@ -285,7 +449,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         sourceLabel: "Instruction source",
         slotGuideTitle: "Slot guidance",
         title: "Form 1099-NEC exact-layout preview",
-        unlockNote: "Acknowledge the disclaimer to reveal the official-form preview.",
+        unlockNote:
+          "Acknowledge the disclaimer to reveal the official-form preview.",
         webPreviewLabel: "Static web preview",
       },
       formScheduleC: {
@@ -311,7 +476,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         slotGuideTitle: "Field guidance",
         taxYearTitle: "Tax year",
         title: "Schedule C exact-layout preview",
-        unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Schedule C preview.",
+        unlockNote:
+          "Acknowledge the disclaimer to reveal the frontend-drawn Schedule C preview.",
         webPreviewLabel: "Static web preview",
       },
       formScheduleSE: {
@@ -337,7 +503,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         slotGuideTitle: "Field guidance",
         taxYearTitle: "Tax year",
         title: "Schedule SE exact-layout preview",
-        unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Schedule SE preview.",
+        unlockNote:
+          "Acknowledge the disclaimer to reveal the frontend-drawn Schedule SE preview.",
         webPreviewLabel: "Static web preview",
       },
       form1040: {
@@ -362,7 +529,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         sourceLabel: "Instruction source",
         slotGuideTitle: "Field guidance",
         title: "Form 1040 exact-layout preview",
-        unlockNote: "Acknowledge the disclaimer to reveal the frontend-drawn Form 1040 preview.",
+        unlockNote:
+          "Acknowledge the disclaimer to reveal the frontend-drawn Form 1040 preview.",
         webPreviewLabel: "Static web preview",
       },
       latestLabel: "Latest briefings",
@@ -376,14 +544,16 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       openArticle: "Open article",
       publishedLabel: "Published",
       readTimeLabel: "min read",
-      refreshHint: "Pull to refresh or load more to extend the local article feed.",
+      refreshHint:
+        "Pull to refresh or load more to extend the local article feed.",
       sourceLabel: "Source",
       summary:
         "Scan the latest operating signals, then open a detail page when you want the full context.",
       title: "Discover",
     },
     homeScreen: {
-      emptySummary: "Upload and confirm a receipt to populate Home with real totals and activity.",
+      emptySummary:
+        "Upload and confirm a receipt to populate Home with real totals and activity.",
       emptyTitle: "No records yet",
       income: "Income",
       loadMore: "Load More",
@@ -397,6 +567,9 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       recentActivitySubtitle: "Newest records synced from the local ledger",
       recentActivityTitle: "Recent Activity",
       seeAll: "See All",
+      trendEmptySummary:
+        "Add a posted income record to start the 30-day trend view.",
+      trendEmptyTitle: "No income in the last 30 days",
       trendSubtitle: "Pulled from local SQLite records",
       trendTitle: "30-Day Income Trend",
     },
@@ -408,19 +581,23 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       focusCards: [
         {
           title: "Revenue handoff",
-          summary: "Track which platforms are paid out, delayed, or waiting for reconciliation.",
+          summary:
+            "Track which platforms are paid out, delayed, or waiting for reconciliation.",
         },
         {
           title: "Tax reserve",
-          summary: "Keep the next filing window visible without leaving the dashboard shell.",
+          summary:
+            "Keep the next filing window visible without leaving the dashboard shell.",
         },
         {
           title: "Guest-safe setup",
-          summary: "Try the product before connecting any identity or remote service.",
+          summary:
+            "Try the product before connecting any identity or remote service.",
         },
       ],
       focusTitle: "Today at a glance",
-      heroSummary: "The shell is live, contracts are local, and the next actions stay easy to scan.",
+      heroSummary:
+        "The shell is live, contracts are local, and the next actions stay easy to scan.",
       metricBootstrapIdle: "Syncing",
       metricBootstrapLabel: "Bootstrap",
       metricBootstrapReady: "Ready",
@@ -450,61 +627,234 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       cards: [
         {
           title: "Expense intake",
-          summary: "Start from mobile receipts, then attach local notes, tags, and vault documents.",
+          summary:
+            "Start from mobile receipts, then attach local notes, tags, and vault documents.",
         },
         {
           title: "Spending watchlist",
-          summary: "Keep outgoing bills, vendors, and payment timing visible even before full CRUD lands.",
+          summary:
+            "Keep outgoing bills, vendors, and payment timing visible even before full CRUD lands.",
         },
       ],
       parse: {
+        approvalFailed: "Approval failed.",
+        approve: "Approve",
         backToLedger: "Back to Ledger",
+        backToUpload: "Back to Upload",
+        descriptionField: "Description",
         detectedDocsTitle: "Detected documents",
+        editRecordTitle: "Edit Record",
+        emptySummary:
+          "Upload a file from the upload screen to see the OpenAI response here.",
+        emptyTitle: "No parse result",
+        errorTitle: "Error",
+        fieldAmount: "Amount",
+        fieldDate: "Date",
+        fieldDescription: "Description",
+        fieldSource: "Source",
+        fieldTarget: "Target",
+        heroEyebrow: "Parse result",
+        heroTitle: "OpenAI Response",
+        mapToRecords: "Map to Records",
+        mapping: "Mapping...",
+        modelLabel: "Model",
+        noData: "No data",
+        parsedJsonTitle: "Parsed JSON",
+        plannerErrorTitle: "Planner Error",
+        plannerFailed: "Planner failed.",
+        plannerSummaryTitle: "Planner Summary",
         progressTitle: "Parser timeline",
+        proposalStateApproved: "Approved",
+        proposalStateBlocked: "Blocked",
+        proposalStateExecuted: "Executed",
+        proposalStateFailed: "Failed",
+        proposalStatePendingApproval: "Pending Approval",
+        proposalStateRejected: "Rejected",
+        proposalTypeCreateCounterparty: "Create Counterparty",
+        proposalTypePersistCandidateRecord: "Persist Candidate Record",
+        proposalTypeUpdateCandidateRecord: "Update Candidate Record",
+        proposalTypeUpdateWorkflowState: "Update Workflow State",
+        recordSavedSummary:
+          "All proposals have been approved and the record has been persisted.",
+        recordSavedTitle: "Record Saved",
+        reject: "Reject",
+        rejectionFailed: "Rejection failed.",
         retry: "Re-run parser mock",
-        summary: "Review parser checkpoints and mock totals before wiring any OCR or tax logic.",
+        reviewStateApproved: "Approved",
+        reviewStateCandidate: "Candidate",
+        reviewStateDuplicate: "Duplicate",
+        reviewStateFailed: "Failed",
+        reviewStateNeedsReview: "Needs Review",
+        reviewStatePersistedDraft: "Persisted Draft",
+        reviewStatePersistedFinal: "Persisted Final",
+        reviewStateProposedWritePending: "Write Pending",
+        reviewStateRejected: "Rejected",
+        reviewStateValidated: "Validated",
+        statCandidates: "Candidates",
+        statProposals: "Proposals",
+        statReadTasks: "Read Tasks",
+        summary:
+          "Review parser checkpoints and mock totals before wiring any OCR or tax logic.",
         title: "Parsing review",
         totalsTitle: "Structured output preview",
+        unknownFile: "Unknown file",
+        writeProposalsTitle: "Write Proposals",
       },
       primaryAction: "Upload records",
       secondaryAction: "Open parser demo",
       eyebrow: "Ledger",
       summary:
         "Use this skeleton to prove navigation, visual rhythm, and future module boundaries before wiring deeper forms.",
-      title: "The accounting shell is ready for the first local-first workflows.",
+      title:
+        "The accounting shell is ready for the first local-first workflows.",
       upload: {
         continue: "Continue to parser",
+        emptySelection: "No files were selected.",
+        eyebrow: "Upload center",
+        errorFallback: "Upload import failed.",
         hint: "No real files are uploaded in this phase. Source cards are UI-only placeholders.",
+        parsing: "Parsing...",
+        parsingStatusPrefix: "Parsing",
+        selectFiles: "Select Files",
+        selectPhotos: "Select Photos",
         sourceTitle: "Upload source",
-        summary: "Pick a source card, preview expected metadata, then continue to parser UI.",
+        summary:
+          "Upload receipts, PDFs, or photos. The file is sent to OpenAI for parsing and the raw JSON result is displayed on the next screen.",
         title: "Upload workspace",
+        uploadCardSummary:
+          "Select a file, send it to OpenAI, and view the raw JSON response.",
+        uploadCardTitle: "Upload & Parse",
+      },
+    },
+    ledgerScreen: {
+      badge: {
+        business: "Business",
+        personal: "Personal",
+      },
+      footer: {
+        emptyBusiness: "Add records to populate this business view",
+        emptyPersonal: "Add records to populate this personal view",
+        personalRange: "Personal range",
+        reportingRange: "Reporting range",
+      },
+      modal: {
+        chooseRange: "Choose range",
+        month: "Month",
+        monthHint: "Or keep the full quarter.",
+        monthTitle: "Month",
+        openMonths: "Open available months",
+        openQuarters: "Open available quarters",
+        pickerEyebrow: "Period picker",
+        quarter: "Quarter",
+        quarterHint: "Or keep the full year.",
+        quarterTitle: "Quarter",
+        reviewFullQuarter: "Review the complete quarter.",
+        reviewFullYear: "Review the complete year.",
+        stepMonth: "Month",
+        stepQuarter: "Quarter",
+        stepYear: "Year",
+        year: "Year",
+        yearTitle: "Year",
+      },
+      range: {
+        fullQuarter: "Full Quarter",
+        fullYear: "Full Year",
+        noBusiness: "No business ranges available yet",
+        noPersonal: "No personal ranges available yet",
+        reportingRange: "Reporting Range",
+        selectedRange: "Selected Range",
+        yearsAvailablePlural: "years available",
+        yearsAvailableSingular: "year available",
+      },
+      scopes: {
+        business: "Business",
+        businessA11y: "Business scope",
+        personal: "Personal",
+        personalA11y: "Personal scope",
+      },
+      sections: {
+        assets: "Assets",
+        balanceOnlyBody:
+          "Switch to Business to review assets, liabilities, and owner equity.",
+        balanceOnlyTitle: "Balance is business-only",
+        credit: "Credit",
+        debit: "Debit",
+        equity: "Equity",
+        equation: "Equation",
+        expenses: "Expenses",
+        journalPersonal: "Recent personal entries",
+        journalRecent: "Recent journal entries",
+        liabilities: "Liabilities",
+        netIncome: "Net income",
+        netIncomeSummary: "Revenue minus expenses for the selected range.",
+        noBusinessBody:
+          "No posted or reconciled business records were found in this range.",
+        noBusinessTitle: "No business records",
+        noPersonalBody: "No personal spending was found in this range.",
+        noPersonalTitle: "No personal spending",
+        pnlOnlyBody:
+          "Personal mode separates non-deductible spending from the business P&L.",
+        pnlOnlyTitle: "P&L is business-only",
+        preparingBody: "Loading the latest posted records from local storage.",
+        preparingTitle: "Preparing ledger",
+        retry: "Retry",
+        retrying: "Retrying...",
+        revenue: "Revenue",
+        unavailableTitle: "Ledger data unavailable",
+        viewBalance: "Balance",
+        viewJournal: "Journal",
+        viewPnl: "P&L",
       },
     },
     login: {
       appleButton: "Continue with Apple",
       appleCancelled: "Sign-in canceled. Retry or continue as a guest.",
       appleHint: "Apple sign-in works on supported iPhone and iPad devices.",
-      appleUnavailable: "Apple sign-in is unavailable here. Continue as a guest.",
+      appleUnavailable:
+        "Apple sign-in is unavailable here. Continue as a guest.",
+      brandSubtitle: "Your local-first financial workbench.",
       body: "Sign in with Apple or step in as a guest. Your shell stays local, calm, and ready.",
       caption: "Theme and language stay in sync with your device.",
       eyebrow: "Local-first login",
+      privacyEyebrow: "Privacy first",
+      privacyMetrics: ["AES-256 local encryption", "Zero cloud sync default"],
+      privacySummary: "Your records stay organized on-device first.",
       signals: ["On-device first", "Guest ready", "Theme aware"],
       skip: "Skip for now",
       title: "One calm place for creator cash.",
     },
     meScreen: {
+      apiBaseUrlLabel: "Vercel API Base URL",
+      apiBaseUrlPlaceholder: "https://your-project.vercel.app",
+      apiClear: "Clear",
+      apiKeyLabel: "OpenAI API Key",
+      apiKeyPlaceholder: "sk-...",
+      apiSave: "Save API Settings",
+      apiSectionDescription:
+        "Store your Vercel API URL and OpenAI API key locally on this device. Upload parsing sends the key only in the request header and does not save it to SQLite.",
+      apiSectionEyebrow: "AI Parse",
+      apiSectionTitle: "Vercel Parse API",
       databaseDescription:
         "Import a CFO database package from Files or iCloud Drive. The selected database must keep its evidence files beside it under package-relative paths. On iPhone and iPad, choose the creator-cfo-vault folder, or a folder that contains it, in the folder picker.",
       databaseImportAction: "Import Database",
+      databaseImportCheckedSuffix: "path(s) checked.",
       databaseImportFailure: "Database import failed.",
       databaseImportInProgress: "Importing database package...",
       databaseImportSuccess: "Imported database package successfully.",
       databaseTitle: "Local database package",
-      localeDescription: "Switch shell copy instantly and keep the choice on device.",
-      logoutDescription: "Clear the local session summary and return to the login gate.",
-      sessionDescription: "Session state is stored locally for guest mode or Apple sign-in preview.",
+      localeDescription:
+        "Switch shell copy instantly and keep the choice on device.",
+      logoutDescription:
+        "Clear the local session summary and return to the login gate.",
+      sessionApple: "Apple ID",
+      sessionDescription:
+        "Session state is stored locally for guest mode or Apple sign-in preview.",
+      sessionGuest: "Guest mode",
+      sessionNone: "Signed out",
       sessionTitle: "Session",
-      themeDescription: "Move between light, dark, or system appearance without leaving the app.",
+      storageEyebrow: "Storage",
+      themeDescription:
+        "Move between light, dark, or system appearance without leaving the app.",
       title: "Preferences and session controls",
     },
     tabs: {
@@ -535,14 +885,16 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       cards: [
         {
           title: "创作者经营雷达",
-          summary: "在更深的数据同步上线前，先预览 runway、抽成和税金预留信号。",
+          summary:
+            "在更深的数据同步上线前，先预览 runway、抽成和税金预留信号。",
         },
         {
           title: "模板资料库",
           summary: "把后续发票草稿、报销凭证和报税材料收拢到同一个本地工作台。",
         },
       ],
-      emptySummary: "下拉刷新，或稍后再回来加载当前整理过的创作者财务资讯列表。",
+      emptySummary:
+        "下拉刷新，或稍后再回来加载当前整理过的创作者财务资讯列表。",
       emptyTitle: "暂时没有文章",
       eyebrow: "发现",
       form1099Nec: {
@@ -595,7 +947,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         slotGuideTitle: "栏位说明",
         taxYearTitle: "税年",
         title: "Schedule C 官方版式预览",
-        unlockNote: "先确认免责声明，之后才会显示由前端绘制的 Schedule C 预览。",
+        unlockNote:
+          "先确认免责声明，之后才会显示由前端绘制的 Schedule C 预览。",
         webPreviewLabel: "静态 Web 预览",
       },
       formScheduleSE: {
@@ -621,7 +974,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         slotGuideTitle: "栏位说明",
         taxYearTitle: "税年",
         title: "Schedule SE 官方版式预览",
-        unlockNote: "先确认免责声明，之后才会显示由前端绘制的 Schedule SE 预览。",
+        unlockNote:
+          "先确认免责声明，之后才会显示由前端绘制的 Schedule SE 预览。",
         webPreviewLabel: "静态 Web 预览",
       },
       form1040: {
@@ -654,7 +1008,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       loadMore: "加载更多文章",
       loadingMore: "正在加载...",
       manualBadge: "需要手动填写",
-      missingArticleSummary: "这篇文章已经不在当前本地资讯快照里，请返回发现列表并选择另一篇简报。",
+      missingArticleSummary:
+        "这篇文章已经不在当前本地资讯快照里，请返回发现列表并选择另一篇简报。",
       missingArticleTitle: "文章不可用",
       openArticle: "阅读全文",
       publishedLabel: "发布时间",
@@ -679,6 +1034,9 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       recentActivitySubtitle: "最新记录已从本地账本同步",
       recentActivityTitle: "最近活动",
       seeAll: "查看全部",
+      trendEmptySummary:
+        "新增一条已入账收入记录后，这里会开始展示近 30 天趋势。",
+      trendEmptyTitle: "近 30 天还没有收入",
       trendSubtitle: "从本地 SQLite 记录生成",
       trendTitle: "30 天收入趋势",
     },
@@ -740,25 +1098,166 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         },
       ],
       parse: {
+        approvalFailed: "批准失败。",
+        approve: "批准",
         backToLedger: "返回记账页",
+        backToUpload: "返回上传页",
+        descriptionField: "摘要",
         detectedDocsTitle: "识别到的文档",
+        editRecordTitle: "编辑记录",
+        emptySummary: "从上传页上传一个文件后，这里会显示 OpenAI 的解析结果。",
+        emptyTitle: "还没有解析结果",
+        errorTitle: "错误",
+        fieldAmount: "金额",
+        fieldDate: "日期",
+        fieldDescription: "摘要",
+        fieldSource: "来源方",
+        fieldTarget: "去向方",
+        heroEyebrow: "解析结果",
+        heroTitle: "OpenAI 返回结果",
+        mapToRecords: "映射到记录",
+        mapping: "映射中...",
+        modelLabel: "模型",
+        noData: "暂无数据",
+        parsedJsonTitle: "解析 JSON",
+        plannerErrorTitle: "规划器错误",
+        plannerFailed: "规划器执行失败。",
+        plannerSummaryTitle: "规划摘要",
         progressTitle: "解析流程",
+        proposalStateApproved: "已批准",
+        proposalStateBlocked: "已阻塞",
+        proposalStateExecuted: "已执行",
+        proposalStateFailed: "失败",
+        proposalStatePendingApproval: "待批准",
+        proposalStateRejected: "已拒绝",
+        proposalTypeCreateCounterparty: "创建交易对手",
+        proposalTypePersistCandidateRecord: "写入候选记录",
+        proposalTypeUpdateCandidateRecord: "更新候选记录",
+        proposalTypeUpdateWorkflowState: "更新流程状态",
+        recordSavedSummary: "所有提案都已批准，这条记录已经写入本地存储。",
+        recordSavedTitle: "记录已保存",
+        reject: "拒绝",
+        rejectionFailed: "拒绝失败。",
         retry: "重新演示解析",
+        reviewStateApproved: "已批准",
+        reviewStateCandidate: "候选",
+        reviewStateDuplicate: "重复",
+        reviewStateFailed: "失败",
+        reviewStateNeedsReview: "待复核",
+        reviewStatePersistedDraft: "已存为草稿",
+        reviewStatePersistedFinal: "已正式入账",
+        reviewStateProposedWritePending: "待写入",
+        reviewStateRejected: "已拒绝",
+        reviewStateValidated: "已校验",
+        statCandidates: "候选记录",
+        statProposals: "提案数",
+        statReadTasks: "读取任务",
         summary: "先预览解析阶段和 mock 汇总结果，后续再接 OCR 与真实规则。",
         title: "解析结果预览",
         totalsTitle: "结构化结果预览",
+        unknownFile: "未知文件",
+        writeProposalsTitle: "写入提案",
       },
       primaryAction: "上传凭证",
       secondaryAction: "打开解析演示",
       eyebrow: "记账",
-      summary: "这个页面先验证导航、视觉节奏和模块边界，后续再接入更深的表单与数据流。",
+      summary:
+        "这个页面先验证导航、视觉节奏和模块边界，后续再接入更深的表单与数据流。",
       title: "记账壳层已经为首批本地流程预留好位置。",
       upload: {
         continue: "继续到解析页",
+        emptySelection: "未选择任何文件。",
+        eyebrow: "上传中心",
+        errorFallback: "上传导入失败。",
         hint: "本阶段不会上传真实文件，来源卡片仅用于 UI 与导航验证。",
+        parsing: "解析中...",
+        parsingStatusPrefix: "正在解析",
+        selectFiles: "选择文件",
+        selectPhotos: "选择照片",
         sourceTitle: "上传来源",
-        summary: "先选择来源卡片并查看元信息，再进入解析结果展示。",
+        summary:
+          "上传票据、PDF 或照片后，文件会被发送给 OpenAI 解析，原始 JSON 结果会在下一页展示。",
         title: "上传工作台",
+        uploadCardSummary:
+          "选择一个文件，发送给 OpenAI，并查看返回的原始 JSON 结果。",
+        uploadCardTitle: "上传并解析",
+      },
+    },
+    ledgerScreen: {
+      badge: {
+        business: "经营",
+        personal: "个人",
+      },
+      footer: {
+        emptyBusiness: "新增记录后，这里会显示经营账务视图",
+        emptyPersonal: "新增记录后，这里会显示个人账务视图",
+        personalRange: "个人范围",
+        reportingRange: "报表范围",
+      },
+      modal: {
+        chooseRange: "选择范围",
+        month: "月份",
+        monthHint: "也可以保留整季。",
+        monthTitle: "月份",
+        openMonths: "查看可用月份",
+        openQuarters: "查看可用季度",
+        pickerEyebrow: "期间选择器",
+        quarter: "季度",
+        quarterHint: "也可以保留整年。",
+        quarterTitle: "季度",
+        reviewFullQuarter: "查看整季范围。",
+        reviewFullYear: "查看整年范围。",
+        stepMonth: "月份",
+        stepQuarter: "季度",
+        stepYear: "年份",
+        year: "年份",
+        yearTitle: "年份",
+      },
+      range: {
+        fullQuarter: "整季",
+        fullYear: "全年",
+        noBusiness: "还没有经营范围",
+        noPersonal: "还没有个人范围",
+        reportingRange: "报表范围",
+        selectedRange: "当前范围",
+        yearsAvailablePlural: "个可选年份",
+        yearsAvailableSingular: "个可选年份",
+      },
+      scopes: {
+        business: "经营",
+        businessA11y: "经营范围",
+        personal: "个人",
+        personalA11y: "个人范围",
+      },
+      sections: {
+        assets: "资产",
+        balanceOnlyBody: "切回经营视角后，可查看资产、负债和所有者权益。",
+        balanceOnlyTitle: "资产负债仅支持经营视角",
+        credit: "贷方",
+        debit: "借方",
+        equity: "权益",
+        equation: "会计等式",
+        expenses: "支出",
+        journalPersonal: "最近个人记录",
+        journalRecent: "最近分录",
+        liabilities: "负债",
+        netIncome: "净收益",
+        netIncomeSummary: "所选范围内的收入减支出。",
+        noBusinessBody: "当前范围内还没有已入账或已核对的经营记录。",
+        noBusinessTitle: "还没有经营记录",
+        noPersonalBody: "当前范围内还没有个人支出记录。",
+        noPersonalTitle: "还没有个人支出",
+        pnlOnlyBody: "个人视角会把不可抵扣的个人支出与经营损益分开查看。",
+        pnlOnlyTitle: "损益仅支持经营视角",
+        preparingBody: "正在从本地存储加载最新已入账记录。",
+        preparingTitle: "正在准备记账页",
+        retry: "重试",
+        retrying: "重试中...",
+        revenue: "收入",
+        unavailableTitle: "记账数据暂不可用",
+        viewBalance: "资产负债",
+        viewJournal: "明细",
+        viewPnl: "损益",
       },
     },
     login: {
@@ -766,25 +1265,45 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       appleCancelled: "已取消 Apple 登录，你可以重试或先以游客进入。",
       appleHint: "Apple 登录仅在支持的 iPhone / iPad 设备上可用。",
       appleUnavailable: "当前环境暂不支持 Apple 登录，请先使用游客模式。",
+      brandSubtitle: "你的本地优先财务工作台。",
       body: "用 Apple 登录，或先以游客进入。你的财务工作台会保持本地、清晰、轻量。",
       caption: "主题与语言会继续跟随你的设备偏好。",
       eyebrow: "本地优先登录",
+      privacyEyebrow: "隐私优先",
+      privacyMetrics: ["AES-256 本地加密", "默认不启用云同步"],
+      privacySummary: "你的记录会优先保存在本机并保持有序。",
       signals: ["设备优先", "游客可用", "主题自适应"],
       skip: "暂不登录",
       title: "先给创作者现金流一个安静入口。",
     },
     meScreen: {
+      apiBaseUrlLabel: "Vercel API 地址",
+      apiBaseUrlPlaceholder: "https://your-project.vercel.app",
+      apiClear: "清空",
+      apiKeyLabel: "OpenAI API Key",
+      apiKeyPlaceholder: "sk-...",
+      apiSave: "保存设置",
+      apiSectionDescription:
+        "把 Vercel API 地址和 OpenAI API Key 保存在当前设备本地。上传解析时只会在请求头里发送 Key，不会写入 SQLite。",
+      apiSectionEyebrow: "AI 解析",
+      apiSectionTitle: "Vercel 解析 API",
       databaseDescription:
         "从文件或 iCloud Drive 导入一个 CFO 数据库包。所选数据库必须把凭证文件按相对路径放在数据库旁边。在 iPhone 和 iPad 上，请在文件夹选择器里选择 creator-cfo-vault 文件夹，或选择包含它的上级文件夹。",
       databaseImportAction: "导入数据库",
+      databaseImportCheckedSuffix: "个路径已检查。",
       databaseImportFailure: "数据库导入失败。",
       databaseImportInProgress: "正在导入数据库包...",
       databaseImportSuccess: "数据库包导入成功。",
       databaseTitle: "本地数据库包",
       localeDescription: "立即切换界面语言，并把选择保存在设备本地。",
       logoutDescription: "清除本地会话摘要，并返回登录入口。",
-      sessionDescription: "游客态和 Apple 登录态都只保存在本机，方便本地优先阶段验证体验。",
+      sessionApple: "Apple ID",
+      sessionDescription:
+        "游客态和 Apple 登录态都只保存在本机，方便本地优先阶段验证体验。",
+      sessionGuest: "游客模式",
+      sessionNone: "未登录",
       sessionTitle: "当前会话",
+      storageEyebrow: "存储",
       themeDescription: "在应用内切换白天、黑夜或跟随系统，不打断当前流程。",
       title: "偏好设置与会话控制",
     },
@@ -801,5 +1320,13 @@ export function getAppCopy(locale: ResolvedLocale): AppCopy {
   return appCopy[locale];
 }
 
-export const themePreferenceOptions: ThemePreference[] = ["system", "light", "dark"];
-export const localePreferenceOptions: LocalePreference[] = ["system", "en", "zh-CN"];
+export const themePreferenceOptions: ThemePreference[] = [
+  "system",
+  "light",
+  "dark",
+];
+export const localePreferenceOptions: LocalePreference[] = [
+  "system",
+  "en",
+  "zh-CN",
+];

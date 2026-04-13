@@ -38,7 +38,21 @@ describe("discover news feed", () => {
   });
 
   it("resolves detail articles by slug and returns null for unknown slugs", () => {
-    expect(getNewsArticleBySlug("youtube-payout-forecast-2026")?.title).toContain("YouTube");
+    expect(
+      getNewsArticleBySlug("youtube-payout-forecast-2026")?.title,
+    ).toContain("YouTube");
     expect(getNewsArticleBySlug("missing-slug")).toBeNull();
+  });
+
+  it("returns localized discover copy for zh-CN", () => {
+    const zhPage = getNewsPage(0, "zh-CN");
+    const zhArticle = getNewsArticleBySlug(
+      "youtube-payout-forecast-2026",
+      "zh-CN",
+    );
+
+    expect(zhPage.articles[0]?.category).toBe("平台");
+    expect(zhPage.articles[0]?.title).toContain("回款节奏");
+    expect(zhArticle?.summary).toContain("结算延迟");
   });
 });

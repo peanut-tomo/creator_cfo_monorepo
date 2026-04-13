@@ -1,17 +1,34 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
-import type { JsonValue, PlannerSummary, ReceiptPlannerPayload } from "@creator-cfo/schemas";
+import type {
+  JsonValue,
+  PlannerSummary,
+  ReceiptPlannerPayload,
+} from "@creator-cfo/schemas";
 
-import { parseFileWithOpenAiFromBlob, planEvidenceDbUpdates, type ParseResult } from "./remote-parse";
+import {
+  parseFileWithOpenAiFromBlob,
+  planEvidenceDbUpdates,
+  type ParseResult,
+} from "./remote-parse";
 import {
   buildExtractedData,
   type LedgerReviewValues,
   type WorkflowCandidateRecord,
   type WorkflowWriteProposalItem,
 } from "./ledger-domain";
-import { buildPlannerSummary, buildReviewValuesFromPayload, deriveCandidateState, type PlannerReadResults } from "./workflow-planner";
-import { createTrendPointsFromTotals, homeRecentPageSize, type HomeRecentRecord } from "./ledger-domain";
+import {
+  buildPlannerSummary,
+  buildReviewValuesFromPayload,
+  deriveCandidateState,
+  type PlannerReadResults,
+} from "./workflow-planner";
+import {
+  createTrendPointsFromTotals,
+  homeRecentPageSize,
+  type HomeRecentRecord,
+} from "./ledger-domain";
 import type { HomeSnapshot } from "../home/home-data";
 
 interface UploadCandidate {
@@ -37,7 +54,9 @@ export interface PlannerResult {
 
 const plannerStateStore = new Map<string, PlannerResult>();
 
-export async function pickDocumentUploadCandidates(): Promise<UploadCandidate[]> {
+export async function pickDocumentUploadCandidates(): Promise<
+  UploadCandidate[]
+> {
   const result = await DocumentPicker.getDocumentAsync({
     copyToCacheDirectory: true,
     multiple: true,
@@ -59,7 +78,9 @@ export async function pickDocumentUploadCandidates(): Promise<UploadCandidate[]>
   }));
 }
 
-export async function pickPhotoUploadCandidates(): Promise<UploadCandidate[]> {
+export async function pickPhotoUploadCandidates(
+  _locale?: import("../app-shell/types").ResolvedLocale,
+): Promise<UploadCandidate[]> {
   const result = await ImagePicker.launchImageLibraryAsync({
     allowsEditing: false,
     allowsMultipleSelection: true,
@@ -73,7 +94,8 @@ export async function pickPhotoUploadCandidates(): Promise<UploadCandidate[]> {
   }
 
   return result.assets.map((asset, index) => ({
-    evidenceGroupKey: asset.assetId || asset.fileName || `${asset.uri}-${index}`,
+    evidenceGroupKey:
+      asset.assetId || asset.fileName || `${asset.uri}-${index}`,
     isPrimary: true,
     kind: "image",
     mimeType: asset.mimeType ?? null,
@@ -103,31 +125,55 @@ export async function parseFile(
   return parseFileWithOpenAiFromBlob({ fileName, blob, mimeType });
 }
 
-export async function loadHomeScreenSnapshot(input: {
-  limit?: number;
-  now?: string;
-  offset?: number;
-} = {}): Promise<HomeSnapshot> {
+export async function loadHomeScreenSnapshot(
+  input: {
+    limit?: number;
+    locale?: import("../app-shell/types").ResolvedLocale;
+    now?: string;
+    offset?: number;
+  } = {},
+): Promise<HomeSnapshot> {
   const now = input.now ?? new Date().toISOString().slice(0, 10);
+  const locale = input.locale ?? "en";
   const offset = input.offset ?? 0;
   const limit = input.limit ?? homeRecentPageSize;
   const records = loadRecords();
   const monthStart = `${now.slice(0, 7)}-01`;
   const monthEnd = endOfMonth(now);
   const trendStart = shiftIsoDate(now, -29);
-  const metricRows = records.filter((r) => r.occurredOn >= monthStart && r.occurredOn <= monthEnd);
-  const incomeCents = metricRows.filter((r) => r.recordKind === "income").reduce((s, r) => s + r.amountCents, 0);
-  const outflowCents = metricRows.filter((r) => r.recordKind !== "income").reduce((s, r) => s + r.amountCents, 0);
-  const trendRows = records.filter((r) => r.recordKind === "income" && r.occurredOn >= trendStart && r.occurredOn <= now);
+  const metricRows = records.filter(
+    (r) => r.occurredOn >= monthStart && r.occurredOn <= monthEnd,
+  );
+  const incomeCents = metricRows
+    .filter((r) => r.recordKind === "income")
+    .reduce((s, r) => s + r.amountCents, 0);
+  const outflowCents = metricRows
+    .filter((r) => r.recordKind !== "income")
+    .reduce((s, r) => s + r.amountCents, 0);
+  const trendRows = records.filter(
+    (r) =>
+      r.recordKind === "income" &&
+      r.occurredOn >= trendStart &&
+      r.occurredOn <= now,
+  );
   const totalsByDate = Object.fromEntries(
-    trendRows.map((row) => [row.occurredOn, trendRows.filter((r) => r.occurredOn === row.occurredOn).reduce((s, r) => s + r.amountCents, 0)]),
+    trendRows.map((row) => [
+      row.occurredOn,
+      trendRows
+        .filter((r) => r.occurredOn === row.occurredOn)
+        .reduce((s, r) => s + r.amountCents, 0),
+    ]),
   );
 
   return {
     hasMore: records.length > offset + limit,
-    metrics: { incomeCents, netCents: incomeCents - outflowCents, outflowCents },
+    metrics: {
+      incomeCents,
+      netCents: incomeCents - outflowCents,
+      outflowCents,
+    },
     recentRecords: records.slice(offset, offset + limit),
-    trend: createTrendPointsFromTotals(totalsByDate, now),
+    trend: createTrendPointsFromTotals(totalsByDate, now, locale),
   };
 }
 
@@ -188,53 +234,57 @@ export async function runPlanner(input: {
   });
 
   // Build candidate records and write proposals for UI
-  const candidateRecords: WorkflowCandidateRecord[] = summary.candidateRecords.map((payload, index) => {
-    const candidateId = `${plannerRunId}-candidate-${index + 1}`;
-    const state = deriveCandidateState({
-      duplicateHints: summary.duplicateHints,
-      payload,
-      resolutions: summary.counterpartyResolutions,
+  const candidateRecords: WorkflowCandidateRecord[] =
+    summary.candidateRecords.map((payload, index) => {
+      const candidateId = `${plannerRunId}-candidate-${index + 1}`;
+      const state = deriveCandidateState({
+        duplicateHints: summary.duplicateHints,
+        payload,
+        resolutions: summary.counterpartyResolutions,
+      });
+
+      return {
+        candidateId,
+        createdAt: now,
+        errorMessage: null,
+        payload,
+        recordId: null,
+        reviewValues: buildReviewValuesFromPayload(payload),
+        state,
+        updatedAt: now,
+      };
     });
 
-    return {
-      candidateId,
-      createdAt: now,
-      errorMessage: null,
-      payload,
-      recordId: null,
-      reviewValues: buildReviewValuesFromPayload(payload),
-      state,
-      updatedAt: now,
-    };
-  });
-
   const counterpartyProposalIds: string[] = [];
-  const writeProposals: WorkflowWriteProposalItem[] = summary.writeProposals.map((proposal, index) => {
-    const writeProposalId = `${plannerRunId}-proposal-${index + 1}`;
-    const isCounterparty = proposal.proposalType === "create_counterparty";
+  const writeProposals: WorkflowWriteProposalItem[] =
+    summary.writeProposals.map((proposal, index) => {
+      const writeProposalId = `${plannerRunId}-proposal-${index + 1}`;
+      const isCounterparty = proposal.proposalType === "create_counterparty";
 
-    if (isCounterparty) {
-      counterpartyProposalIds.push(writeProposalId);
-    }
+      if (isCounterparty) {
+        counterpartyProposalIds.push(writeProposalId);
+      }
 
-    const isPersist = proposal.proposalType === "persist_candidate_record";
-    const isBlocked = isPersist && counterpartyProposalIds.length > 0;
+      const isPersist = proposal.proposalType === "persist_candidate_record";
+      const isBlocked = isPersist && counterpartyProposalIds.length > 0;
 
-    return {
-      approvalRequired: true,
-      candidateId: candidateRecords[0]?.candidateId ?? null,
-      createdAt: now,
-      dependencyIds: isPersist ? [...counterpartyProposalIds.slice(0, -1)] : [],
-      payload: proposal.values,
-      proposalType: proposal.proposalType,
-      rationale: isCounterparty
-        ? "Parsed label does not match an existing local counterparty, so creation requires approval."
-        : "Candidate record is ready for final persistence after approval and local validation.",
-      state: isBlocked ? "blocked" : "pending_approval",
-      updatedAt: now,
-      writeProposalId,
-    };
-  });
+      return {
+        approvalRequired: true,
+        candidateId: candidateRecords[0]?.candidateId ?? null,
+        createdAt: now,
+        dependencyIds: isPersist
+          ? [...counterpartyProposalIds.slice(0, -1)]
+          : [],
+        payload: proposal.values,
+        proposalType: proposal.proposalType,
+        rationale: isCounterparty
+          ? "Parsed label does not match an existing local counterparty, so creation requires approval."
+          : "Candidate record is ready for final persistence after approval and local validation.",
+        state: isBlocked ? "blocked" : "pending_approval",
+        updatedAt: now,
+        writeProposalId,
+      };
+    });
 
   const primaryCandidate = candidateRecords[0];
 
@@ -273,7 +323,9 @@ export async function approveWriteProposal(
     throw new Error("Planner state not found for batch.");
   }
 
-  const proposalIndex = state.writeProposals.findIndex((p) => p.writeProposalId === writeProposalId);
+  const proposalIndex = state.writeProposals.findIndex(
+    (p) => p.writeProposalId === writeProposalId,
+  );
   const proposal = state.writeProposals[proposalIndex];
 
   if (!proposal) {
@@ -289,7 +341,9 @@ export async function approveWriteProposal(
     for (const p of state.writeProposals) {
       if (p.dependencyIds.includes(writeProposalId) && p.state === "blocked") {
         const allDepsExecuted = p.dependencyIds.every(
-          (depId) => state.writeProposals.find((wp) => wp.writeProposalId === depId)?.state === "executed",
+          (depId) =>
+            state.writeProposals.find((wp) => wp.writeProposalId === depId)
+              ?.state === "executed",
         );
 
         if (allDepsExecuted) {
@@ -300,7 +354,10 @@ export async function approveWriteProposal(
     }
   }
 
-  if (proposal.proposalType === "persist_candidate_record" && state.candidateRecords[0]) {
+  if (
+    proposal.proposalType === "persist_candidate_record" &&
+    state.candidateRecords[0]
+  ) {
     state.candidateRecords[0].state = "persisted_final";
     state.candidateRecords[0].updatedAt = new Date().toISOString();
 
@@ -325,7 +382,9 @@ export async function rejectWriteProposal(
     throw new Error("Planner state not found for batch.");
   }
 
-  const proposal = state.writeProposals.find((p) => p.writeProposalId === writeProposalId);
+  const proposal = state.writeProposals.find(
+    (p) => p.writeProposalId === writeProposalId,
+  );
 
   if (!proposal) {
     throw new Error("Write proposal not found.");
@@ -343,7 +402,10 @@ export async function rejectWriteProposal(
     }
   }
 
-  if (proposal.proposalType === "persist_candidate_record" && state.candidateRecords[0]) {
+  if (
+    proposal.proposalType === "persist_candidate_record" &&
+    state.candidateRecords[0]
+  ) {
     state.candidateRecords[0].state = "rejected";
   }
 
@@ -351,11 +413,16 @@ export async function rejectWriteProposal(
   return state;
 }
 
-export async function loadPlannerState(batchId: string): Promise<PlannerResult | null> {
+export async function loadPlannerState(
+  batchId: string,
+): Promise<PlannerResult | null> {
   return plannerStateStore.get(batchId) ?? null;
 }
 
-function inferUploadKind(mimeType: string | null, fileName: string): UploadCandidate["kind"] {
+function inferUploadKind(
+  mimeType: string | null,
+  fileName: string,
+): UploadCandidate["kind"] {
   const normalized = `${mimeType ?? ""} ${fileName}`.toLowerCase();
   if (normalized.includes("pdf")) return "document";
   if (normalized.includes("live")) return "live_photo";
@@ -379,7 +446,9 @@ const storageKey = "creator-cfo-web-records-v1";
 function loadRecords(): HomeRecentRecord[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    return JSON.parse(localStorage.getItem(storageKey) ?? "[]") as HomeRecentRecord[];
+    return JSON.parse(
+      localStorage.getItem(storageKey) ?? "[]",
+    ) as HomeRecentRecord[];
   } catch {
     return [];
   }

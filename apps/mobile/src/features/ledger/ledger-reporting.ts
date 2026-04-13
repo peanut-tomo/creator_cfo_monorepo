@@ -6,8 +6,19 @@ import {
 import {
   defaultEntityId,
   formatCurrencyFromCents,
-  formatDisplayDate,
 } from "./ledger-domain";
+import type { ResolvedLocale } from "../app-shell/types";
+import {
+  formatLedgerDisplayDate,
+  formatLedgerMonthChip,
+  formatLedgerMonthTitle,
+  formatLedgerQuarterTitle,
+  formatLedgerRangeSummary,
+  formatLedgerRecordCount,
+  formatLedgerReferenceSubtitle,
+  getLedgerRuntimeCopy,
+  type GeneralLedgerEntryKind,
+} from "./ledger-localization";
 
 export type LedgerViewId = "general-ledger" | "balance-sheet" | "profit-loss";
 export type LedgerScopeId = "business" | "personal";
@@ -81,6 +92,7 @@ export interface GeneralLedgerEntry {
   amount: string;
   dateLabel: string;
   id: string;
+  kind: GeneralLedgerEntryKind;
   kindLabel: string;
   lines: GeneralLedgerPostingLine[];
   subtitle: string;
@@ -165,12 +177,14 @@ export async function loadLedgerSnapshot(
   input: {
     entityId?: string;
     forceDefaultSelection?: boolean;
+    locale?: ResolvedLocale;
     now?: string;
     preferredPeriodId?: string | null;
     scopeId?: LedgerScopeId;
   } = {},
 ): Promise<LedgerScreenSnapshot> {
   const entityId = input.entityId ?? defaultEntityId;
+  const locale = input.locale ?? "en";
   const scopeId = input.scopeId ?? "business";
   const scopeRecordKinds =
     scopeId === "personal"
@@ -189,9 +203,11 @@ export async function loadLedgerSnapshot(
 
   const availability = buildLedgerAvailability(
     occurredOnRows.map((row) => normalizeIsoDate(row.occurredOn)),
+    locale,
   );
   const selectedPeriod = resolveSelectedLedgerPeriod({
     forceDefaultSelection: input.forceDefaultSelection ?? false,
+    locale,
     periodOptions: availability.periodOptions,
     preferredPeriodId: input.preferredPeriodId ?? null,
     yearOptions: availability.yearOptions,
@@ -225,6 +241,7 @@ export async function loadLedgerSnapshot(
       : [];
 
   return buildLedgerSnapshotFromRows(rows, {
+    locale,
     periodOptions: availability.periodOptions,
     selectedScope: scopeId,
     segmentOptions,
@@ -259,24 +276,25 @@ export function buildLedgerYearOptions(years: readonly number[]): LedgerYearOpti
 export function buildLedgerSegmentOptions(
   year: number,
   availableSegmentIds?: ReadonlySet<LedgerPeriodSegmentId>,
+  locale: ResolvedLocale = "en",
 ): LedgerPeriodSegmentOption[] {
   const options: LedgerPeriodSegmentOption[] = [];
   const includeSegment = (segmentId: LedgerPeriodSegmentId) =>
     !availableSegmentIds || availableSegmentIds.has(segmentId);
 
   if (includeSegment("full-year")) {
-    options.push(buildLedgerSegmentOption(year, "full-year"));
+    options.push(buildLedgerSegmentOption(year, "full-year", locale));
   }
 
   for (const segmentId of quarterSegmentIds) {
     if (includeSegment(segmentId)) {
-      options.push(buildLedgerSegmentOption(year, segmentId));
+      options.push(buildLedgerSegmentOption(year, segmentId, locale));
     }
   }
 
   for (const segmentId of monthSegmentIds) {
     if (includeSegment(segmentId)) {
-      options.push(buildLedgerSegmentOption(year, segmentId));
+      options.push(buildLedgerSegmentOption(year, segmentId, locale));
     }
   }
 
@@ -286,12 +304,13 @@ export function buildLedgerSegmentOptions(
 export function buildLedgerPeriodOptions(
   yearOptions: readonly LedgerYearOption[],
   segmentIdsByYear?: ReadonlyMap<number, ReadonlySet<LedgerPeriodSegmentId>>,
+  locale: ResolvedLocale = "en",
 ): LedgerPeriodOption[] {
   return yearOptions.flatMap((option) =>
-    buildLedgerSegmentOptions(option.year, segmentIdsByYear?.get(option.year)).map((segment) => ({
+    buildLedgerSegmentOptions(option.year, segmentIdsByYear?.get(option.year), locale).map((segment) => ({
       ...segment,
       id: buildLedgerPeriodId(option.year, segment.id),
-      label: formatLedgerPeriodLabel(option.year, segment.id),
+      label: formatLedgerPeriodLabel(option.year, segment.id, locale),
       segmentId: segment.id,
       year: option.year,
     })),
@@ -312,6 +331,7 @@ export function resolveLedgerPeriodOption(
 export function buildLedgerSnapshotFromRows(
   rows: readonly LedgerRecordRow[],
   input: {
+    locale?: ResolvedLocale;
     periodOptions: readonly LedgerPeriodOption[];
     selectedScope: LedgerScopeId;
     segmentOptions: readonly LedgerPeriodSegmentOption[];
@@ -319,6 +339,8 @@ export function buildLedgerSnapshotFromRows(
     yearOptions: readonly LedgerYearOption[];
   },
 ): LedgerScreenSnapshot {
+  const locale = input.locale ?? "en";
+  const runtimeCopy = getLedgerRuntimeCopy(locale);
   const normalizedRows = rows
     .map((row) => ({
       ...row,
@@ -345,71 +367,79 @@ export function buildLedgerSnapshotFromRows(
         {
           amount: formatCurrencyFromCents(assetTotalCents),
           id: "net-business-assets",
-          label: "Net operating assets (derived)",
-          note: "Positive net operating position from posted or reconciled business records in the selected reporting slice.",
+          label: runtimeCopy.balance.businessAssetsLabel,
+          note: runtimeCopy.balance.businessAssetsNote,
         },
       ],
       equationSummary:
         netIncomeCents >= 0
-          ? `${formatCurrencyFromCents(assetTotalCents)} assets = ${formatCurrencyFromCents(0)} liabilities + ${formatCurrencyFromCents(netIncomeCents)} equity`
-          : `${formatCurrencyFromCents(assetTotalCents)} assets with ${formatCurrencyFromCents(fundingGapCents)} owner funding gap`,
+          ? `${formatCurrencyFromCents(assetTotalCents)} ${runtimeCopy.balance.assetsWord} = ${formatCurrencyFromCents(0)} ${runtimeCopy.balance.liabilitiesWord} + ${formatCurrencyFromCents(netIncomeCents)} ${runtimeCopy.balance.equityWord}`
+          : locale === "zh-CN"
+            ? `${formatCurrencyFromCents(assetTotalCents)} ${runtimeCopy.balance.assetsWord}，所有者补资缺口 ${formatCurrencyFromCents(fundingGapCents)}`
+            : `${formatCurrencyFromCents(assetTotalCents)} ${runtimeCopy.balance.assetsWord} with ${formatCurrencyFromCents(fundingGapCents)} owner funding gap`,
       equityAmount: formatCurrencyFromCents(netIncomeCents),
       equityRows: [
         {
           amount: formatCurrencyFromCents(netIncomeCents),
           id: "owner-equity",
-          label: netIncomeCents >= 0 ? "Owner equity (derived)" : "Owner deficit (derived)",
-          note: "Residual position from posted or reconciled business income minus business expenses in the selected reporting slice.",
+          label: netIncomeCents >= 0 ? runtimeCopy.balance.equityLabel : runtimeCopy.balance.deficitLabel,
+          note: runtimeCopy.balance.equityNote,
         },
       ],
       liabilityRows: [
         {
           amount: formatCurrencyFromCents(fundingGapCents),
           id: "funding-gap",
-          label: "Owner funding gap (derived)",
-          note: "Shown when business expenses exceed business inflows inside the selected reporting slice.",
+          label: runtimeCopy.balance.fundingGapLabel,
+          note: runtimeCopy.balance.fundingGapNote,
         },
       ],
       metricCards: [
         {
           accent: "success",
           id: "asset-total",
-          label: "Total Assets",
+          label: runtimeCopy.balance.assetMetric,
           value: formatCurrencyFromCents(assetTotalCents),
         },
         {
           accent: fundingGapCents > 0 ? "danger" : "neutral",
           id: "funding-gap-total",
-          label: fundingGapCents > 0 ? "Funding Gap" : "Total Liabilities",
+          label: fundingGapCents > 0 ? runtimeCopy.balance.fundingGapMetric : runtimeCopy.balance.liabilitiesMetric,
           value: formatCurrencyFromCents(fundingGapCents),
         },
       ],
       netPositionLabel:
         netIncomeCents >= 0
-          ? "Positive owner position for this reporting slice"
-          : "Negative owner position for this reporting slice",
+          ? runtimeCopy.balance.positivePosition
+          : runtimeCopy.balance.deficitPosition,
     },
     generalLedger: {
       debitTotal: formatCurrencyFromCents(generalLedgerTotalCents),
-      entries: normalizedRows.map((row) => buildGeneralLedgerEntry(row)),
+      entries: normalizedRows.map((row) => buildGeneralLedgerEntry(row, locale)),
       metricCards: [
         {
           accent: input.selectedScope === "personal" ? "danger" : "success",
           id: "scope-total",
-          label: input.selectedScope === "personal" ? "Personal Spend" : "Total Debits (Dr)",
+          label:
+            input.selectedScope === "personal"
+              ? runtimeCopy.journal.personalSpendMetric
+              : runtimeCopy.journal.totalDebitsMetric,
           value: formatCurrencyFromCents(generalLedgerTotalCents),
         },
         {
           accent: "neutral",
           id: "scope-count",
-          label: input.selectedScope === "personal" ? "Transactions" : "Total Credits (Cr)",
+          label:
+            input.selectedScope === "personal"
+              ? runtimeCopy.journal.transactionsMetric
+              : runtimeCopy.journal.totalCreditsMetric,
           value:
             input.selectedScope === "personal"
               ? String(normalizedRows.length)
               : formatCurrencyFromCents(generalLedgerTotalCents),
         },
       ],
-      recordCountLabel: `${normalizedRows.length} ${normalizedRows.length === 1 ? "record" : "records"}`,
+      recordCountLabel: formatLedgerRecordCount(normalizedRows.length, locale),
     },
     hasData: normalizedRows.length > 0,
     isEmpty: normalizedRows.length === 0,
@@ -418,18 +448,24 @@ export function buildLedgerSnapshotFromRows(
       expenseRows:
         input.selectedScope === "personal"
           ? []
-          : buildGroupedSectionRows(expenseRows, "expense"),
+          : buildGroupedSectionRows(expenseRows, "expense", locale),
       metricCards: [
         {
           accent: input.selectedScope === "personal" ? "neutral" : "success",
           id: "revenue-total",
-          label: input.selectedScope === "personal" ? "Business Revenue" : "Gross Revenue",
+          label:
+            input.selectedScope === "personal"
+              ? runtimeCopy.journal.businessRevenueMetric
+              : runtimeCopy.journal.revenueMetric,
           value: formatCurrencyFromCents(input.selectedScope === "personal" ? 0 : incomeTotalCents),
         },
         {
           accent: input.selectedScope === "personal" ? "danger" : "danger",
           id: "expense-total",
-          label: input.selectedScope === "personal" ? "Personal Spend" : "Total Expenses",
+          label:
+            input.selectedScope === "personal"
+              ? runtimeCopy.journal.personalSpendMetric
+              : runtimeCopy.journal.expenseMetric,
           value: formatCurrencyFromCents(
             input.selectedScope === "personal" ? personalTotalCents : expenseTotalCents,
           ),
@@ -441,7 +477,7 @@ export function buildLedgerSnapshotFromRows(
       revenueRows:
         input.selectedScope === "personal"
           ? []
-          : buildGroupedSectionRows(incomeRows, "income"),
+          : buildGroupedSectionRows(incomeRows, "income", locale),
     },
     selectedScope: input.selectedScope,
     segmentOptions: [...input.segmentOptions],
@@ -450,12 +486,15 @@ export function buildLedgerSnapshotFromRows(
   };
 }
 
-export function createEmptyLedgerSnapshot(): LedgerScreenSnapshot {
+export function createEmptyLedgerSnapshot(
+  locale: ResolvedLocale = "en",
+): LedgerScreenSnapshot {
   return buildLedgerSnapshotFromRows([], {
+    locale,
     periodOptions: [],
     selectedScope: "business",
     segmentOptions: [],
-    selectedPeriod: createUnavailableLedgerPeriodOption(),
+    selectedPeriod: createUnavailableLedgerPeriodOption(locale),
     yearOptions: [],
   });
 }
@@ -489,7 +528,10 @@ function isMonthSegmentId(value: string | undefined): value is (typeof monthSegm
 function buildLedgerSegmentOption(
   year: number,
   segmentId: LedgerPeriodSegmentId,
+  locale: ResolvedLocale,
 ): LedgerPeriodSegmentOption {
+  const runtimeCopy = getLedgerRuntimeCopy(locale);
+
   if (segmentId === "full-year") {
     const startDate = `${year}-01-01`;
     const endDate = `${year}-12-31`;
@@ -497,9 +539,9 @@ function buildLedgerSegmentOption(
     return {
       endDate,
       id: segmentId,
-      label: "Whole Year",
+      label: runtimeCopy.periods.wholeYear,
       startDate,
-      summary: formatRangeSummary(startDate, endDate),
+      summary: formatRangeSummary(startDate, endDate, locale),
     };
   }
 
@@ -514,7 +556,7 @@ function buildLedgerSegmentOption(
       id: segmentId,
       label: segmentId.toUpperCase(),
       startDate,
-      summary: formatRangeSummary(startDate, endDate),
+      summary: formatRangeSummary(startDate, endDate, locale),
     };
   }
 
@@ -525,27 +567,32 @@ function buildLedgerSegmentOption(
   return {
     endDate,
     id: segmentId,
-    label: monthNamesShort[monthNumber - 1] ?? "Month",
+    label: formatLedgerMonthChip(year, monthNumber, locale),
     startDate,
-    summary: formatRangeSummary(startDate, endDate),
+    summary: formatRangeSummary(startDate, endDate, locale),
   };
 }
 
-function formatLedgerPeriodLabel(year: number, segmentId: LedgerPeriodSegmentId): string {
+function formatLedgerPeriodLabel(
+  year: number,
+  segmentId: LedgerPeriodSegmentId,
+  locale: ResolvedLocale,
+): string {
   if (segmentId === "full-year") {
     return String(year);
   }
 
   if (isQuarterSegmentId(segmentId)) {
-    return `${segmentId.toUpperCase()} ${year}`;
+    return formatLedgerQuarterTitle(year, segmentId.toUpperCase(), locale);
   }
 
   const monthNumber = Number(segmentId.slice(1));
-  return `${monthNamesLong[monthNumber - 1] ?? "Month"} ${year}`;
+  return formatLedgerMonthTitle(year, monthNumber, locale);
 }
 
 function buildLedgerAvailability(
   occurredOnValues: readonly string[],
+  locale: ResolvedLocale,
 ): {
   periodOptions: LedgerPeriodOption[];
   segmentOptionsByYear: Map<number, LedgerPeriodSegmentOption[]>;
@@ -580,12 +627,12 @@ function buildLedgerAvailability(
   const segmentOptionsByYear = new Map<number, LedgerPeriodSegmentOption[]>(
     yearOptions.map((option) => [
       option.year,
-      buildLedgerSegmentOptions(option.year, readonlySegmentIdsByYear.get(option.year)),
+      buildLedgerSegmentOptions(option.year, readonlySegmentIdsByYear.get(option.year), locale),
     ]),
   );
 
   return {
-    periodOptions: buildLedgerPeriodOptions(yearOptions, readonlySegmentIdsByYear),
+    periodOptions: buildLedgerPeriodOptions(yearOptions, readonlySegmentIdsByYear, locale),
     segmentOptionsByYear,
     yearOptions,
   };
@@ -593,6 +640,7 @@ function buildLedgerAvailability(
 
 function resolveSelectedLedgerPeriod(input: {
   forceDefaultSelection: boolean;
+  locale: ResolvedLocale;
   periodOptions: readonly LedgerPeriodOption[];
   preferredPeriodId: string | null;
   yearOptions: readonly LedgerYearOption[];
@@ -602,14 +650,14 @@ function resolveSelectedLedgerPeriod(input: {
     resolveLedgerPeriodOption(defaultPeriodId, input.periodOptions) ?? null;
 
   if (input.forceDefaultSelection) {
-    return defaultPeriod ?? createUnavailableLedgerPeriodOption();
+    return defaultPeriod ?? createUnavailableLedgerPeriodOption(input.locale);
   }
 
   return (
     resolveLedgerPeriodOption(input.preferredPeriodId, input.periodOptions) ??
     resolveLedgerFallbackPeriodOption(input.preferredPeriodId, input.periodOptions, defaultPeriod) ??
     defaultPeriod ??
-    createUnavailableLedgerPeriodOption()
+    createUnavailableLedgerPeriodOption(input.locale)
   );
 }
 
@@ -668,38 +716,46 @@ function getLedgerPeriodGranularity(
   return segmentId.startsWith("q") ? "quarter" : "month";
 }
 
-function createUnavailableLedgerPeriodOption(): LedgerPeriodOption {
+function createUnavailableLedgerPeriodOption(
+  locale: ResolvedLocale,
+): LedgerPeriodOption {
+  const runtimeCopy = getLedgerRuntimeCopy(locale);
+
   return {
     endDate: "",
     id: unavailableLedgerPeriodId,
-    label: "No records yet",
+    label: runtimeCopy.periods.noRecordsLabel,
     segmentId: "full-year",
     startDate: "",
-    summary: "No record-backed ranges are available for this scope.",
+    summary: runtimeCopy.periods.noRecordsSummary,
     year: 0,
   };
 }
 
 function buildGeneralLedgerEntry(
   row: LedgerRecordRow & { effectiveAmountCents: number },
+  locale: ResolvedLocale,
 ): GeneralLedgerEntry {
+  const runtimeCopy = getLedgerRuntimeCopy(locale);
   const amount = formatCurrencyFromCents(row.effectiveAmountCents);
   const counterparty =
-    row.recordKind === "income" ? normalizeLabel(row.sourceLabel) : normalizeLabel(row.targetLabel);
+    row.recordKind === "income"
+      ? normalizeLabel(row.sourceLabel, locale)
+      : normalizeLabel(row.targetLabel, locale);
   const lines =
     row.recordKind === "income"
       ? [
           {
-            accountName: "Cash & Bank",
+            accountName: runtimeCopy.journal.cashAndBank,
             amount,
             detail: counterparty,
             id: `${row.recordId}-debit`,
             side: "debit" as const,
           },
           {
-            accountName: buildRevenueAccountName(row.sourceLabel),
+            accountName: buildRevenueAccountName(row.sourceLabel, locale),
             amount,
-            detail: normalizeLabel(row.description),
+            detail: normalizeLabel(row.description, locale),
             id: `${row.recordId}-credit`,
             side: "credit" as const,
           },
@@ -708,17 +764,17 @@ function buildGeneralLedgerEntry(
           {
             accountName:
               row.recordKind === "personal_spending"
-                ? "Personal Spending"
-                : buildExpenseAccountName(row.taxLineCode),
+                ? runtimeCopy.journal.personalSpendAccount
+                : buildExpenseAccountName(row.taxLineCode, locale),
             amount,
-            detail: normalizeLabel(row.description),
+            detail: normalizeLabel(row.description, locale),
             id: `${row.recordId}-debit`,
             side: "debit" as const,
           },
           {
-            accountName: "Cash & Bank",
+            accountName: runtimeCopy.journal.cashAndBank,
             amount,
-            detail: normalizeLabel(row.sourceLabel),
+            detail: normalizeLabel(row.sourceLabel, locale),
             id: `${row.recordId}-credit`,
             side: "credit" as const,
           },
@@ -726,31 +782,39 @@ function buildGeneralLedgerEntry(
 
   return {
     amount,
-    dateLabel: formatDisplayDate(row.occurredOn),
+    dateLabel: formatLedgerDisplayDate(row.occurredOn, locale),
     id: row.recordId,
+    kind:
+      row.recordKind === "income"
+        ? "income"
+        : row.recordKind === "personal_spending"
+          ? "personal"
+          : "expense",
     kindLabel:
       row.recordKind === "income"
-        ? "Income"
+        ? runtimeCopy.journal.incomeRecordKind
         : row.recordKind === "personal_spending"
-          ? "Personal"
-          : "Expense",
+          ? runtimeCopy.journal.personalRecordKind
+          : runtimeCopy.journal.expenseRecordKind,
     lines,
-    subtitle: row.memo?.trim() || `${formatDisplayDate(row.occurredOn)} • Ref: ${row.recordId}`,
-    title: normalizeLabel(row.description),
+    subtitle: row.memo?.trim() || formatLedgerReferenceSubtitle(row.occurredOn, row.recordId, locale),
+    title: normalizeLabel(row.description, locale),
   };
 }
 
 function buildGroupedSectionRows(
   rows: readonly (LedgerRecordRow & { effectiveAmountCents: number })[],
   kind: "expense" | "income",
+  locale: ResolvedLocale,
 ): LedgerSectionRow[] {
+  const runtimeCopy = getLedgerRuntimeCopy(locale);
   const groups = new Map<string, number>();
 
   for (const row of rows) {
     const key =
       kind === "income"
-        ? normalizeLabel(row.sourceLabel || row.description)
-        : normalizeLabel(row.targetLabel || row.description);
+        ? normalizeLabel(row.sourceLabel || row.description, locale)
+        : normalizeLabel(row.targetLabel || row.description, locale);
     groups.set(key, (groups.get(key) ?? 0) + row.effectiveAmountCents);
   }
 
@@ -762,21 +826,26 @@ function buildGroupedSectionRows(
       label,
       note:
         kind === "income"
-          ? "Grouped by recorded source label for posted or reconciled inflows."
-          : "Grouped by recorded target label for posted or reconciled expense outflows.",
+          ? runtimeCopy.journal.groupedIncomeNote
+          : runtimeCopy.journal.groupedExpenseNote,
     }));
 }
 
-function buildExpenseAccountName(taxLineCode: string | null): string {
+function buildExpenseAccountName(
+  taxLineCode: string | null,
+  locale: ResolvedLocale,
+): string {
+  const runtimeCopy = getLedgerRuntimeCopy(locale);
+
   if (!taxLineCode) {
-    return "Operating Expense";
+    return runtimeCopy.journal.operatingExpense;
   }
 
   if (taxLineCode.toLowerCase() === "line27a") {
-    return "Schedule C Other Expense";
+    return runtimeCopy.journal.scheduleCOtherExpense;
   }
 
-  return `Expense ${taxLineCode.toUpperCase()}`;
+  return `${runtimeCopy.journal.expensePrefix} ${taxLineCode.toUpperCase()}`;
 }
 
 function applyScopeAmount(
@@ -790,14 +859,18 @@ function applyScopeAmount(
   return applyBusinessUse(row.amountCents, row.businessUseBps);
 }
 
-function buildRevenueAccountName(sourceLabel: string): string {
-  const normalized = normalizeLabel(sourceLabel);
+function buildRevenueAccountName(
+  sourceLabel: string,
+  locale: ResolvedLocale,
+): string {
+  const runtimeCopy = getLedgerRuntimeCopy(locale);
+  const normalized = normalizeLabel(sourceLabel, locale);
 
-  if (normalized === "Unlabeled record") {
-    return "Creator Revenue";
+  if (normalized === runtimeCopy.common.unlabeledRecord) {
+    return runtimeCopy.journal.creatorRevenue;
   }
 
-  return `${normalized} Revenue`;
+  return `${normalized}${runtimeCopy.journal.revenueSuffix}`;
 }
 
 function applyBusinessUse(amountCents: number, businessUseBps: number): number {
@@ -816,12 +889,12 @@ function sumAmounts(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 
-function formatRangeSummary(startDate: string, endDate: string): string {
-  if (startDate === endDate) {
-    return formatDisplayDate(startDate);
-  }
-
-  return `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
+function formatRangeSummary(
+  startDate: string,
+  endDate: string,
+  locale: ResolvedLocale,
+): string {
+  return formatLedgerRangeSummary(startDate, endDate, locale);
 }
 
 function endOfMonth(dateValue: string): string {
@@ -834,43 +907,18 @@ function normalizeIsoDate(value: string): string {
   return value.slice(0, 10);
 }
 
-function normalizeLabel(value: string | null | undefined): string {
+function normalizeLabel(
+  value: string | null | undefined,
+  locale: ResolvedLocale,
+): string {
   const normalized = value?.trim();
-  return normalized && normalized.length > 0 ? normalized : "Unlabeled record";
+  return normalized && normalized.length > 0
+    ? normalized
+    : getLedgerRuntimeCopy(locale).common.unlabeledRecord;
 }
 
 function padMonth(value: number): string {
   return value.toString().padStart(2, "0");
 }
-
-const monthNamesShort = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-const monthNamesLong = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
 
 export const ledgerPostableStatuses = [...accountingPostableRecordStatuses];

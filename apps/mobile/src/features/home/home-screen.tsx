@@ -23,9 +23,10 @@ function ActivityIcon({ color, icon }: { color: string; icon: string }) {
 
 export function HomeScreen() {
   const router = useRouter();
-  const { copy, palette } = useAppShell();
+  const { copy, palette, resolvedLocale } = useAppShell();
   const { error, isLoaded, isLoadingMore, isRefreshing, loadMore, refresh, snapshot } = useHomeScreenData();
   const screenCopy = copy.homeScreen;
+  const hasTrendActivity = snapshot.trend.some((point) => point.amountCents > 0);
 
   const incomeLabel = formatCurrencyFromCents(snapshot.metrics.incomeCents);
   const outflowLabel = formatCurrencyFromCents(snapshot.metrics.outflowCents);
@@ -70,10 +71,6 @@ export function HomeScreen() {
               <Text style={styles.metricLabel}>{screenCopy.outflow}</Text>
               <Text style={styles.metricValue}>{outflowLabel}</Text>
             </View>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricLabel}>{screenCopy.net}</Text>
-              <Text style={styles.metricValue}>{netLabel}</Text>
-            </View>
           </View>
 
           <Pressable
@@ -101,25 +98,47 @@ export function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.chartShell}>
-            <View style={styles.chartAxis}>
-              <Text style={styles.axisLabel}>{formatCompactCurrency(chartPeak)}</Text>
-              <Text style={styles.axisLabel}>{formatCompactCurrency(Math.round(chartPeak / 2))}</Text>
-              <Text style={styles.axisLabel}>$0</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
-              <View style={styles.barRow}>
-                {snapshot.trend.map((bar, index) => (
-                  <TrendBar
-                    key={bar.date}
-                    bar={bar}
-                    isAnchor={index % 5 === 0 || index === snapshot.trend.length - 1}
-                    peak={chartPeak}
-                  />
-                ))}
+          {hasTrendActivity ? (
+            <View style={styles.chartShell}>
+              <View style={styles.chartAxis}>
+                <Text style={styles.axisLabel}>{formatCompactCurrency(chartPeak)}</Text>
+                <Text style={styles.axisLabel}>{formatCompactCurrency(Math.round(chartPeak / 2))}</Text>
+                <Text style={styles.axisLabel}>$0</Text>
               </View>
-            </ScrollView>
-          </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
+                <View style={styles.barRow}>
+                  {snapshot.trend.map((bar, index) => (
+                    <TrendBar
+                      key={bar.date}
+                      bar={bar}
+                      isAnchor={index % 5 === 0 || index === snapshot.trend.length - 1}
+                      peak={chartPeak}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          ) : (
+            <View style={styles.trendEmptyState}>
+              <View style={styles.trendEmptyIconWrap}>
+                <Ionicons color="#002045" name="bar-chart-outline" size={18} />
+              </View>
+              <View style={styles.trendEmptyCopy}>
+                <Text style={styles.trendEmptyTitle}>{screenCopy.trendEmptyTitle}</Text>
+                <Text style={styles.trendEmptySummary}>{screenCopy.trendEmptySummary}</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push("/ledger/upload")}
+                style={({ pressed }) => [
+                  styles.secondaryActionButton,
+                  pressed ? styles.secondaryActionButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.secondaryActionLabel}>{screenCopy.newRecords}</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <View style={styles.activitySection}>
@@ -140,6 +159,18 @@ export function HomeScreen() {
                   {isLoaded ? screenCopy.emptyTitle : screenCopy.loadingTitle}
                 </Text>
                 <Text style={styles.emptyCardSummary}>{screenCopy.emptySummary}</Text>
+                {isLoaded ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => router.push("/ledger/upload")}
+                    style={({ pressed }) => [
+                      styles.secondaryActionButton,
+                      pressed ? styles.secondaryActionButtonPressed : null,
+                    ]}
+                  >
+                    <Text style={styles.secondaryActionLabel}>{screenCopy.newRecords}</Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : (
               snapshot.recentRecords.map((item, index) => {
@@ -172,7 +203,9 @@ export function HomeScreen() {
                         {income ? "+" : "-"}
                         {formatCurrencyFromCents(item.amountCents)}
                       </Text>
-                      <Text style={styles.activityDate}>{formatDisplayDate(item.occurredOn)}</Text>
+                      <Text style={styles.activityDate}>
+                        {formatDisplayDate(item.occurredOn, resolvedLocale)}
+                      </Text>
                     </View>
                   </View>
                 );
@@ -518,6 +551,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
+  secondaryActionButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(0, 32, 69, 0.06)",
+    borderRadius: 999,
+    height: 40,
+    justifyContent: "center",
+    marginTop: 6,
+    minWidth: 116,
+    paddingHorizontal: 16,
+  },
+  secondaryActionButtonPressed: {
+    opacity: 0.8,
+  },
+  secondaryActionLabel: {
+    color: "#002045",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   profitSubtitle: {
     color: "#74777F",
     flexShrink: 1,
@@ -531,6 +583,36 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     lineHeight: 28,
+  },
+  trendEmptyCopy: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  trendEmptyIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 32, 69, 0.06)",
+    borderRadius: 18,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  trendEmptyState: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 88,
+  },
+  trendEmptySummary: {
+    color: "#74777F",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  trendEmptyTitle: {
+    color: "#002045",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 22,
   },
   safeArea: {
     backgroundColor: "#F9F9F7",

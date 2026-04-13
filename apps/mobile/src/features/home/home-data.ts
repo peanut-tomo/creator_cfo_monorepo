@@ -1,4 +1,5 @@
 import type { ReadableStorageDatabase } from "@creator-cfo/storage";
+import type { ResolvedLocale } from "../app-shell/types";
 
 import {
   createTrendPointsFromTotals,
@@ -21,11 +22,13 @@ export async function loadHomeSnapshot(
   input: {
     entityId?: string;
     limit?: number;
+    locale?: ResolvedLocale;
     now?: string;
     offset?: number;
   } = {},
 ): Promise<HomeSnapshot> {
   const entityId = input.entityId ?? defaultEntityId;
+  const locale = input.locale ?? "en";
   const now = input.now ?? new Date().toISOString().slice(0, 10);
   const offset = input.offset ?? 0;
   const limit = input.limit ?? homeRecentPageSize;
@@ -91,7 +94,7 @@ export async function loadHomeSnapshot(
       outflowCents,
     },
     recentRecords: recentRows.slice(0, limit),
-    trend: createTrendPointsFromTotals(totalsByDate, now),
+    trend: createTrendPointsFromTotals(totalsByDate, now, locale),
   };
 }
 

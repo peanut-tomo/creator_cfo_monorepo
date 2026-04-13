@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -18,21 +18,29 @@ import {
   refreshNewsPage,
   type NewsArticle,
 } from "./news-feed";
+import { formatDiscoverPublishedDate } from "./discover-localization";
 
 export function DiscoverScreen() {
   const router = useRouter();
-  const { copy, palette } = useAppShell();
-  const initialPage = getNewsPage();
+  const { copy, palette, resolvedLocale } = useAppShell();
+  const initialPage = getNewsPage(0, resolvedLocale);
   const [articles, setArticles] = useState<NewsArticle[]>(initialPage.articles);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
   const [hasMore, setHasMore] = useState(initialPage.hasMore);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  useEffect(() => {
+    const localizedPage = getNewsPage(0, resolvedLocale);
+    setArticles(localizedPage.articles);
+    setNextCursor(localizedPage.nextCursor);
+    setHasMore(localizedPage.hasMore);
+  }, [resolvedLocale]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await new Promise((resolve) => setTimeout(resolve, 320));
-    const refreshedPage = refreshNewsPage();
+    const refreshedPage = refreshNewsPage(resolvedLocale);
     setArticles(refreshedPage.articles);
     setNextCursor(refreshedPage.nextCursor);
     setHasMore(refreshedPage.hasMore);
@@ -46,7 +54,7 @@ export function DiscoverScreen() {
 
     setIsLoadingMore(true);
     await new Promise((resolve) => setTimeout(resolve, 320));
-    const nextPage = loadMoreNewsPage(nextCursor);
+    const nextPage = loadMoreNewsPage(nextCursor, resolvedLocale);
     setArticles((current) => [...current, ...nextPage.articles]);
     setNextCursor(nextPage.nextCursor);
     setHasMore(nextPage.hasMore);
@@ -54,7 +62,10 @@ export function DiscoverScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: palette.shell }]}>
+    <SafeAreaView
+      edges={["top", "left", "right"]}
+      style={[styles.safeArea, { backgroundColor: palette.shell }]}
+    >
       <FlatList
         contentContainerStyle={styles.container}
         data={articles}
@@ -66,7 +77,9 @@ export function DiscoverScreen() {
               { backgroundColor: palette.paper, borderColor: palette.border },
             ]}
           >
-            <Text style={[styles.emptyTitle, { color: palette.ink }]}>{copy.discover.emptyTitle}</Text>
+            <Text style={[styles.emptyTitle, { color: palette.ink }]}>
+              {copy.discover.emptyTitle}
+            </Text>
             <Text style={[styles.emptySummary, { color: palette.inkMuted }]}>
               {copy.discover.emptySummary}
             </Text>
@@ -81,12 +94,19 @@ export function DiscoverScreen() {
                   onPress={handleLoadMore}
                   style={[
                     styles.loadMoreButton,
-                    { backgroundColor: palette.paper, borderColor: palette.border },
+                    {
+                      backgroundColor: palette.paper,
+                      borderColor: palette.border,
+                    },
                   ]}
                 >
-                  {isLoadingMore ? <ActivityIndicator color={palette.accent} /> : null}
+                  {isLoadingMore ? (
+                    <ActivityIndicator color={palette.accent} />
+                  ) : null}
                   <Text style={[styles.loadMoreLabel, { color: palette.ink }]}>
-                    {isLoadingMore ? copy.discover.loadingMore : copy.discover.loadMore}
+                    {isLoadingMore
+                      ? copy.discover.loadingMore
+                      : copy.discover.loadMore}
                   </Text>
                 </Pressable>
               ) : null}
@@ -96,22 +116,33 @@ export function DiscoverScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.hero}>
-              <Text style={[styles.eyebrow, { color: palette.accent }]}>{copy.discover.eyebrow}</Text>
+              <Text style={[styles.eyebrow, { color: palette.accent }]}>
+                {copy.discover.eyebrow}
+              </Text>
               <Text style={[styles.latestLabel, { color: palette.inkMuted }]}>
                 {copy.discover.latestLabel}
               </Text>
-              <Text style={[styles.title, { color: palette.ink }]}>{copy.discover.latestTitle}</Text>
-              <Text style={[styles.summary, { color: palette.inkMuted }]}>{copy.discover.summary}</Text>
+              <Text style={[styles.title, { color: palette.ink }]}>
+                {copy.discover.latestTitle}
+              </Text>
+              <Text style={[styles.summary, { color: palette.inkMuted }]}>
+                {copy.discover.summary}
+              </Text>
             </View>
 
             <View
               style={[
                 styles.refreshHint,
-                { backgroundColor: palette.accentSoft, borderColor: palette.border },
+                {
+                  backgroundColor: palette.accentSoft,
+                  borderColor: palette.border,
+                },
               ]}
             >
               <AppIcon color={palette.accent} name="news" size={18} />
-              <Text style={[styles.refreshHintLabel, { color: palette.ink }]}>{copy.discover.refreshHint}</Text>
+              <Text style={[styles.refreshHintLabel, { color: palette.ink }]}>
+                {copy.discover.refreshHint}
+              </Text>
             </View>
           </View>
         }
@@ -133,20 +164,36 @@ export function DiscoverScreen() {
             ]}
           >
             <View style={styles.cardTop}>
-              <View style={[styles.categoryPill, { backgroundColor: palette.accentSoft }]}>
-                <Text style={[styles.categoryLabel, { color: palette.accent }]}>{item.category}</Text>
+              <View
+                style={[
+                  styles.categoryPill,
+                  { backgroundColor: palette.accentSoft },
+                ]}
+              >
+                <Text style={[styles.categoryLabel, { color: palette.accent }]}>
+                  {item.category}
+                </Text>
               </View>
-              <Text style={[styles.sourceLabel, { color: palette.inkMuted }]}>{item.source}</Text>
+              <Text style={[styles.sourceLabel, { color: palette.inkMuted }]}>
+                {item.source}
+              </Text>
             </View>
 
-            <Text style={[styles.cardTitle, { color: palette.ink }]}>{item.title}</Text>
-            <Text style={[styles.cardSummary, { color: palette.inkMuted }]}>{item.summary}</Text>
+            <Text style={[styles.cardTitle, { color: palette.ink }]}>
+              {item.title}
+            </Text>
+            <Text style={[styles.cardSummary, { color: palette.inkMuted }]}>
+              {item.summary}
+            </Text>
 
             <View style={styles.metaRow}>
               <View style={styles.metaItem}>
                 <AppIcon color={palette.accent} name="time" size={16} />
                 <Text style={[styles.metaText, { color: palette.inkMuted }]}>
-                  {new Date(item.publishedAt).toLocaleDateString()}
+                  {formatDiscoverPublishedDate(
+                    item.publishedAt,
+                    resolvedLocale,
+                  )}
                 </Text>
               </View>
               <Text style={[styles.metaText, { color: palette.inkMuted }]}>

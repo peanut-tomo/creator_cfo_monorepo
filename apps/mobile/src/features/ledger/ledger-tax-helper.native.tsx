@@ -25,9 +25,11 @@ import {
   buildLedgerTaxHelperArchiveManifest,
   coalesceEvidenceFileLinks,
   createStoredZipArchive,
+  getLedgerTaxHelperCopy,
   groupTaxHelperFields,
 } from "./ledger-tax-helper.shared";
 import { defaultEntityId } from "./ledger-domain";
+import { useAppShell } from "../app-shell/provider";
 import { getActivePackageRootDirectory } from "../../storage/package-environment.native";
 import {
   buildPackageAbsolutePath,
@@ -49,11 +51,15 @@ type ExportState =
 
 type WritableFileHandle = InstanceType<typeof File> & {
   bytes(): Promise<Uint8Array>;
-  write(content: string | Uint8Array, options?: { append?: boolean; encoding?: "utf8" | "base64" }): void;
+  write(
+    content: string | Uint8Array,
+    options?: { append?: boolean; encoding?: "utf8" | "base64" },
+  ): void;
 };
 
 export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
   const { selectedScope, yearOptions } = props;
+  const { resolvedLocale } = useAppShell();
   const database = useSQLiteContext();
   const [isVisible, setIsVisible] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number | null>(
@@ -63,14 +69,19 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportState, setExportState] = useState<ExportState>({ kind: "idle" });
+  const helperCopy = useMemo(
+    () => getLedgerTaxHelperCopy(resolvedLocale),
+    [resolvedLocale],
+  );
   const launcherState = useMemo(
     () =>
       buildTaxHelperLauncherState({
         latestYearLabel: yearOptions[0]?.label ?? null,
+        locale: resolvedLocale,
         selectedScope,
         yearCount: yearOptions.length,
       }),
-    [selectedScope, yearOptions],
+    [resolvedLocale, selectedScope, yearOptions],
   );
   const canOpen = launcherState.canOpen;
 
@@ -83,7 +94,10 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
     }
 
     setSelectedYear((current) => {
-      if (current !== null && yearOptions.some((option) => option.year === current)) {
+      if (
+        current !== null &&
+        yearOptions.some((option) => option.year === current)
+      ) {
         return current;
       }
 
@@ -127,9 +141,7 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
         }
 
         setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "Unable to load the tax report helper.",
+          nextError instanceof Error ? nextError.message : helperCopy.loadError,
         );
         setIsLoaded(true);
       });
@@ -137,7 +149,7 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
     return () => {
       isMounted = false;
     };
-  }, [canOpen, database, isVisible, selectedYear]);
+  }, [canOpen, database, helperCopy.loadError, isVisible, selectedYear]);
 
   const fieldGroups = useMemo(
     () => groupTaxHelperFields(snapshot?.derivedFields ?? []),
@@ -167,9 +179,7 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
 
     try {
       if (!snapshot.exportableRecordIds.length) {
-        throw new Error(
-          "No linked supporting records are available for export in this tax year yet.",
-        );
+        throw new Error(helperCopy.exportNoRecords);
       }
 
       const evidenceLinks = await loadTaxHelperEvidenceFileLinks(
@@ -182,9 +192,7 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
       const evidenceFiles = coalesceEvidenceFileLinks(evidenceLinks);
 
       if (!evidenceFiles.length) {
-        throw new Error(
-          "No linked evidence files were found for the currently derived tax rows.",
-        );
+        throw new Error(helperCopy.exportNoFiles);
       }
 
       const packageRoot = getActivePackageRootDirectory();
@@ -215,7 +223,10 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
           name: "manifest.json",
         }),
         ...evidenceFiles.map(async (file) => {
-          const absolutePath = buildPackageAbsolutePath(packageRoot, file.relativePath);
+          const absolutePath = buildPackageAbsolutePath(
+            packageRoot,
+            file.relativePath,
+          );
 
           try {
             return {
@@ -224,22 +235,34 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
             };
           } catch (nextError) {
             throw new Error(
-              `Unable to read linked evidence file ${file.relativePath}: ${nextError instanceof Error ? nextError.message : "unknown error"}`,
+              resolvedLocale === "zh-CN"
+                ? `无法读取关联凭证文件 ${file.relativePath}: ${nextError instanceof Error ? nextError.message : "未知错误"}`
+                : `Unable to read linked evidence file ${file.relativePath}: ${
+                    nextError instanceof Error
+                      ? nextError.message
+                      : "unknown error"
+                  }`,
             );
           }
         }),
       ]);
 
-      await FileSystem.makeDirectoryAsync(getParentDirectory(archiveAbsolutePath), {
-        intermediates: true,
-      });
+      await FileSystem.makeDirectoryAsync(
+        getParentDirectory(archiveAbsolutePath),
+        {
+          intermediates: true,
+        },
+      );
       asWritableFileHandle(new File(archiveAbsolutePath)).write(
         createStoredZipArchive(archiveEntries),
       );
 
       setExportState({
         kind: "success",
-        message: `Saved ${evidenceFiles.length} linked evidence file${evidenceFiles.length === 1 ? "" : "s"} to ${archiveRelativePath}.`,
+        message: helperCopy.exportSaved(
+          evidenceFiles.length,
+          archiveRelativePath,
+        ),
       });
     } catch (nextError) {
       setExportState({
@@ -247,7 +270,7 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
         message:
           nextError instanceof Error
             ? nextError.message
-            : "Unable to export the evidence archive.",
+            : helperCopy.exportErrorFallback,
       });
     }
   };
@@ -256,11 +279,9 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
     <>
       <View style={styles.card}>
         <View style={styles.cardCopy}>
-          <Text style={styles.cardEyebrow}>Tax Report Helper</Text>
-          <Text style={styles.cardTitle}>Preview derived tax rows from the business ledger.</Text>
-          <Text style={styles.cardSummary}>
-            Review currently supported Schedule C and Schedule SE rows, then export the linked evidence archive for one tax year.
-          </Text>
+          <Text style={styles.cardEyebrow}>{helperCopy.launcherEyebrow}</Text>
+          <Text style={styles.cardTitle}>{helperCopy.launcherTitle}</Text>
+          <Text style={styles.cardSummary}>{helperCopy.launcherSummary}</Text>
           <Text style={styles.cardNote}>{launcherState.note}</Text>
         </View>
         <Pressable
@@ -274,7 +295,7 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
           ]}
           testID="ledger-tax-helper-button"
         >
-          <Text style={styles.openButtonLabel}>Open helper</Text>
+          <Text style={styles.openButtonLabel}>{helperCopy.openHelper}</Text>
         </Pressable>
       </View>
 
@@ -286,11 +307,9 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
         <View style={styles.modalScreen}>
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderCopy}>
-              <Text style={styles.modalEyebrow}>Business-only local tax support</Text>
-              <Text style={styles.modalTitle}>Tax report helper</Text>
-              <Text style={styles.modalSummary}>
-                Only authoritative rows materialized by the current local tax logic appear here.
-              </Text>
+              <Text style={styles.modalEyebrow}>{helperCopy.modalEyebrow}</Text>
+              <Text style={styles.modalTitle}>{helperCopy.modalTitle}</Text>
+              <Text style={styles.modalSummary}>{helperCopy.modalSummary}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -300,13 +319,13 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
                 pressed ? styles.openButtonPressed : null,
               ]}
             >
-              <Text style={styles.closeButtonLabel}>Close</Text>
+              <Text style={styles.closeButtonLabel}>{helperCopy.close}</Text>
             </Pressable>
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Tax year</Text>
+              <Text style={styles.sectionTitle}>{helperCopy.yearTitle}</Text>
               <View style={styles.yearRow}>
                 {yearOptions.map((option) => {
                   const isSelected = option.year === selectedYear;
@@ -339,18 +358,24 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
             </View>
 
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Derived rows</Text>
+              <Text style={styles.sectionTitle}>
+                {helperCopy.derivedRowsTitle}
+              </Text>
               <Text style={styles.sectionSummary}>
-                Each row shows the form name, official field label, and the value currently implied by the local business ledger.
+                {helperCopy.derivedRowsSummary}
               </Text>
 
               {!isLoaded ? (
-                <Text style={styles.stateText}>Loading local tax support for the selected year...</Text>
+                <Text style={styles.stateText}>{helperCopy.loadingYear}</Text>
               ) : error ? (
                 <Text style={styles.errorText}>{error}</Text>
               ) : fieldGroups.length === 0 ? (
                 <Text style={styles.stateText}>
-                  {buildTaxHelperEmptyStateMessage(snapshot, selectedYear)}
+                  {buildTaxHelperEmptyStateMessage(
+                    snapshot,
+                    selectedYear,
+                    resolvedLocale,
+                  )}
                 </Text>
               ) : (
                 <>
@@ -360,19 +385,23 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
                       {group.fields.map((field) => (
                         <View key={field.fieldId} style={styles.fieldRow}>
                           <View style={styles.fieldCopy}>
-                            <Text style={styles.fieldName}>{field.fieldName}</Text>
+                            <Text style={styles.fieldName}>
+                              {field.fieldName}
+                            </Text>
                             <Text style={styles.fieldTuple}>
                               {field.formName} / {field.fieldName}
                             </Text>
                           </View>
-                          <Text style={styles.fieldValue}>{field.ledgerImpliedValue}</Text>
+                          <Text style={styles.fieldValue}>
+                            {field.ledgerImpliedValue}
+                          </Text>
                         </View>
                       ))}
                     </View>
                   ))}
 
                   <Text style={styles.infoText}>
-                    Form 1040 remains manual in this helper unless a future local carry-through implementation makes individual rows authoritative.
+                    {helperCopy.fieldInfoText}
                   </Text>
                 </>
               )}
@@ -389,9 +418,11 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
             </View>
 
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Evidence archive</Text>
+              <Text style={styles.sectionTitle}>
+                {helperCopy.evidenceArchiveTitle}
+              </Text>
               <Text style={styles.sectionSummary}>
-                Export the linked evidence binaries for the records behind the currently derived rows. The archive includes a manifest for traceability.
+                {helperCopy.evidenceArchiveSummary}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -406,10 +437,10 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
                 }}
                 style={({ pressed }) => [
                   styles.exportButton,
-                  (!snapshot?.exportableRecordIds.length ||
-                    exportState.kind === "running" ||
-                    !isLoaded ||
-                    Boolean(error))
+                  !snapshot?.exportableRecordIds.length ||
+                  exportState.kind === "running" ||
+                  !isLoaded ||
+                  Boolean(error)
                     ? styles.openButtonDisabled
                     : null,
                   pressed &&
@@ -424,8 +455,8 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
               >
                 <Text style={styles.openButtonLabel}>
                   {exportState.kind === "running"
-                    ? "Building archive..."
-                    : "Export evidence archive"}
+                    ? helperCopy.exportBuilding
+                    : helperCopy.exportTrigger}
                 </Text>
               </Pressable>
               {exportState.kind === "success" ? (
@@ -442,7 +473,9 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
   );
 }
 
-function asWritableFileHandle(file: InstanceType<typeof File>): WritableFileHandle {
+function asWritableFileHandle(
+  file: InstanceType<typeof File>,
+): WritableFileHandle {
   return file as WritableFileHandle;
 }
 

@@ -13,6 +13,7 @@ import {
   buildLedgerPeriodIdForSegment,
   buildLedgerPeriodIdForYear,
 } from "./ledger-screen-state";
+import { useAppShell } from "../app-shell/provider";
 
 export interface UseLedgerScreenResult {
   error: string | null;
@@ -45,6 +46,7 @@ const emptyDatabase = createReadableStorageDatabase({
 });
 
 export function useLedgerScreen(): UseLedgerScreenResult {
+  const { resolvedLocale } = useAppShell();
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -52,7 +54,9 @@ export function useLedgerScreen(): UseLedgerScreenResult {
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [selectedScope, setSelectedScope] = useState<LedgerScopeId>("business");
   const [selectedView, setSelectedView] = useState<LedgerViewId>("general-ledger");
-  const [snapshot, setSnapshot] = useState<LedgerScreenSnapshot>(createEmptyLedgerSnapshot);
+  const [snapshot, setSnapshot] = useState<LedgerScreenSnapshot>(() =>
+    createEmptyLedgerSnapshot(resolvedLocale),
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -62,6 +66,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
 
     loadLedgerSnapshot(emptyDatabase, {
       forceDefaultSelection: false,
+      locale: resolvedLocale,
       preferredPeriodId: selectedPeriodId,
       scopeId: selectedScope,
     })
@@ -78,7 +83,13 @@ export function useLedgerScreen(): UseLedgerScreenResult {
       })
       .catch((nextError: unknown) => {
         if (isMounted) {
-          setError(nextError instanceof Error ? nextError.message : "Ledger data failed to load.");
+          setError(
+            nextError instanceof Error
+              ? nextError.message
+              : resolvedLocale === "zh-CN"
+                ? "记账数据加载失败。"
+                : "Ledger data failed to load.",
+          );
         }
       })
       .finally(() => {
@@ -91,7 +102,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
     return () => {
       isMounted = false;
     };
-  }, [refreshNonce, selectedPeriodId, selectedScope]);
+  }, [refreshNonce, resolvedLocale, selectedPeriodId, selectedScope]);
 
   return {
     error,

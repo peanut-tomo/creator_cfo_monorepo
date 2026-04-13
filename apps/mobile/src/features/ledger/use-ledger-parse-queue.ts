@@ -15,13 +15,15 @@ import {
 } from "./ledger-runtime";
 
 export function useLedgerParseQueue() {
-  const { storageRevision } = useAppShell();
+  const { resolvedLocale, storageRevision } = useAppShell();
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [queue, setQueue] = useState<EvidenceQueueItem[]>([]);
-  const [review, setReview] = useState<LedgerReviewValues>(createEmptyReviewValues);
+  const [review, setReview] = useState<LedgerReviewValues>(
+    createEmptyReviewValues,
+  );
 
   const currentItem = queue[0] ?? null;
 
@@ -38,7 +40,12 @@ export function useLedgerParseQueue() {
   }, [currentItem?.evidenceId]);
 
   useEffect(() => {
-    if (!currentItem || currentItem.parseStatus !== "pending" || currentItem.extractedData?.rawText || isParsing) {
+    if (
+      !currentItem ||
+      currentItem.parseStatus !== "pending" ||
+      currentItem.extractedData?.rawText ||
+      isParsing
+    ) {
       return;
     }
 
@@ -48,12 +55,23 @@ export function useLedgerParseQueue() {
     parseEvidence(currentItem.evidenceId)
       .then(() => refresh())
       .catch((nextError: unknown) => {
-        setError(nextError instanceof Error ? nextError.message : "Parsing failed.");
+        setError(
+          nextError instanceof Error
+            ? nextError.message
+            : resolvedLocale === "zh-CN"
+              ? "解析失败。"
+              : "Parsing failed.",
+        );
       })
       .finally(() => {
         setIsParsing(false);
       });
-  }, [currentItem?.evidenceId, currentItem?.parseStatus, currentItem?.extractedData?.rawText, isParsing]);
+  }, [
+    currentItem?.evidenceId,
+    currentItem?.parseStatus,
+    currentItem?.extractedData?.rawText,
+    isParsing,
+  ]);
 
   async function refresh(): Promise<void> {
     setError(null);
@@ -62,7 +80,13 @@ export function useLedgerParseQueue() {
       const nextQueue = await loadParseQueue();
       setQueue(nextQueue);
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : "Parse queue failed to load.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : resolvedLocale === "zh-CN"
+            ? "解析队列加载失败。"
+            : "Parse queue failed to load.",
+      );
     } finally {
       setIsLoaded(true);
     }
@@ -80,7 +104,13 @@ export function useLedgerParseQueue() {
       await retryEvidenceParsing(currentItem.evidenceId);
       await refresh();
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : "Evidence retry failed.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : resolvedLocale === "zh-CN"
+            ? "重试凭证解析失败。"
+            : "Evidence retry failed.",
+      );
     } finally {
       setIsParsing(false);
     }
@@ -99,14 +129,23 @@ export function useLedgerParseQueue() {
       await refresh();
       return true;
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : "Evidence submission failed.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : resolvedLocale === "zh-CN"
+            ? "提交凭证失败。"
+            : "Evidence submission failed.",
+      );
       return false;
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  function updateField<K extends keyof LedgerReviewValues>(field: K, value: LedgerReviewValues[K]) {
+  function updateField<K extends keyof LedgerReviewValues>(
+    field: K,
+    value: LedgerReviewValues[K],
+  ) {
     setReview((current) => ({ ...current, [field]: value }));
   }
 

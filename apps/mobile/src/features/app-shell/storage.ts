@@ -1,12 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { buildDeviceStateStorageKey } from "@creator-cfo/storage";
 
-import { coerceLocalePreference, coerceThemePreference, parseSession } from "./model";
+import {
+  coerceLocalePreference,
+  coerceThemePreference,
+  parseSession,
+} from "./model";
 import type { AppSession, PersistedAppState, ProfileInfo } from "./types";
 
 const STORAGE_KEYS = {
   localePreference: buildDeviceStateStorageKey("locale_preference"),
   openAiApiKey: buildDeviceStateStorageKey("openai_api_key"),
+  parseApiBaseUrl: "@creator-cfo/mobile/parse_api_base_url",
   profileEmail: buildDeviceStateStorageKey("profile_email"),
   profileName: buildDeviceStateStorageKey("profile_name"),
   profilePhone: buildDeviceStateStorageKey("profile_phone"),
@@ -25,23 +30,34 @@ export async function loadPersistedAppState(): Promise<PersistedAppState> {
   const values = Object.fromEntries(entries);
 
   return {
-    localePreference: coerceLocalePreference(values[STORAGE_KEYS.localePreference]),
+    localePreference: coerceLocalePreference(
+      values[STORAGE_KEYS.localePreference],
+    ),
     openAiApiKey: String(values[STORAGE_KEYS.openAiApiKey] ?? "").trim(),
+    parseApiBaseUrl: String(values[STORAGE_KEYS.parseApiBaseUrl] ?? "")
+      .trim()
+      .replace(/\/+$/g, ""),
     profileInfo: {
       email: String(values[STORAGE_KEYS.profileEmail] ?? "").trim(),
       name: String(values[STORAGE_KEYS.profileName] ?? "").trim(),
       phone: String(values[STORAGE_KEYS.profilePhone] ?? "").trim(),
     },
     session: parseSession(values[STORAGE_KEYS.session]),
-    themePreference: coerceThemePreference(values[STORAGE_KEYS.themePreference]),
+    themePreference: coerceThemePreference(
+      values[STORAGE_KEYS.themePreference],
+    ),
   };
 }
 
-export async function persistThemePreference(value: PersistedAppState["themePreference"]) {
+export async function persistThemePreference(
+  value: PersistedAppState["themePreference"],
+) {
   await AsyncStorage.setItem(STORAGE_KEYS.themePreference, value);
 }
 
-export async function persistLocalePreference(value: PersistedAppState["localePreference"]) {
+export async function persistLocalePreference(
+  value: PersistedAppState["localePreference"],
+) {
   await AsyncStorage.setItem(STORAGE_KEYS.localePreference, value);
 }
 
@@ -63,6 +79,17 @@ export async function persistOpenAiApiKey(value: string) {
   }
 
   await AsyncStorage.removeItem(STORAGE_KEYS.openAiApiKey);
+}
+
+export async function persistParseApiBaseUrl(value: string) {
+  const normalized = value.trim().replace(/\/+$/g, "");
+
+  if (normalized) {
+    await AsyncStorage.setItem(STORAGE_KEYS.parseApiBaseUrl, normalized);
+    return;
+  }
+
+  await AsyncStorage.removeItem(STORAGE_KEYS.parseApiBaseUrl);
 }
 
 export async function persistProfileInfo(value: ProfileInfo) {
@@ -91,7 +118,9 @@ export async function loadPersistedProfileInfo(): Promise<ProfileInfo> {
 }
 
 export async function loadPersistedOpenAiApiKey(): Promise<string> {
-  return String((await AsyncStorage.getItem(STORAGE_KEYS.openAiApiKey)) ?? "").trim();
+  return String(
+    (await AsyncStorage.getItem(STORAGE_KEYS.openAiApiKey)) ?? "",
+  ).trim();
 }
 
 function normalizeProfileInfo(value: ProfileInfo): ProfileInfo {

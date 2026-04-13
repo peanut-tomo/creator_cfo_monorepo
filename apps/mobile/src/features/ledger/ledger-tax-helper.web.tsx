@@ -1,5 +1,6 @@
 import {
   buildTaxHelperLauncherState,
+  getLedgerTaxHelperCopy,
   type LedgerTaxHelperLauncherState,
 } from "./ledger-tax-helper.shared";
 import {
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 
 import type { LedgerScopeId, LedgerYearOption } from "./ledger-reporting";
+import { useAppShell } from "../app-shell/provider";
 
 interface LedgerTaxHelperProps {
   selectedScope: LedgerScopeId;
@@ -18,27 +20,28 @@ interface LedgerTaxHelperProps {
 
 export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
   const { selectedScope, yearOptions } = props;
+  const { resolvedLocale } = useAppShell();
+  const helperCopy = getLedgerTaxHelperCopy(resolvedLocale);
   const launcherState: LedgerTaxHelperLauncherState = buildTaxHelperLauncherState({
     latestYearLabel: yearOptions[0]?.label ?? null,
+    locale: resolvedLocale,
     selectedScope,
     yearCount: yearOptions.length,
   });
   const disabledReason = launcherState.canOpen
-    ? "This helper depends on the native local database runtime and is not active in the static web preview."
+    ? helperCopy.webDisabledReason
     : launcherState.note;
 
   return (
     <View style={styles.card}>
       <View style={styles.copy}>
-        <Text style={styles.eyebrow}>Tax Report Helper</Text>
-        <Text style={styles.title}>Preview derived tax rows from the business ledger.</Text>
-        <Text style={styles.summary}>
-          Native builds can review local tax helper rows and export linked evidence archives from the active package.
-        </Text>
+        <Text style={styles.eyebrow}>{helperCopy.launcherEyebrow}</Text>
+        <Text style={styles.title}>{helperCopy.launcherTitle}</Text>
+        <Text style={styles.summary}>{helperCopy.launcherSummary}</Text>
         <Text style={styles.note}>{disabledReason}</Text>
       </View>
       <Pressable accessibilityRole="button" disabled style={styles.button}>
-        <Text style={styles.buttonLabel}>Open helper</Text>
+        <Text style={styles.buttonLabel}>{helperCopy.openHelper}</Text>
       </Pressable>
     </View>
   );

@@ -4,9 +4,14 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { Platform } from "react-native";
 import { buildEvidenceUploadPath } from "@creator-cfo/storage";
-import type { EvidenceExtractedData } from "@creator-cfo/schemas";
+import {
+  normalizeReceiptParsePayload,
+  type EvidenceExtractedData,
+  type JsonValue,
+} from "@creator-cfo/schemas";
 
 import {
+  buildRecordSchemeTemplate,
   buildFailedExtractedData,
   buildRemoteExtractedData,
   buildStoredUploadFileName,
@@ -26,9 +31,10 @@ import {
   loadEvidenceQueue,
   updateEvidenceExtraction,
 } from "./ledger-store";
-import { parseEvidenceMultipartFromNative, parseFileWithOpenAi, type ParseResult } from "./remote-parse";
+import { parseFileWithOpenAi, type ParseResult } from "./remote-parse";
 import type { PlannerSummary } from "@creator-cfo/schemas";
 import { loadHomeSnapshot, type HomeSnapshot } from "../home/home-data";
+import type { ResolvedLocale } from "../app-shell/types";
 import { getActivePackageRootDirectory } from "../../storage/package-environment.native";
 import { buildPackageAbsolutePath } from "../../storage/package-paths";
 import { withWritableLocalDatabase } from "../../storage/runtime";
@@ -43,7 +49,9 @@ interface UploadCandidate {
   uri: string;
 }
 
-export async function pickDocumentUploadCandidates(): Promise<UploadCandidate[]> {
+export async function pickDocumentUploadCandidates(): Promise<
+  UploadCandidate[]
+> {
   const result = await DocumentPicker.getDocumentAsync({
     copyToCacheDirectory: true,
     multiple: true,
@@ -65,11 +73,17 @@ export async function pickDocumentUploadCandidates(): Promise<UploadCandidate[]>
   }));
 }
 
-export async function pickPhotoUploadCandidates(): Promise<UploadCandidate[]> {
+export async function pickPhotoUploadCandidates(
+  locale: ResolvedLocale = "en",
+): Promise<UploadCandidate[]> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   if (!permission.granted) {
-    throw new Error("Photo library access is required to upload receipt images.");
+    throw new Error(
+      locale === "zh-CN"
+        ? "需要开启相册访问权限后，才能上传票据照片。"
+        : "Photo library access is required to upload receipt images.",
+    );
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -85,7 +99,8 @@ export async function pickPhotoUploadCandidates(): Promise<UploadCandidate[]> {
   }
 
   return result.assets.flatMap((asset, index) => {
-    const evidenceGroupKey = asset.assetId || asset.fileName || `${asset.uri}-${index}`;
+    const evidenceGroupKey =
+      asset.assetId || asset.fileName || `${asset.uri}-${index}`;
     const baseCandidate: UploadCandidate = {
       evidenceGroupKey,
       isPrimary: true,
@@ -95,9 +110,11 @@ export async function pickPhotoUploadCandidates(): Promise<UploadCandidate[]> {
       sizeBytes: asset.fileSize ?? null,
       uri: asset.uri,
     };
-    const pairedVideoAsset = (asset as ImagePicker.ImagePickerAsset & {
-      pairedVideoAsset?: ImagePicker.ImagePickerAsset;
-    }).pairedVideoAsset;
+    const pairedVideoAsset = (
+      asset as ImagePicker.ImagePickerAsset & {
+        pairedVideoAsset?: ImagePicker.ImagePickerAsset;
+      }
+    ).pairedVideoAsset;
 
     if (!pairedVideoAsset) {
       return [baseCandidate];
@@ -110,7 +127,9 @@ export async function pickPhotoUploadCandidates(): Promise<UploadCandidate[]> {
         isPrimary: false,
         kind: "video",
         mimeType: pairedVideoAsset.mimeType ?? "video/quicktime",
-        originalFileName: pairedVideoAsset.fileName ?? `${stripExtension(baseCandidate.originalFileName)}.mov`,
+        originalFileName:
+          pairedVideoAsset.fileName ??
+          `${stripExtension(baseCandidate.originalFileName)}.mov`,
         sizeBytes: pairedVideoAsset.fileSize ?? null,
         uri: pairedVideoAsset.uri,
       },
@@ -118,7 +137,9 @@ export async function pickPhotoUploadCandidates(): Promise<UploadCandidate[]> {
   });
 }
 
-export async function importUploadCandidates(candidates: UploadCandidate[]): Promise<string[]> {
+export async function importUploadCandidates(
+  candidates: UploadCandidate[],
+): Promise<string[]> {
   if (!candidates.length) {
     return [];
   }
@@ -140,40 +161,53 @@ export async function importUploadCandidates(candidates: UploadCandidate[]): Pro
 }
 
 export async function loadParseQueue(): Promise<EvidenceQueueItem[]> {
-  return withWritableLocalDatabase(async ({ writableDatabase }) => loadEvidenceQueue(writableDatabase));
+  return withWritableLocalDatabase(async ({ writableDatabase }) =>
+    loadEvidenceQueue(writableDatabase),
+  );
 }
 
-export async function parseEvidence(evidenceId: string): Promise<EvidenceQueueItem | null> {
-  const extracted = await withWritableLocalDatabase(async ({ writableDatabase }) => {
-    const evidence = await loadEvidenceById(writableDatabase, evidenceId);
+export async function parseEvidence(
+  evidenceId: string,
+): Promise<EvidenceQueueItem | null> {
+  const extracted = await withWritableLocalDatabase(
+    async ({ writableDatabase }) => {
+      const evidence = await loadEvidenceById(writableDatabase, evidenceId);
 
-    if (!evidence) {
+      if (!evidence) {
+        return null;
+      }
+
+      if (
+        evidence.parseStatus === "pending" &&
+        evidence.extractedData?.rawText
+      ) {
+        return evidence;
+      }
+
+      const extractedData = await extractEvidenceData(evidence);
+
+      await updateEvidenceExtraction(writableDatabase, {
+        evidenceId,
+        extractedData,
+        parseStatus: extractedData.failureReason ? "failed" : "pending",
+      });
+
       return null;
-    }
-
-    if (evidence.parseStatus === "pending" && evidence.extractedData?.rawText) {
-      return evidence;
-    }
-
-    const extractedData = await extractEvidenceData(evidence);
-
-    await updateEvidenceExtraction(writableDatabase, {
-      evidenceId,
-      extractedData,
-      parseStatus: extractedData.failureReason ? "failed" : "pending",
-    });
-
-    return null;
-  });
+    },
+  );
 
   if (extracted) {
     return extracted;
   }
 
-  return withWritableLocalDatabase(async ({ writableDatabase }) => loadEvidenceById(writableDatabase, evidenceId));
+  return withWritableLocalDatabase(async ({ writableDatabase }) =>
+    loadEvidenceById(writableDatabase, evidenceId),
+  );
 }
 
-export async function retryEvidenceParsing(evidenceId: string): Promise<EvidenceQueueItem | null> {
+export async function retryEvidenceParsing(
+  evidenceId: string,
+): Promise<EvidenceQueueItem | null> {
   return withWritableLocalDatabase(async ({ writableDatabase }) => {
     const evidence = await loadEvidenceById(writableDatabase, evidenceId);
 
@@ -186,7 +220,9 @@ export async function retryEvidenceParsing(evidenceId: string): Promise<Evidence
         amountCents: null,
         category: null,
         date: evidence.capturedDate,
-        description: evidence.capturedDescription || stripExtension(evidence.originalFileName),
+        description:
+          evidence.capturedDescription ||
+          stripExtension(evidence.originalFileName),
         notes: null,
         source: null,
         target: null,
@@ -196,7 +232,9 @@ export async function retryEvidenceParsing(evidenceId: string): Promise<Evidence
         amountCents: null,
         category: null,
         date: evidence.capturedDate,
-        description: evidence.capturedDescription || stripExtension(evidence.originalFileName),
+        description:
+          evidence.capturedDescription ||
+          stripExtension(evidence.originalFileName),
         notes: null,
         source: null,
         target: null,
@@ -252,12 +290,17 @@ export async function parseFile(
   return parseFileWithOpenAi({ fileName, fileUri, mimeType });
 }
 
-export async function loadHomeScreenSnapshot(input: {
-  limit?: number;
-  now?: string;
-  offset?: number;
-} = {}): Promise<HomeSnapshot> {
-  return withWritableLocalDatabase(async ({ writableDatabase }) => loadHomeSnapshot(writableDatabase, input));
+export async function loadHomeScreenSnapshot(
+  input: {
+    limit?: number;
+    locale?: import("../app-shell/types").ResolvedLocale;
+    now?: string;
+    offset?: number;
+  } = {},
+): Promise<HomeSnapshot> {
+  return withWritableLocalDatabase(async ({ writableDatabase }) =>
+    loadHomeSnapshot(writableDatabase, input),
+  );
 }
 
 export interface PlannerResult {
@@ -305,7 +348,9 @@ export async function runPlanner(input: {
       capturedAt: now,
       entityId: defaultEntityId,
       evidenceId,
-      evidenceKind: input.mimeType?.startsWith("image/") ? "receipt_photo" : "receipt_document",
+      evidenceKind: input.mimeType?.startsWith("image/")
+        ? "receipt_photo"
+        : "receipt_document",
       filePath: "",
       files: [
         {
@@ -409,7 +454,10 @@ export async function runPlanner(input: {
     });
 
     // 11. Reload evidence to get hydrated item
-    const evidenceBeforeSave = await loadEvidenceById(writableDatabase, evidenceId);
+    const evidenceBeforeSave = await loadEvidenceById(
+      writableDatabase,
+      evidenceId,
+    );
 
     if (!evidenceBeforeSave) {
       throw new Error("Evidence row was not found after insert.");
@@ -451,7 +499,8 @@ export async function approveWriteProposal(
   writeProposalId: string,
   review?: LedgerReviewValues,
 ): Promise<PlannerResult> {
-  const { approveWorkflowWriteProposal, updateUploadBatchState } = await import("./ledger-store");
+  const { approveWorkflowWriteProposal, updateUploadBatchState } =
+    await import("./ledger-store");
 
   return withWritableLocalDatabase(async ({ writableDatabase }) => {
     const now = new Date().toISOString();
@@ -497,7 +546,8 @@ export async function rejectWriteProposal(
   batchId: string,
   writeProposalId: string,
 ): Promise<PlannerResult> {
-  const { rejectWorkflowWriteProposal, updateUploadBatchState } = await import("./ledger-store");
+  const { rejectWorkflowWriteProposal, updateUploadBatchState } =
+    await import("./ledger-store");
 
   return withWritableLocalDatabase(async ({ writableDatabase }) => {
     const now = new Date().toISOString();
@@ -543,7 +593,9 @@ export async function rejectWriteProposal(
   });
 }
 
-export async function loadPlannerState(batchId: string): Promise<PlannerResult | null> {
+export async function loadPlannerState(
+  batchId: string,
+): Promise<PlannerResult | null> {
   return withWritableLocalDatabase(async ({ writableDatabase }) => {
     const batch = await writableDatabase.getFirstAsync<{ evidenceId: string }>(
       "SELECT evidence_id AS evidenceId FROM upload_batches WHERE batch_id = ?;",
@@ -590,6 +642,7 @@ async function createImportedBundles(
   const bundles: ImportedEvidenceBundle[] = [];
 
   for (const [groupKey, groupCandidates] of grouped.entries()) {
+    const batchId = `batch-${createOpaqueId(groupKey)}`;
     const evidenceId = `evidence-${createOpaqueId(groupKey)}`;
     const importedFiles: ImportedEvidenceFile[] = [];
     let primaryPath = "";
@@ -602,7 +655,11 @@ async function createImportedBundles(
         sha256Hex,
         candidate.originalFileName,
       );
-      const relativePath = buildEvidenceUploadPath(defaultEntityId, capturedAt, storedName);
+      const relativePath = buildEvidenceUploadPath(
+        defaultEntityId,
+        capturedAt,
+        storedName,
+      );
       const absolutePath = await buildAbsoluteVaultPath(relativePath);
       await ensureParentDirectory(absolutePath);
       await FileSystem.copyAsync({ from: candidate.uri, to: absolutePath });
@@ -625,6 +682,7 @@ async function createImportedBundles(
     }
 
     bundles.push({
+      batchId,
       capturedAt,
       entityId: defaultEntityId,
       evidenceId,
@@ -638,28 +696,60 @@ async function createImportedBundles(
   return bundles;
 }
 
-async function extractEvidenceData(evidence: EvidenceQueueItem): Promise<EvidenceExtractedData> {
+async function extractEvidenceData(
+  evidence: EvidenceQueueItem,
+): Promise<EvidenceExtractedData> {
   const fallbackDate = evidence.createdAt.slice(0, 10);
   const absolutePath = await buildAbsoluteVaultPath(evidence.filePath);
 
   try {
-    const result = await parseEvidenceMultipartFromNative({
+    const result = await parseFileWithOpenAi({
       fileName: evidence.originalFileName,
       fileUri: absolutePath,
       mimeType: evidence.mimeType,
-      sourcePlatform: Platform.OS === "ios" ? "ios" : "android",
     });
 
+    if (result.error || result.rawJson == null) {
+      return buildFailedExtractedData({
+        fallbackDate,
+        failureReason: result.error ?? "Remote GPT parsing failed.",
+        fileName: evidence.originalFileName,
+        originData: (result.rawJson as JsonValue | null) ?? null,
+        parser: "openai_gpt",
+        sourceLabel: "Vercel OpenAI GPT",
+      });
+    }
+
+    const parsePayload = normalizeReceiptParsePayload(
+      result.rawJson as JsonValue,
+      {
+        defaultModel: result.model || null,
+        defaultParser: "openai_gpt",
+      },
+    );
+
+    if (!parsePayload) {
+      return buildFailedExtractedData({
+        fallbackDate,
+        failureReason: "OpenAI response is not valid receipt parse JSON.",
+        fileName: evidence.originalFileName,
+        originData: (result.rawJson as JsonValue | null) ?? null,
+        parser: "openai_gpt",
+        sourceLabel: "Vercel OpenAI GPT",
+      });
+    }
+
     return buildRemoteExtractedData({
-      fallbackDate,
       fileName: evidence.originalFileName,
-      response: result,
+      parsePayload,
+      scheme: buildRecordSchemeTemplate(),
       sourceLabel: "Vercel OpenAI GPT",
     });
   } catch (error) {
     return buildFailedExtractedData({
       fallbackDate,
-      failureReason: error instanceof Error ? error.message : "Remote GPT parsing failed.",
+      failureReason:
+        error instanceof Error ? error.message : "Remote GPT parsing failed.",
       fileName: evidence.originalFileName,
       parser: "openai_gpt",
       sourceLabel: "Vercel OpenAI GPT",
@@ -668,7 +758,10 @@ async function extractEvidenceData(evidence: EvidenceQueueItem): Promise<Evidenc
 }
 
 async function buildAbsoluteVaultPath(relativePath: string): Promise<string> {
-  return buildPackageAbsolutePath(getActivePackageRootDirectory(), relativePath);
+  return buildPackageAbsolutePath(
+    getActivePackageRootDirectory(),
+    relativePath,
+  );
 }
 
 async function ensureParentDirectory(path: string): Promise<void> {
@@ -691,11 +784,18 @@ async function hashFileAtUri(uri: string): Promise<string> {
 }
 
 function createOpaqueId(seed: string): string {
-  const normalizedSeed = seed.replace(/[^a-z0-9]+/gi, "").toLowerCase().slice(0, 12) || "item";
+  const normalizedSeed =
+    seed
+      .replace(/[^a-z0-9]+/gi, "")
+      .toLowerCase()
+      .slice(0, 12) || "item";
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${normalizedSeed}`;
 }
 
-function inferUploadKind(mimeType: string | null | undefined, fileName: string): UploadCandidate["kind"] {
+function inferUploadKind(
+  mimeType: string | null | undefined,
+  fileName: string,
+): UploadCandidate["kind"] {
   if (mimeType?.startsWith("image/") || /\.(heic|jpe?g|png)$/i.test(fileName)) {
     return "image";
   }
@@ -708,7 +808,12 @@ function inferEvidenceKind(candidates: UploadCandidate[]): string {
     return "live_photo";
   }
 
-  if (candidates.some((candidate) => candidate.kind === "image" || candidate.kind === "live_photo")) {
+  if (
+    candidates.some(
+      (candidate) =>
+        candidate.kind === "image" || candidate.kind === "live_photo",
+    )
+  ) {
     return "image";
   }
 

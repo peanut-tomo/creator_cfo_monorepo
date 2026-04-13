@@ -16,6 +16,12 @@ import type {
 } from "@creator-cfo/schemas";
 import { getLocalStorageBootstrapPlan } from "@creator-cfo/storage";
 
+import type { ResolvedLocale } from "../app-shell/types";
+import {
+  formatLedgerDisplayDate,
+  formatTrendPointLabel,
+} from "./ledger-localization";
+
 export const defaultEntityId = "entity-main";
 export const homeRecentPageSize = 20;
 
@@ -397,28 +403,17 @@ export function prioritizeEvidenceQueue(
   );
 }
 
-export function formatDisplayDate(dateValue: string): string {
-  if (!dateValue) {
-    return "Pending date";
-  }
-
-  const parsed = new Date(`${dateValue}T00:00:00Z`);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return dateValue;
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(parsed);
+export function formatDisplayDate(
+  dateValue: string,
+  locale: ResolvedLocale = "en",
+): string {
+  return formatLedgerDisplayDate(dateValue, locale);
 }
 
 export function createTrendPointsFromTotals(
   totalsByDate: Record<string, number>,
   endingOn: string,
+  locale: ResolvedLocale = "en",
 ): HomeTrendPoint[] {
   const endDate = new Date(`${endingOn}T00:00:00Z`);
   const points: HomeTrendPoint[] = [];
@@ -430,11 +425,7 @@ export function createTrendPointsFromTotals(
     points.push({
       amountCents: totalsByDate[date] ?? 0,
       date,
-      label: current.toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        timeZone: "UTC",
-      }),
+      label: formatTrendPointLabel(date, locale),
     });
   }
 
