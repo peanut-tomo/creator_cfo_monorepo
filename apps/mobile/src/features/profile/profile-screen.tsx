@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -13,14 +14,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SectionCard } from "@creator-cfo/ui";
 
+import { pickAndImportDatabasePackageAsync } from "../../storage/database-import";
 import {
   localePreferenceOptions,
   themePreferenceOptions,
 } from "../app-shell/copy";
 import { useAppShell } from "../app-shell/provider";
-import type { AiProvider, LocalePreference, ThemePreference } from "../app-shell/types";
-import type { ProfileInfo } from "../app-shell/types";
-import { pickAndImportDatabasePackageAsync } from "../../storage/database-import";
+import type {
+  AiProvider,
+  LocalePreference,
+  ProfileInfo,
+  ThemePreference,
+} from "../app-shell/types";
 
 function PreferencePill(props: {
   active: boolean;
@@ -57,17 +62,31 @@ function PreferencePill(props: {
 }
 
 function ApiKeyField(props: {
+  hiddenAccessibilityLabel: string;
   isVisible: boolean;
   label: string;
   onChangeText: (value: string) => void;
   onToggleVisibility: () => void;
   palette: ReturnType<typeof useAppShell>["palette"];
   placeholder: string;
+  visibleAccessibilityLabel: string;
   testID: string;
   toggleTestID: string;
   value: string;
 }) {
-  const { isVisible, label, onChangeText, onToggleVisibility, palette, placeholder, testID, toggleTestID, value } = props;
+  const {
+    hiddenAccessibilityLabel,
+    isVisible,
+    label,
+    onChangeText,
+    onToggleVisibility,
+    palette,
+    placeholder,
+    testID,
+    toggleTestID,
+    value,
+    visibleAccessibilityLabel,
+  } = props;
 
   return (
     <View style={styles.fieldBlock}>
@@ -93,7 +112,9 @@ function ApiKeyField(props: {
           value={value}
         />
         <Pressable
-          accessibilityLabel={isVisible ? "Hide API key" : "Show API key"}
+          accessibilityLabel={
+            isVisible ? hiddenAccessibilityLabel : visibleAccessibilityLabel
+          }
           accessibilityRole="button"
           hitSlop={8}
           onPress={onToggleVisibility}
@@ -117,12 +138,17 @@ export function ProfileScreen() {
     localePreference,
     openAiApiKey,
     palette,
+    parseApiBaseUrl,
     refreshStorageGateState,
     profileInfo,
     session,
+    sessionDisplayName,
+    setAiProvider,
+    setGeminiApiKey,
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
+    setParseApiBaseUrl,
     setProfileInfo,
     setThemePreference,
     signOut,
@@ -133,6 +159,7 @@ export function ProfileScreen() {
   const [geminiKeyDraft, setGeminiKeyDraft] = useState(geminiApiKey);
   const [isOpenAiKeyVisible, setIsOpenAiKeyVisible] = useState(false);
   const [isGeminiKeyVisible, setIsGeminiKeyVisible] = useState(false);
+  const [baseUrlDraft, setBaseUrlDraft] = useState(parseApiBaseUrl);
   const [draftProfile, setDraftProfile] = useState<ProfileInfo>(profileInfo);
   const [databaseImportMessage, setDatabaseImportMessage] = useState<{
     tone: "error" | "success";
@@ -151,6 +178,10 @@ export function ProfileScreen() {
   useEffect(() => {
     setGeminiKeyDraft(geminiApiKey);
   }, [geminiApiKey]);
+
+  useEffect(() => {
+    setBaseUrlDraft(parseApiBaseUrl);
+  }, [parseApiBaseUrl]);
 
   useEffect(() => {
     setDraftProfile(profileInfo);
@@ -175,7 +206,7 @@ export function ProfileScreen() {
         : copy.meScreen.sessionNone;
   const sessionTitle =
     session?.kind === "apple"
-      ? (session.displayName ?? session.email ?? copy.meScreen.sessionApple)
+      ? (sessionDisplayName || session.displayName ?? session.email ?? copy.meScreen.sessionApple)
       : session?.kind === "guest"
         ? copy.meScreen.sessionGuest
         : copy.meScreen.sessionNone;
@@ -187,11 +218,12 @@ export function ProfileScreen() {
       const normalized = apiKeyDraft.trim();
 
       if (!normalized) {
-        Alert.alert("请填入 OpenAI API Key");
+        Alert.alert(copy.meScreen.openAiKeyRequiredAlert);
         return;
       }
 
       await Promise.all([
+        setParseApiBaseUrl(baseUrlDraft),
         setOpenAiApiKey(normalized),
         setAiProvider("openai"),
       ]);
@@ -201,11 +233,12 @@ export function ProfileScreen() {
     const normalized = geminiKeyDraft.trim();
 
     if (!normalized) {
-      Alert.alert("请填入 Gemini API Key");
+      Alert.alert(copy.meScreen.geminiKeyRequiredAlert);
       return;
     }
 
     await Promise.all([
+      setParseApiBaseUrl(baseUrlDraft),
       setGeminiApiKey(normalized),
       setAiProvider("gemini"),
     ]);
@@ -287,23 +320,25 @@ export function ProfileScreen() {
         </SectionCard>
 
         <SectionCard
-          eyebrow={copy.meScreen.apiSectionEyebrow}
+          eyebrow={copy.meScreen.profileEyebrow}
           palette={palette}
-          title={copy.meScreen.apiSectionTitle}
+          title={copy.meScreen.profileTitle}
         >
           <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
-            {copy.meScreen.apiSectionDescription}
+            {copy.meScreen.profileDescription}
           </Text>
 
           <View style={styles.fieldBlock}>
             <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
-              {copy.meScreen.apiBaseUrlLabel}
+              {copy.meScreen.profileNameLabel}
             </Text>
             <TextInput
               autoCapitalize="words"
               autoCorrect={false}
-              onChangeText={setBaseUrlDraft}
-              placeholder={copy.meScreen.apiBaseUrlPlaceholder}
+              onChangeText={(value) =>
+                setDraftProfile((previous) => ({ ...previous, name: value }))
+              }
+              placeholder={copy.meScreen.profileNamePlaceholder}
               placeholderTextColor={palette.inkMuted}
               style={[
                 styles.input,
@@ -320,13 +355,16 @@ export function ProfileScreen() {
 
           <View style={styles.fieldBlock}>
             <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
-              {copy.meScreen.apiKeyLabel}
+              {copy.meScreen.profileEmailLabel}
             </Text>
             <TextInput
               autoCapitalize="none"
               autoCorrect={false}
-              onChangeText={setApiKeyDraft}
-              placeholder={copy.meScreen.apiKeyPlaceholder}
+              keyboardType="email-address"
+              onChangeText={(value) =>
+                setDraftProfile((previous) => ({ ...previous, email: value }))
+              }
+              placeholder={copy.meScreen.profileEmailPlaceholder}
               placeholderTextColor={palette.inkMuted}
               style={[
                 styles.input,
@@ -342,13 +380,17 @@ export function ProfileScreen() {
           </View>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>Phone</Text>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+              {copy.meScreen.profilePhoneLabel}
+            </Text>
             <TextInput
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="phone-pad"
-              onChangeText={(value) => setDraftProfile((prev) => ({ ...prev, phone: value }))}
-              placeholder="+1 555-0100"
+              onChangeText={(value) =>
+                setDraftProfile((previous) => ({ ...previous, phone: value }))
+              }
+              placeholder={copy.meScreen.profilePhonePlaceholder}
               placeholderTextColor={palette.inkMuted}
               style={[
                 styles.input,
@@ -376,6 +418,117 @@ export function ProfileScreen() {
                 },
               ]}
               testID="profile-save-button"
+            >
+              <Text
+                style={[
+                  styles.actionButtonLabel,
+                  { color: palette.inkOnAccent },
+                ]}
+              >
+                {copy.meScreen.profileSave}
+              </Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+
+        <SectionCard
+          eyebrow={copy.meScreen.apiSectionEyebrow}
+          palette={palette}
+          title={copy.meScreen.apiSectionTitle}
+        >
+          <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
+            {copy.meScreen.apiSectionDescription}
+          </Text>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+              {copy.meScreen.aiProviderLabel}
+            </Text>
+            <View style={styles.optionRow}>
+              <PreferencePill
+                active={aiProviderDraft === "openai"}
+                label={copy.meScreen.aiProviderOpenAi}
+                onPress={() => setAiProviderDraft("openai")}
+                palette={palette}
+              />
+              <PreferencePill
+                active={aiProviderDraft === "gemini"}
+                label={copy.meScreen.aiProviderGemini}
+                onPress={() => setAiProviderDraft("gemini")}
+                palette={palette}
+              />
+            </View>
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+              {copy.meScreen.apiBaseUrlLabel}
+            </Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setBaseUrlDraft}
+              placeholder={copy.meScreen.apiBaseUrlPlaceholder}
+              placeholderTextColor={palette.inkMuted}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.paperMuted,
+                  borderColor: palette.border,
+                  color: palette.ink,
+                },
+              ]}
+              testID="profile-api-base-url-input"
+              value={baseUrlDraft}
+            />
+          </View>
+
+          {aiProviderDraft === "openai" ? (
+            <ApiKeyField
+              hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
+              isVisible={isOpenAiKeyVisible}
+              label={copy.meScreen.apiKeyLabel}
+              onChangeText={setApiKeyDraft}
+              onToggleVisibility={() => {
+                setIsOpenAiKeyVisible((current) => !current);
+              }}
+              palette={palette}
+              placeholder={copy.meScreen.apiKeyPlaceholder}
+              testID="profile-openai-key-input"
+              toggleTestID="profile-openai-key-toggle"
+              value={apiKeyDraft}
+              visibleAccessibilityLabel={copy.meScreen.showApiKey}
+            />
+          ) : (
+            <ApiKeyField
+              hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
+              isVisible={isGeminiKeyVisible}
+              label={copy.meScreen.apiGeminiKeyLabel}
+              onChangeText={setGeminiKeyDraft}
+              onToggleVisibility={() => {
+                setIsGeminiKeyVisible((current) => !current);
+              }}
+              palette={palette}
+              placeholder={copy.meScreen.apiGeminiKeyPlaceholder}
+              testID="profile-gemini-key-input"
+              toggleTestID="profile-gemini-key-toggle"
+              value={geminiKeyDraft}
+              visibleAccessibilityLabel={copy.meScreen.showApiKey}
+            />
+          )}
+
+          <View style={styles.optionRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                void saveAiSettings();
+              }}
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: palette.ink,
+                },
+              ]}
             >
               <Text
                 style={[

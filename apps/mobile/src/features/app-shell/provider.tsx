@@ -6,7 +6,7 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { useColorScheme } from "react-native";
+import { Platform, useColorScheme } from "react-native";
 import { surfaceThemes } from "@creator-cfo/ui";
 
 import {
@@ -28,6 +28,7 @@ import {
   persistGeminiApiKey,
   persistLocalePreference,
   persistOpenAiApiKey,
+  persistParseApiBaseUrl,
   persistProfileInfo,
   persistSession,
   persistThemePreference,
@@ -37,6 +38,7 @@ import type {
   AppSession,
   LocalePreference,
   PersistedAppState,
+  ProfileInfo,
   ResolvedLocale,
   ThemePreference,
 } from "./types";
@@ -54,6 +56,7 @@ interface AppShellContextValue {
   openAiApiKey: string;
   palette: (typeof surfaceThemes)[keyof typeof surfaceThemes];
   parseApiBaseUrl: string;
+  profileInfo: ProfileInfo;
   resolvedLocale: ResolvedLocale;
   session: AppSession | null;
   sessionDisplayName: string;
@@ -63,6 +66,7 @@ interface AppShellContextValue {
   setStorageSuspended: (value: boolean) => void;
   setLocalePreference: (value: LocalePreference) => Promise<void>;
   setOpenAiApiKey: (value: string) => Promise<void>;
+  setParseApiBaseUrl: (value: string) => Promise<void>;
   setProfileInfo: (value: ProfileInfo) => Promise<void>;
   setThemePreference: (value: ThemePreference) => Promise<void>;
   signOut: () => Promise<void>;
@@ -181,6 +185,12 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     await persistOpenAiApiKey(normalized);
   };
 
+  const setParseApiBaseUrl = async (value: string) => {
+    const normalized = value.trim().replace(/\/+$/g, "");
+    setState((current) => ({ ...current, parseApiBaseUrl: normalized }));
+    await persistParseApiBaseUrl(normalized);
+  };
+
   const setProfileInfo = async (value: ProfileInfo) => {
     setState((current) => ({ ...current, profileInfo: value }));
     await persistProfileInfo(value);
@@ -212,6 +222,7 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     openAiApiKey: state.openAiApiKey,
     palette,
     parseApiBaseUrl: state.parseApiBaseUrl,
+    profileInfo: state.profileInfo,
     resolvedLocale,
     session: state.session,
     sessionDisplayName: getSessionDisplayName(state.session),
@@ -221,6 +232,7 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     setStorageSuspended,
     setLocalePreference,
     setOpenAiApiKey,
+    setParseApiBaseUrl,
     setProfileInfo,
     setThemePreference,
     signOut: async () => {

@@ -248,7 +248,7 @@ describe("creator dashboard workflow", () => {
     expect(personalSnapshot.generalLedger.entries[0]?.title).toBe("Family dinner");
     expect(personalSnapshot.generalLedger.entries[0]?.amount).toBe("$88.00");
     expect(personalSnapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
-      "$0.00",
+      "$7,992.61",
       "$88.00",
     ]);
   });

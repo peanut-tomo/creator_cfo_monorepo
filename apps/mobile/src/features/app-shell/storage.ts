@@ -6,7 +6,12 @@ import {
   coerceThemePreference,
   parseSession,
 } from "./model";
-import type { AppSession, PersistedAppState, ProfileInfo } from "./types";
+import type {
+  AiProvider,
+  AppSession,
+  PersistedAppState,
+  ProfileInfo,
+} from "./types";
 
 const STORAGE_KEYS = {
   aiProvider: buildDeviceStateStorageKey("ai_provider"),
@@ -37,7 +42,10 @@ export async function loadPersistedAppState(): Promise<PersistedAppState> {
   const entries = await AsyncStorage.multiGet(Object.values(STORAGE_KEYS));
   const values = Object.fromEntries(entries);
 
-  return {
+  const rawAiProvider = String(values[STORAGE_KEYS.aiProvider] ?? "").trim();
+  const persistedState: PersistedAppState = {
+    aiProvider: rawAiProvider === "gemini" ? "gemini" : "openai",
+    geminiApiKey: String(values[STORAGE_KEYS.geminiApiKey] ?? "").trim(),
     localePreference: coerceLocalePreference(
       values[STORAGE_KEYS.localePreference],
     ),
@@ -66,12 +74,14 @@ export async function loadPersistedAppState(): Promise<PersistedAppState> {
 export async function persistThemePreference(
   value: PersistedAppState["themePreference"],
 ) {
+  runtimeOverrides.themePreference = value;
   await AsyncStorage.setItem(STORAGE_KEYS.themePreference, value);
 }
 
 export async function persistLocalePreference(
   value: PersistedAppState["localePreference"],
 ) {
+  runtimeOverrides.localePreference = value;
   await AsyncStorage.setItem(STORAGE_KEYS.localePreference, value);
 }
 
@@ -116,6 +126,7 @@ export async function persistOpenAiApiKey(value: string) {
 
 export async function persistParseApiBaseUrl(value: string) {
   const normalized = value.trim().replace(/\/+$/g, "");
+  runtimeOverrides.parseApiBaseUrl = normalized;
 
   if (normalized) {
     await AsyncStorage.setItem(STORAGE_KEYS.parseApiBaseUrl, normalized);
@@ -173,6 +184,10 @@ export async function loadPersistedGeminiApiKey(): Promise<string> {
 }
 
 export async function loadPersistedOpenAiApiKey(): Promise<string> {
+  if (hasRuntimeOverride("openAiApiKey")) {
+    return runtimeOverrides.openAiApiKey ?? "";
+  }
+
   return String(
     (await AsyncStorage.getItem(STORAGE_KEYS.openAiApiKey)) ?? "",
   ).trim();

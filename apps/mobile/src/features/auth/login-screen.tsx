@@ -26,6 +26,7 @@ export function LoginScreen() {
     palette,
     session,
     signInWithApple,
+    storageGateState,
   } = useAppShell();
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [appleMessageState, setAppleMessageState] = useState<

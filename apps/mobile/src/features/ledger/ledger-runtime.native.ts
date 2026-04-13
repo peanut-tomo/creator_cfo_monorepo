@@ -7,6 +7,7 @@ import {
   normalizeReceiptParsePayload,
   type EvidenceExtractedData,
   type JsonValue,
+  type ReceiptParsePayload,
 } from "@creator-cfo/schemas";
 
 import {
@@ -700,32 +701,30 @@ async function extractEvidenceData(
       fileUri: absolutePath,
       mimeType: evidence.mimeType,
     });
+    const rawJsonValue = result.rawJson as unknown as JsonValue;
 
     if (result.error || result.rawJson == null) {
       return buildFailedExtractedData({
         fallbackDate,
         failureReason: result.error ?? "Remote GPT parsing failed.",
         fileName: evidence.originalFileName,
-        originData: (result.rawJson as JsonValue | null) ?? null,
+        originData: rawJsonValue ?? null,
         parser: "openai_gpt",
         sourceLabel: "Vercel OpenAI GPT",
       });
     }
 
-    const parsePayload = normalizeReceiptParsePayload(
-      result.rawJson as JsonValue,
-      {
-        defaultModel: result.model || null,
-        defaultParser: "openai_gpt",
-      },
-    );
+    const parsePayload = normalizeReceiptParsePayload(rawJsonValue, {
+      defaultModel: result.model || null,
+      defaultParser: "openai_gpt",
+    });
 
     if (!parsePayload) {
       return buildFailedExtractedData({
         fallbackDate,
         failureReason: "OpenAI response is not valid receipt parse JSON.",
         fileName: evidence.originalFileName,
-        originData: (result.rawJson as JsonValue | null) ?? null,
+        originData: rawJsonValue ?? null,
         parser: "openai_gpt",
         sourceLabel: "Vercel OpenAI GPT",
       });
@@ -737,8 +736,6 @@ async function extractEvidenceData(
       scheme: buildRecordSchemeTemplate(),
       sourceLabel: "Vercel OpenAI GPT",
     });
-
-    return extractedData;
   } catch (error) {
     return buildFailedExtractedData({
       fallbackDate,

@@ -355,9 +355,14 @@ export interface AppCopy {
     title: string;
   };
   meScreen: {
+    aiProviderGemini: string;
+    aiProviderLabel: string;
+    aiProviderOpenAi: string;
     apiBaseUrlLabel: string;
     apiBaseUrlPlaceholder: string;
     apiClear: string;
+    apiGeminiKeyLabel: string;
+    apiGeminiKeyPlaceholder: string;
     apiKeyLabel: string;
     apiKeyPlaceholder: string;
     apiSave: string;
@@ -371,13 +376,27 @@ export interface AppCopy {
     databaseImportInProgress: string;
     databaseImportSuccess: string;
     databaseTitle: string;
+    geminiKeyRequiredAlert: string;
+    hideApiKey: string;
     localeDescription: string;
     logoutDescription: string;
+    openAiKeyRequiredAlert: string;
+    profileDescription: string;
+    profileEmailLabel: string;
+    profileEmailPlaceholder: string;
+    profileEyebrow: string;
+    profileNameLabel: string;
+    profileNamePlaceholder: string;
+    profilePhoneLabel: string;
+    profilePhonePlaceholder: string;
+    profileSave: string;
+    profileTitle: string;
     sessionApple: string;
     sessionDescription: string;
     sessionGuest: string;
     sessionNone: string;
     sessionTitle: string;
+    showApiKey: string;
     storageEyebrow: string;
     themeDescription: string;
     title: string;
@@ -835,16 +854,21 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title: "One calm place for creator cash.",
     },
     meScreen: {
+      aiProviderGemini: "Google AI Studio Gemini",
+      aiProviderLabel: "AI Provider",
+      aiProviderOpenAi: "OpenAI",
       apiBaseUrlLabel: "Vercel API Base URL",
       apiBaseUrlPlaceholder: "https://your-project.vercel.app",
       apiClear: "Clear",
+      apiGeminiKeyLabel: "Gemini API Key",
+      apiGeminiKeyPlaceholder: "AIza...",
       apiKeyLabel: "OpenAI API Key",
       apiKeyPlaceholder: "sk-...",
       apiSave: "Save API Settings",
       apiSectionDescription:
-        "Store your Vercel API URL and OpenAI API key locally on this device. Upload parsing sends the key only in the request header and does not save it to SQLite.",
+        "Choose an AI provider, store the API base URL and key locally on this device, and use them only in parse requests.",
       apiSectionEyebrow: "AI Parse",
-      apiSectionTitle: "Vercel Parse API",
+      apiSectionTitle: "AI Parse Settings",
       databaseDescription:
         "Import a CFO database package from Files or iCloud Drive. The selected database must keep its evidence files beside it under package-relative paths. On iPhone and iPad, choose the creator-cfo-vault folder, or a folder that contains it, in the folder picker.",
       databaseImportAction: "Import Database",
@@ -853,16 +877,31 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       databaseImportInProgress: "Importing database package...",
       databaseImportSuccess: "Imported database package successfully.",
       databaseTitle: "Local database package",
+      geminiKeyRequiredAlert: "Enter a Gemini API key first.",
+      hideApiKey: "Hide API key",
       localeDescription:
         "Switch shell copy instantly and keep the choice on device.",
       logoutDescription:
         "Clear the local session summary and return to the login gate.",
+      openAiKeyRequiredAlert: "Enter an OpenAI API key first.",
+      profileDescription:
+        "Store your profile locally on this device and use it as mapping context when parsing records.",
+      profileEmailLabel: "Email",
+      profileEmailPlaceholder: "you@example.com",
+      profileEyebrow: "Profile",
+      profileNameLabel: "Name",
+      profileNamePlaceholder: "Your name",
+      profilePhoneLabel: "Phone",
+      profilePhonePlaceholder: "+1 555-0100",
+      profileSave: "Save Profile",
+      profileTitle: "Profile",
       sessionApple: "Apple ID",
       sessionDescription:
         "Session state is stored locally for guest mode or Apple sign-in preview.",
       sessionGuest: "Guest mode",
       sessionNone: "Signed out",
       sessionTitle: "Session",
+      showApiKey: "Show API key",
       storageEyebrow: "Storage",
       themeDescription:
         "Move between light, dark, or system appearance without leaving the app.",
@@ -1301,16 +1340,21 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title: "先给创作者现金流一个安静入口。",
     },
     meScreen: {
+      aiProviderGemini: "Google AI Studio Gemini",
+      aiProviderLabel: "AI 提供方",
+      aiProviderOpenAi: "OpenAI",
       apiBaseUrlLabel: "Vercel API 地址",
       apiBaseUrlPlaceholder: "https://your-project.vercel.app",
       apiClear: "清空",
+      apiGeminiKeyLabel: "Gemini API Key",
+      apiGeminiKeyPlaceholder: "AIza...",
       apiKeyLabel: "OpenAI API Key",
       apiKeyPlaceholder: "sk-...",
       apiSave: "保存设置",
       apiSectionDescription:
-        "把 Vercel API 地址和 OpenAI API Key 保存在当前设备本地。上传解析时只会在请求头里发送 Key，不会写入 SQLite。",
+        "选择 AI 提供方，并把 API 地址与 Key 保存在当前设备本地。上传解析时只会在请求头里发送 Key，不会写入 SQLite。",
       apiSectionEyebrow: "AI 解析",
-      apiSectionTitle: "Vercel 解析 API",
+      apiSectionTitle: "AI 解析设置",
       databaseDescription:
         "从文件或 iCloud Drive 导入一个 CFO 数据库包。所选数据库必须把凭证文件按相对路径放在数据库旁边。在 iPhone 和 iPad 上，请在文件夹选择器里选择 creator-cfo-vault 文件夹，或选择包含它的上级文件夹。",
       databaseImportAction: "导入数据库",
@@ -1319,14 +1363,28 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       databaseImportInProgress: "正在导入数据库包...",
       databaseImportSuccess: "数据库包导入成功。",
       databaseTitle: "本地数据库包",
+      geminiKeyRequiredAlert: "请先填写 Gemini API Key。",
+      hideApiKey: "隐藏 Key",
       localeDescription: "立即切换界面语言，并把选择保存在设备本地。",
       logoutDescription: "清除本地会话摘要，并返回登录入口。",
+      openAiKeyRequiredAlert: "请先填写 OpenAI API Key。",
+      profileDescription: "把你的资料保存在当前设备本地，并在解析记录时作为映射上下文使用。",
+      profileEmailLabel: "邮箱",
+      profileEmailPlaceholder: "you@example.com",
+      profileEyebrow: "资料",
+      profileNameLabel: "姓名",
+      profileNamePlaceholder: "你的名字",
+      profilePhoneLabel: "电话",
+      profilePhonePlaceholder: "+1 555-0100",
+      profileSave: "保存资料",
+      profileTitle: "个人资料",
       sessionApple: "Apple ID",
       sessionDescription:
         "游客态和 Apple 登录态都只保存在本机，方便本地优先阶段验证体验。",
       sessionGuest: "游客模式",
       sessionNone: "未登录",
       sessionTitle: "当前会话",
+      showApiKey: "显示 Key",
       storageEyebrow: "存储",
       themeDescription: "在应用内切换白天、黑夜或跟随系统，不打断当前流程。",
       title: "偏好设置与会话控制",

@@ -22,7 +22,7 @@ import { usePlannerWorkflow } from "./use-planner-workflow";
 
 export function LedgerParseScreen() {
   const router = useRouter();
-  const { copy, palette, resolvedLocale } = useAppShell();
+  const { copy, palette, profileInfo, resolvedLocale } = useAppShell();
   const parseCopy = copy.ledger.parse;
   const params = useLocalSearchParams<{
     fileName?: string;
