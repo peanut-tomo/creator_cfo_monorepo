@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BackHeaderBar } from "../../components/back-header-bar";
 import { AppIcon } from "../../components/app-icon";
 import { useAppShell } from "../app-shell/provider";
+import { formatDiscoverPublishedDate } from "./discover-localization";
 import { getNewsArticleBySlug } from "./news-feed";
 
 function resolveSlug(value: string | string[] | undefined) {
@@ -18,8 +19,8 @@ function resolveSlug(value: string | string[] | undefined) {
 export function DiscoverDetailScreen() {
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug?: string | string[] }>();
-  const { copy, palette } = useAppShell();
-  const article = getNewsArticleBySlug(resolveSlug(slug));
+  const { copy, palette, resolvedLocale } = useAppShell();
+  const article = getNewsArticleBySlug(resolveSlug(slug), resolvedLocale);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.shell }]}>
@@ -57,8 +58,15 @@ export function DiscoverDetailScreen() {
               ]}
             >
               <View style={styles.heroTop}>
-                <View style={[styles.categoryPill, { backgroundColor: palette.accentSoft }]}>
-                  <Text style={[styles.categoryLabel, { color: palette.accent }]}>
+                <View
+                  style={[
+                    styles.categoryPill,
+                    { backgroundColor: palette.accentSoft },
+                  ]}
+                >
+                  <Text
+                    style={[styles.categoryLabel, { color: palette.accent }]}
+                  >
                     {article.category}
                   </Text>
                 </View>
@@ -67,7 +75,9 @@ export function DiscoverDetailScreen() {
                 </Text>
               </View>
 
-              <Text style={[styles.title, { color: palette.ink }]}>{article.title}</Text>
+              <Text style={[styles.title, { color: palette.ink }]}>
+                {article.title}
+              </Text>
               <Text style={[styles.summary, { color: palette.inkMuted }]}>
                 {article.summary}
               </Text>
@@ -76,26 +86,37 @@ export function DiscoverDetailScreen() {
                 <View
                   style={[
                     styles.metaCard,
-                    { backgroundColor: palette.shell, borderColor: palette.border },
+                    {
+                      backgroundColor: palette.shell,
+                      borderColor: palette.border,
+                    },
                   ]}
                 >
                   <Text style={[styles.metaLabel, { color: palette.inkMuted }]}>
                     {copy.discover.sourceLabel}
                   </Text>
-                  <Text style={[styles.metaValue, { color: palette.ink }]}>{article.source}</Text>
+                  <Text style={[styles.metaValue, { color: palette.ink }]}>
+                    {article.source}
+                  </Text>
                 </View>
 
                 <View
                   style={[
                     styles.metaCard,
-                    { backgroundColor: palette.shell, borderColor: palette.border },
+                    {
+                      backgroundColor: palette.shell,
+                      borderColor: palette.border,
+                    },
                   ]}
                 >
                   <Text style={[styles.metaLabel, { color: palette.inkMuted }]}>
                     {copy.discover.publishedLabel}
                   </Text>
                   <Text style={[styles.metaValue, { color: palette.ink }]}>
-                    {new Date(article.publishedAt).toLocaleDateString()}
+                    {formatDiscoverPublishedDate(
+                      article.publishedAt,
+                      resolvedLocale,
+                    )}
                   </Text>
                 </View>
               </View>
@@ -103,7 +124,10 @@ export function DiscoverDetailScreen() {
               <View
                 style={[
                   styles.readTimeRow,
-                  { backgroundColor: palette.accentSoft, borderColor: palette.border },
+                  {
+                    backgroundColor: palette.accentSoft,
+                    borderColor: palette.border,
+                  },
                 ]}
               >
                 <AppIcon color={palette.accent} name="time" size={17} />
@@ -124,7 +148,10 @@ export function DiscoverDetailScreen() {
               ]}
             >
               {article.body.map((paragraph) => (
-                <Text key={paragraph} style={[styles.paragraph, { color: palette.ink }]}>
+                <Text
+                  key={paragraph}
+                  style={[styles.paragraph, { color: palette.ink }]}
+                >
                   {paragraph}
                 </Text>
               ))}

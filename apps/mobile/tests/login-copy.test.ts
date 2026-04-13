@@ -7,9 +7,13 @@ describe("login copy", () => {
     const englishLogin = appCopy.en.login;
     const chineseLogin = appCopy["zh-CN"].login;
 
-    expect(Object.keys(englishLogin).sort()).toEqual(Object.keys(chineseLogin).sort());
+    expect(Object.keys(englishLogin).sort()).toEqual(
+      Object.keys(chineseLogin).sort(),
+    );
     expect(englishLogin.signals).toHaveLength(3);
     expect(chineseLogin.signals).toHaveLength(3);
+    expect(englishLogin.privacyMetrics).toHaveLength(2);
+    expect(chineseLogin.privacyMetrics).toHaveLength(2);
     expect(englishLogin.title.length).toBeLessThan(60);
     expect(chineseLogin.title.length).toBeLessThan(30);
     expect(englishLogin.body.length).toBeLessThan(100);
@@ -20,8 +24,12 @@ describe("login copy", () => {
     const englishSettings = appCopy.en.meScreen;
     const chineseSettings = appCopy["zh-CN"].meScreen;
 
-    expect(Object.keys(englishSettings).sort()).toEqual(Object.keys(chineseSettings).sort());
+    expect(Object.keys(englishSettings).sort()).toEqual(
+      Object.keys(chineseSettings).sort(),
+    );
     expect(englishSettings.databaseImportAction.length).toBeGreaterThan(0);
     expect(chineseSettings.databaseImportAction.length).toBeGreaterThan(0);
+    expect(englishSettings.apiSectionTitle.length).toBeGreaterThan(0);
+    expect(chineseSettings.apiSectionTitle.length).toBeGreaterThan(0);
   });
 });

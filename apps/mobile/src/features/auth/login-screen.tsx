@@ -18,9 +18,18 @@ function isCancelledAppleRequest(error: unknown): boolean {
 
 export function LoginScreen() {
   const router = useRouter();
-  const { continueAsGuest, copy, isHydrated, palette, session, signInWithApple } = useAppShell();
+  const {
+    continueAsGuest,
+    copy,
+    isHydrated,
+    palette,
+    session,
+    signInWithApple,
+  } = useAppShell();
   const [appleAvailable, setAppleAvailable] = useState(false);
-  const [appleMessage, setAppleMessage] = useState(copy.login.appleHint);
+  const [appleMessageState, setAppleMessageState] = useState<
+    "cancelled" | "hint" | "unavailable"
+  >("hint");
 
   useEffect(() => {
     let isMounted = true;
@@ -57,7 +66,7 @@ export function LoginScreen() {
 
   const handleAppleSignIn = async () => {
     if (!appleAvailable) {
-      setAppleMessage(copy.login.appleUnavailable);
+      setAppleMessageState("unavailable");
       return;
     }
 
@@ -78,19 +87,28 @@ export function LoginScreen() {
 
       router.replace("/(tabs)");
     } catch (error) {
-      setAppleMessage(
-        isCancelledAppleRequest(error) ? copy.login.appleCancelled : copy.login.appleUnavailable,
+      setAppleMessageState(
+        isCancelledAppleRequest(error) ? "cancelled" : "unavailable",
       );
     }
   };
+
+  const appleMessage =
+    appleMessageState === "cancelled"
+      ? copy.login.appleCancelled
+      : appleMessageState === "unavailable"
+        ? copy.login.appleUnavailable
+        : copy.login.appleHint;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.paper }]}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBlock}>
-          <Text style={[styles.brandTitle, { color: palette.ink }]}>{copy.common.appName}</Text>
+          <Text style={[styles.brandTitle, { color: palette.ink }]}>
+            {copy.common.appName}
+          </Text>
           <Text style={[styles.brandSubtitle, { color: palette.inkMuted }]}>
-            Your local-first financial workbench.
+            {copy.login.brandSubtitle}
           </Text>
         </View>
 
@@ -103,27 +121,67 @@ export function LoginScreen() {
             },
           ]}
         >
-          <View style={[styles.heroGlow, { backgroundColor: palette.shellElevated }]} />
+          <View
+            style={[
+              styles.heroGlow,
+              { backgroundColor: palette.shellElevated },
+            ]}
+          />
           <View style={styles.heroDesk} />
           <View style={styles.heroLaptop}>
-            <View style={[styles.heroLaptopScreen, { backgroundColor: palette.paper }]} />
+            <View
+              style={[
+                styles.heroLaptopScreen,
+                { backgroundColor: palette.paper },
+              ]}
+            />
           </View>
-          <View style={[styles.heroPill, styles.heroPillTop, { backgroundColor: palette.paper }]}>
-            <View style={[styles.pillDot, { backgroundColor: palette.accent }]} />
-            <Text style={[styles.heroPillLabel, { color: palette.ink }]}>LOCAL-FIRST</Text>
+          <View
+            style={[
+              styles.heroPill,
+              styles.heroPillTop,
+              { backgroundColor: palette.paper },
+            ]}
+          >
+            <View
+              style={[styles.pillDot, { backgroundColor: palette.accent }]}
+            />
+            <Text style={[styles.heroPillLabel, { color: palette.ink }]}>
+              {copy.login.signals[0]}
+            </Text>
           </View>
-          <View style={[styles.heroPill, styles.heroPillMiddle, { backgroundColor: palette.paper }]}>
-            <View style={[styles.pillDot, { backgroundColor: palette.accent }]} />
-            <Text style={[styles.heroPillLabel, { color: palette.ink }]}>BOOKKEEPING READY</Text>
+          <View
+            style={[
+              styles.heroPill,
+              styles.heroPillMiddle,
+              { backgroundColor: palette.paper },
+            ]}
+          >
+            <View
+              style={[styles.pillDot, { backgroundColor: palette.accent }]}
+            />
+            <Text style={[styles.heroPillLabel, { color: palette.ink }]}>
+              {copy.login.signals[1]}
+            </Text>
           </View>
-          <View style={[styles.heroPill, styles.heroPillBottom, { backgroundColor: palette.paper }]}>
-            <View style={[styles.pillDot, { backgroundColor: palette.accent }]} />
-            <Text style={[styles.heroPillLabel, { color: palette.ink }]}>UPLOAD AND PARSE</Text>
+          <View
+            style={[
+              styles.heroPill,
+              styles.heroPillBottom,
+              { backgroundColor: palette.paper },
+            ]}
+          >
+            <View
+              style={[styles.pillDot, { backgroundColor: palette.accent }]}
+            />
+            <Text style={[styles.heroPillLabel, { color: palette.ink }]}>
+              {copy.login.signals[2]}
+            </Text>
           </View>
         </View>
 
         <Text style={[styles.summary, { color: palette.inkMuted }]}>
-          Streamlined bookkeeping, uploads, and data parsing for creators and self-employed professionals.
+          {copy.login.body}
         </Text>
 
         <View style={styles.actions}>
@@ -134,7 +192,9 @@ export function LoginScreen() {
                   ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
                   : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
               }
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonType={
+                AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+              }
               cornerRadius={999}
               onPress={handleAppleSignIn}
               style={styles.appleButton}
@@ -150,7 +210,12 @@ export function LoginScreen() {
                 },
               ]}
             >
-              <Text style={[styles.fallbackAppleLabel, { color: palette.inkOnAccent }]}>
+              <Text
+                style={[
+                  styles.fallbackAppleLabel,
+                  { color: palette.inkOnAccent },
+                ]}
+              >
                 {copy.login.appleButton}
               </Text>
             </Pressable>
@@ -162,36 +227,53 @@ export function LoginScreen() {
             style={({ pressed }) => [
               styles.guestButton,
               {
-                backgroundColor: pressed ? palette.paperMuted : palette.shellElevated,
+                backgroundColor: pressed
+                  ? palette.paperMuted
+                  : palette.shellElevated,
                 borderColor: palette.border,
               },
             ]}
           >
-            <Text style={[styles.guestLabel, { color: palette.inkMuted }]}>{copy.login.skip}</Text>
+            <Text style={[styles.guestLabel, { color: palette.inkMuted }]}>
+              {copy.login.skip}
+            </Text>
           </Pressable>
         </View>
 
         <Text style={[styles.caption, { color: palette.inkMuted }]}>
-          Start exploring now. No sign-up required for local mode.
+          {copy.login.caption}
         </Text>
 
         <View style={[styles.privacyCard, { borderTopColor: palette.divider }]}>
-          <Text style={[styles.privacyEyebrow, { color: palette.accent }]}>Privacy first</Text>
+          <Text style={[styles.privacyEyebrow, { color: palette.accent }]}>
+            {copy.login.privacyEyebrow}
+          </Text>
           <Text style={[styles.privacySummary, { color: palette.inkMuted }]}>
-            Your records stay organized on-device first.
+            {copy.login.privacySummary}
           </Text>
           <View style={styles.privacyMetrics}>
-            <Text style={[styles.privacyMetric, { color: palette.inkMuted }]}>AES-256 local encryption</Text>
-            <Text style={[styles.privacyMetric, { color: palette.inkMuted }]}>Zero cloud sync default</Text>
+            <Text style={[styles.privacyMetric, { color: palette.inkMuted }]}>
+              {copy.login.privacyMetrics[0]}
+            </Text>
+            <Text style={[styles.privacyMetric, { color: palette.inkMuted }]}>
+              {copy.login.privacyMetrics[1]}
+            </Text>
           </View>
           <View
             style={[
               styles.statusPanel,
-              { backgroundColor: palette.paperMuted, borderColor: palette.border },
+              {
+                backgroundColor: palette.paperMuted,
+                borderColor: palette.border,
+              },
             ]}
           >
-            <View style={[styles.statusDot, { backgroundColor: palette.accent }]} />
-            <Text style={[styles.statusText, { color: palette.inkMuted }]}>{appleMessage}</Text>
+            <View
+              style={[styles.statusDot, { backgroundColor: palette.accent }]}
+            />
+            <Text style={[styles.statusText, { color: palette.inkMuted }]}>
+              {appleMessage}
+            </Text>
           </View>
         </View>
       </ScrollView>

@@ -4,6 +4,7 @@ import type {
   TaxHelperSnapshot,
 } from "@creator-cfo/storage";
 
+import type { ResolvedLocale } from "../app-shell/types";
 import type { LedgerScopeId } from "./ledger-reporting";
 
 export interface LedgerTaxHelperFieldGroup {
@@ -49,11 +50,103 @@ export interface LedgerTaxHelperLauncherState {
   note: string;
 }
 
+export interface LedgerTaxHelperCopy {
+  close: string;
+  derivedRowsSummary: string;
+  derivedRowsTitle: string;
+  evidenceArchiveSummary: string;
+  evidenceArchiveTitle: string;
+  exportBuilding: string;
+  exportErrorFallback: string;
+  exportNoFiles: string;
+  exportNoRecords: string;
+  exportSaved: (count: number, archiveRelativePath: string) => string;
+  exportTrigger: string;
+  fieldInfoText: string;
+  launcherEyebrow: string;
+  launcherSummary: string;
+  launcherTitle: string;
+  loadError: string;
+  loadingYear: string;
+  modalEyebrow: string;
+  modalSummary: string;
+  modalTitle: string;
+  openHelper: string;
+  webDisabledReason: string;
+  yearTitle: string;
+}
+
 const formSortOrder: Record<TaxHelperDerivedField["formName"], number> = {
   "Form 1040": 3,
   "Schedule C": 1,
   "Schedule SE": 2,
 };
+
+const taxHelperCopyByLocale: Record<ResolvedLocale, LedgerTaxHelperCopy> = {
+  en: {
+    close: "Close",
+    derivedRowsSummary:
+      "Each row shows the form name, official field label, and the value currently implied by the local business ledger.",
+    derivedRowsTitle: "Derived rows",
+    evidenceArchiveSummary:
+      "Export the linked evidence binaries for the records behind the currently derived rows. The archive includes a manifest for traceability.",
+    evidenceArchiveTitle: "Evidence archive",
+    exportBuilding: "Building archive...",
+    exportErrorFallback: "Unable to export the evidence archive.",
+    exportNoFiles: "No linked evidence files were found for the currently derived tax rows.",
+    exportNoRecords: "No linked supporting records are available for export in this tax year yet.",
+    exportSaved: (count, archiveRelativePath) =>
+      `Saved ${count} linked evidence file${count === 1 ? "" : "s"} to ${archiveRelativePath}.`,
+    exportTrigger: "Export evidence archive",
+    fieldInfoText:
+      "Form 1040 remains manual in this helper unless a future local carry-through implementation makes individual rows authoritative.",
+    launcherEyebrow: "Tax Report Helper",
+    launcherSummary:
+      "Review currently supported Schedule C and Schedule SE rows, then export the linked evidence archive for one tax year.",
+    launcherTitle: "Preview derived tax rows from the business ledger.",
+    loadError: "Unable to load the tax report helper.",
+    loadingYear: "Loading local tax support for the selected year...",
+    modalEyebrow: "Business-only local tax support",
+    modalSummary:
+      "Only authoritative rows materialized by the current local tax logic appear here.",
+    modalTitle: "Tax report helper",
+    openHelper: "Open helper",
+    webDisabledReason:
+      "This helper depends on the native local database runtime and is not active in the static web preview.",
+    yearTitle: "Tax year",
+  },
+  "zh-CN": {
+    close: "关闭",
+    derivedRowsSummary: "这里会展示表单名称、官方字段标签，以及当前本地经营账本推导出的值。",
+    derivedRowsTitle: "推导行",
+    evidenceArchiveSummary:
+      "导出当前推导税务行背后关联记录的凭证文件。压缩包会包含一份用于追溯的 manifest。",
+    evidenceArchiveTitle: "凭证归档",
+    exportBuilding: "正在生成归档...",
+    exportErrorFallback: "无法导出凭证归档。",
+    exportNoFiles: "当前推导出的税务行还没有找到关联的凭证文件。",
+    exportNoRecords: "当前税年还没有可导出的关联支撑记录。",
+    exportSaved: (count, archiveRelativePath) =>
+      `已将 ${count} 个关联凭证文件保存到 ${archiveRelativePath}。`,
+    exportTrigger: "导出凭证归档",
+    fieldInfoText: "除非后续本地贯通逻辑让单独字段具备权威性，否则 Form 1040 在这里仍保持手动填写。",
+    launcherEyebrow: "税务辅助",
+    launcherSummary: "查看当前已支持的 Schedule C / Schedule SE 推导行，并按税年导出关联凭证归档。",
+    launcherTitle: "从经营账本预览推导出的税务行。",
+    loadError: "无法加载税务辅助。",
+    loadingYear: "正在加载所选税年的本地税务支持...",
+    modalEyebrow: "仅经营视角可用的本地税务支持",
+    modalSummary: "这里仅展示当前本地税务逻辑已经能权威推导出的行。",
+    modalTitle: "税务辅助",
+    openHelper: "打开辅助",
+    webDisabledReason: "这个辅助依赖原生端本地数据库运行时，静态 Web 预览中暂不可用。",
+    yearTitle: "税年",
+  },
+};
+
+export function getLedgerTaxHelperCopy(locale: ResolvedLocale): LedgerTaxHelperCopy {
+  return taxHelperCopyByLocale[locale];
+}
 
 export function groupTaxHelperFields(
   fields: readonly TaxHelperDerivedField[],
@@ -76,26 +169,38 @@ export function groupTaxHelperFields(
 
 export function buildTaxHelperLauncherState(input: {
   latestYearLabel: string | null;
+  locale?: ResolvedLocale;
   selectedScope: LedgerScopeId;
   yearCount: number;
 }): LedgerTaxHelperLauncherState {
+  const locale = input.locale ?? "en";
+
   if (input.selectedScope === "personal") {
     return {
       canOpen: false,
-      note: "Switch back to Business scope to open the tax report helper.",
+      note:
+        locale === "zh-CN"
+          ? "切回经营视角后，才能打开税务辅助。"
+          : "Switch back to Business scope to open the tax report helper.",
     };
   }
 
   if (input.yearCount === 0) {
     return {
       canOpen: false,
-      note: "Add posted or reconciled business records to unlock the tax report helper.",
+      note:
+        locale === "zh-CN"
+          ? "新增已入账或已核对的经营记录后，才能解锁税务辅助。"
+          : "Add posted or reconciled business records to unlock the tax report helper.",
     };
   }
 
   return {
     canOpen: true,
-    note: `Latest available tax year: ${input.latestYearLabel ?? "Unavailable"}`,
+    note:
+      locale === "zh-CN"
+        ? `最新可用税年：${input.latestYearLabel ?? "暂无"}`
+        : `Latest available tax year: ${input.latestYearLabel ?? "Unavailable"}`,
   };
 }
 
@@ -174,24 +279,35 @@ export function buildArchiveTimestamp(isoString: string): string {
 export function buildTaxHelperEmptyStateMessage(
   snapshot: TaxHelperSnapshot | null,
   selectedYear: number | null,
+  locale: ResolvedLocale = "en",
 ): string {
   if (!snapshot || selectedYear === null) {
-    return "Select a tax year to review local tax support.";
+    return locale === "zh-CN"
+      ? "请选择一个税年查看本地税务支持。"
+      : "Select a tax year to review local tax support.";
   }
 
   if (snapshot.businessRecordCount === 0) {
-    return `No posted or reconciled business records are available for tax year ${selectedYear}.`;
+    return locale === "zh-CN"
+      ? `${selectedYear} 税年还没有已入账或已核对的经营记录。`
+      : `No posted or reconciled business records are available for tax year ${selectedYear}.`;
   }
 
   if (snapshot.mappedRecordCount === 0) {
-    return `Tax year ${selectedYear} has business activity, but no authoritative local tax mappings are ready yet.`;
+    return locale === "zh-CN"
+      ? `${selectedYear} 税年已有经营活动，但还没有可用的本地权威税务映射。`
+      : `Tax year ${selectedYear} has business activity, but no authoritative local tax mappings are ready yet.`;
   }
 
   if (snapshot.notices.length > 0) {
-    return `Tax year ${selectedYear} still has review boundaries, so no authoritative helper rows can be shown yet.`;
+    return locale === "zh-CN"
+      ? `${selectedYear} 税年仍存在待审边界，因此暂时还不能展示权威辅助行。`
+      : `Tax year ${selectedYear} still has review boundaries, so no authoritative helper rows can be shown yet.`;
   }
 
-  return `No authoritative helper rows are currently available for tax year ${selectedYear}.`;
+  return locale === "zh-CN"
+    ? `${selectedYear} 税年当前还没有可展示的权威辅助行。`
+    : `No authoritative helper rows are currently available for tax year ${selectedYear}.`;
 }
 
 export function createStoredZipArchive(

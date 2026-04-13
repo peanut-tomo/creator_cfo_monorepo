@@ -13,6 +13,7 @@ import {
   buildLedgerPeriodIdForSegment,
   buildLedgerPeriodIdForYear,
 } from "./ledger-screen-state";
+import { useAppShell } from "../app-shell/provider";
 import { createReadableStorageDatabase } from "../../storage/storage-adapter";
 
 type LedgerDatabase = ReturnType<typeof useSQLiteContext>;
@@ -36,6 +37,7 @@ export interface UseLedgerScreenResult {
 }
 
 export function useLedgerScreen(): UseLedgerScreenResult {
+  const { resolvedLocale } = useAppShell();
   const database = useSQLiteContext();
   const lastDatabaseRef = useRef<LedgerDatabase | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,9 @@ export function useLedgerScreen(): UseLedgerScreenResult {
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [selectedScope, setSelectedScope] = useState<LedgerScopeId>("business");
   const [selectedView, setSelectedView] = useState<LedgerViewId>("general-ledger");
-  const [snapshot, setSnapshot] = useState<LedgerScreenSnapshot>(createEmptyLedgerSnapshot);
+  const [snapshot, setSnapshot] = useState<LedgerScreenSnapshot>(() =>
+    createEmptyLedgerSnapshot(resolvedLocale),
+  );
   const forceDefaultSelection = lastDatabaseRef.current !== database;
 
   if (forceDefaultSelection) {
@@ -63,6 +67,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
       forceDefaultSelection ? null : selectedPeriodId,
       selectedScope,
       forceDefaultSelection,
+      resolvedLocale,
     )
       .then((nextSnapshot) => {
         if (!isMounted) {
@@ -77,7 +82,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
       })
       .catch((nextError: unknown) => {
         if (isMounted) {
-          setError(getErrorMessage(nextError));
+          setError(getErrorMessage(nextError, resolvedLocale));
         }
       })
       .finally(() => {
@@ -90,7 +95,7 @@ export function useLedgerScreen(): UseLedgerScreenResult {
     return () => {
       isMounted = false;
     };
-  }, [database, forceDefaultSelection, refreshNonce, selectedPeriodId, selectedScope]);
+  }, [database, forceDefaultSelection, refreshNonce, resolvedLocale, selectedPeriodId, selectedScope]);
 
   return {
     error,
@@ -130,14 +135,23 @@ async function loadSnapshot(
   preferredPeriodId: string | null,
   scopeId: LedgerScopeId,
   forceDefaultSelection: boolean,
+  locale: import("../app-shell/types").ResolvedLocale,
 ) {
   return loadLedgerSnapshot(createReadableStorageDatabase(database), {
     forceDefaultSelection,
+    locale,
     preferredPeriodId,
     scopeId,
   });
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Ledger data failed to load.";
+function getErrorMessage(
+  error: unknown,
+  locale: import("../app-shell/types").ResolvedLocale,
+): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return locale === "zh-CN" ? "记账数据加载失败。" : "Ledger data failed to load.";
 }

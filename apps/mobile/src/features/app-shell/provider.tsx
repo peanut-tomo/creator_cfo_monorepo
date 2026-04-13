@@ -1,5 +1,11 @@
 import { getLocales } from "expo-localization";
-import { createContext, useContext, useEffect, useState, type PropsWithChildren } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type PropsWithChildren,
+} from "react";
 import { useColorScheme } from "react-native";
 import { surfaceThemes } from "@creator-cfo/ui";
 
@@ -23,6 +29,7 @@ import type {
   AppSession,
   LocalePreference,
   PersistedAppState,
+  ResolvedLocale,
   ThemePreference,
 } from "./types";
 
@@ -36,6 +43,7 @@ interface AppShellContextValue {
   openAiApiKey: string;
   palette: (typeof surfaceThemes)[keyof typeof surfaceThemes];
   parseApiBaseUrl: string;
+  resolvedLocale: ResolvedLocale;
   session: AppSession | null;
   sessionDisplayName: string;
   setStorageSuspended: (value: boolean) => void;
@@ -60,6 +68,11 @@ const initialState: PersistedAppState = {
   localePreference: "system",
   openAiApiKey: "",
   parseApiBaseUrl: "",
+  profileInfo: {
+    email: "",
+    name: "",
+    phone: "",
+  },
   session: null,
   themePreference: "system",
 };
@@ -93,7 +106,10 @@ export function AppShellProvider({ children }: PropsWithChildren) {
   }, []);
 
   const resolvedTheme = resolveThemeName(state.themePreference, systemTheme);
-  const resolvedLocale = resolveLocale(state.localePreference, deviceLanguageTag);
+  const resolvedLocale = resolveLocale(
+    state.localePreference,
+    deviceLanguageTag,
+  );
   const palette = surfaceThemes[resolvedTheme];
   const copy = getAppCopy(resolvedLocale);
 
@@ -138,6 +154,7 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     openAiApiKey: state.openAiApiKey,
     palette,
     parseApiBaseUrl: state.parseApiBaseUrl,
+    resolvedLocale,
     session: state.session,
     sessionDisplayName: getSessionDisplayName(state.session),
     setStorageSuspended,
@@ -155,7 +172,11 @@ export function AppShellProvider({ children }: PropsWithChildren) {
     themePreference: state.themePreference,
   };
 
-  return <AppShellContext.Provider value={contextValue}>{children}</AppShellContext.Provider>;
+  return (
+    <AppShellContext.Provider value={contextValue}>
+      {children}
+    </AppShellContext.Provider>
+  );
 }
 
 export function useAppShell() {

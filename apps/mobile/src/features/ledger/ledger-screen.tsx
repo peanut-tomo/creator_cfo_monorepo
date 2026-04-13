@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,23 +32,10 @@ import {
   type LedgerQuarterSegmentId,
 } from "./ledger-screen-state";
 
-const ledgerViews: ReadonlyArray<{ id: LedgerViewId; label: string }> = [
-  { id: "general-ledger", label: "General Ledger" },
-  { id: "balance-sheet", label: "Balance Sheet" },
-  { id: "profit-loss", label: "Profit & Loss" },
-];
-const ledgerScopes: ReadonlyArray<{
-  accessibilityLabel: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  id: LedgerScopeId;
-}> = [
-  { accessibilityLabel: "Business scope", icon: "briefcase-outline", id: "business" },
-  { accessibilityLabel: "Personal scope", icon: "person-outline", id: "personal" },
-];
-
 export function LedgerScreen() {
   const router = useRouter();
   const { copy, palette } = useAppShell();
+  const screenCopy = copy.ledgerScreen;
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [pickerStep, setPickerStep] = useState<"month" | "quarter" | "year">("year");
   const [draftQuarterId, setDraftQuarterId] = useState<LedgerQuarterSegmentId | null>(null);
@@ -68,6 +56,35 @@ export function LedgerScreen() {
 
   const selectedPeriod = snapshot.selectedPeriod;
   const hasSelectablePeriods = snapshot.yearOptions.length > 0;
+  const ledgerViews: ReadonlyArray<{ id: LedgerViewId; label: string }> = [
+    { id: "general-ledger", label: screenCopy.sections.viewJournal },
+    { id: "balance-sheet", label: screenCopy.sections.viewBalance },
+    { id: "profit-loss", label: screenCopy.sections.viewPnl },
+  ];
+  const ledgerScopes: ReadonlyArray<{
+    accessibilityLabel: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    id: LedgerScopeId;
+    label: string;
+  }> = [
+    {
+      accessibilityLabel: screenCopy.scopes.businessA11y,
+      icon: "briefcase-outline",
+      id: "business",
+      label: screenCopy.scopes.business,
+    },
+    {
+      accessibilityLabel: screenCopy.scopes.personalA11y,
+      icon: "person-outline",
+      id: "personal",
+      label: screenCopy.scopes.personal,
+    },
+  ];
+  const rangeHint = hasSelectablePeriods
+    ? formatYearAvailability(snapshot.yearOptions.length, screenCopy)
+    : selectedScope === "personal"
+      ? screenCopy.range.noPersonal
+      : screenCopy.range.noBusiness;
   const selectedQuarterId = useMemo(
     () => getQuarterIdForSegment(selectedPeriod.segmentId),
     [selectedPeriod.segmentId],
@@ -156,6 +173,7 @@ export function LedgerScreen() {
     >
       <ScrollView
         contentContainerStyle={styles.container}
+        refreshControl={<RefreshControl onRefresh={refresh} refreshing={isRefreshing} />}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topRow}>
@@ -165,12 +183,16 @@ export function LedgerScreen() {
               {copy.common.appName}
             </Text>
           </View>
-          <View style={styles.headerDot} />
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeLabel}>
+              {selectedScope === "personal" ? screenCopy.badge.personal : screenCopy.badge.business}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.periodHeader}>
           <View style={styles.periodCopy}>
-            <Text style={styles.periodEyebrow}>Accounting Period</Text>
+            <Text style={styles.periodEyebrow}>{screenCopy.range.reportingRange}</Text>
             <Text style={styles.periodTitle}>{selectedPeriod.label}</Text>
             <Text style={styles.periodSummary}>{selectedPeriod.summary}</Text>
           </View>
@@ -221,8 +243,16 @@ export function LedgerScreen() {
                     <Ionicons
                       color={isActive ? "#FFFFFF" : "rgba(0, 32, 69, 0.6)"}
                       name={scope.icon}
-                      size={17}
+                      size={15}
                     />
+                    <Text
+                      style={[
+                        styles.scopePillLabel,
+                        isActive ? styles.scopePillLabelActive : null,
+                      ]}
+                    >
+                      {scope.label}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -241,15 +271,11 @@ export function LedgerScreen() {
           ]}
         >
           <View style={styles.periodSummaryCardCopy}>
-            <Text style={styles.periodSummaryCardLabel}>Selected range</Text>
+            <Text style={styles.periodSummaryCardLabel}>{screenCopy.range.selectedRange}</Text>
             <Text style={styles.periodSummaryCardValue}>
-              {formatPopupSelection(selectedPeriod)}
+              {formatPopupSelection(selectedPeriod, screenCopy)}
             </Text>
-            <Text style={styles.periodSummaryCardDetail}>
-              {hasSelectablePeriods
-                ? "Tap to pick a year, then a quarter, then a month. Whole year and whole quarter stay available as default choices."
-                : "No record-backed ranges are available for this scope yet."}
-            </Text>
+            <Text style={styles.periodSummaryCardDetail}>{rangeHint}</Text>
           </View>
           <Ionicons color="#002045" name="chevron-forward" size={18} />
         </Pressable>
@@ -283,30 +309,30 @@ export function LedgerScreen() {
 
         {!isLoaded ? (
           <StatusCard
-            body="Loading the latest persisted records from local SQLite."
-            title="Preparing ledger snapshot"
+            body={screenCopy.sections.preparingBody}
+            title={screenCopy.sections.preparingTitle}
           />
         ) : error ? (
           <StatusCard
-            actionLabel={isRefreshing ? "Retrying..." : "Retry"}
+            actionLabel={isRefreshing ? screenCopy.sections.retrying : screenCopy.sections.retry}
             body={error}
             disabled={isRefreshing}
             onPress={() => {
               void refresh();
             }}
-            title="Ledger data unavailable"
+            title={screenCopy.sections.unavailableTitle}
           />
         ) : snapshot.isEmpty ? (
           <StatusCard
             body={
               selectedScope === "personal"
-                ? "No personal spending records were found for the selected accounting period."
-                : "No posted or reconciled business records were found for the selected accounting period."
+                ? screenCopy.sections.noPersonalBody
+                : screenCopy.sections.noBusinessBody
             }
             title={
               selectedScope === "personal"
-                ? "No personal spending in this range"
-                : "No business records in this range"
+                ? screenCopy.sections.noPersonalTitle
+                : screenCopy.sections.noBusinessTitle
             }
           />
         ) : (
@@ -317,8 +343,8 @@ export function LedgerScreen() {
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>
                     {selectedScope === "personal"
-                      ? "Newest first personal spending entries"
-                      : "Newest first journal entries"}
+                      ? screenCopy.sections.journalPersonal
+                      : screenCopy.sections.journalRecent}
                   </Text>
                   <Text style={styles.sectionMeta}>
                     {snapshot.generalLedger.recordCountLabel}
@@ -335,14 +361,14 @@ export function LedgerScreen() {
             {selectedView === "balance-sheet" ? (
               selectedScope === "personal" ? (
                 <StatusCard
-                  body="Balance Sheet stays business-only. Switch back to Business to review assets, liabilities, and owner equity."
-                  title="Not shown for personal spending"
+                  body={screenCopy.sections.balanceOnlyBody}
+                  title={screenCopy.sections.balanceOnlyTitle}
                 />
               ) : (
                 <>
                   <MetricGrid cards={snapshot.balanceSheet.metricCards} />
                   <View style={styles.equationCard}>
-                    <Text style={styles.equationEyebrow}>Simplified equation</Text>
+                    <Text style={styles.equationEyebrow}>{screenCopy.sections.equation}</Text>
                     <Text style={styles.equationTitle}>
                       {snapshot.balanceSheet.equationSummary}
                     </Text>
@@ -352,15 +378,15 @@ export function LedgerScreen() {
                   </View>
                   <SectionCard
                     rows={snapshot.balanceSheet.assetRows}
-                    title="Assets"
+                    title={screenCopy.sections.assets}
                   />
                   <SectionCard
                     rows={snapshot.balanceSheet.liabilityRows}
-                    title="Liabilities"
+                    title={screenCopy.sections.liabilities}
                   />
                   <SectionCard
                     rows={snapshot.balanceSheet.equityRows}
-                    title="Owner Equity"
+                    title={screenCopy.sections.equity}
                   />
                 </>
               )
@@ -371,29 +397,29 @@ export function LedgerScreen() {
                 <>
                   <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
                   <StatusCard
-                    body="Profit & Loss stays business-only. Personal mode is only for reviewing personal spending separately from deductible business expense."
-                    title="Personal spending is not a business P&L"
+                    body={screenCopy.sections.pnlOnlyBody}
+                    title={screenCopy.sections.pnlOnlyTitle}
                   />
                 </>
               ) : (
                 <>
                   <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
                   <View style={styles.equationCard}>
-                    <Text style={styles.equationEyebrow}>Net income</Text>
+                    <Text style={styles.equationEyebrow}>{screenCopy.sections.netIncome}</Text>
                     <Text style={styles.netIncomeValue}>
                       {snapshot.profitAndLoss.netIncomeLabel}
                     </Text>
                     <Text style={styles.equationSummary}>
-                      Revenue minus business expenses for the selected period.
+                      {screenCopy.sections.netIncomeSummary}
                     </Text>
                   </View>
                   <SectionCard
                     rows={snapshot.profitAndLoss.revenueRows}
-                    title="Revenue"
+                    title={screenCopy.sections.revenue}
                   />
                   <SectionCard
                     rows={snapshot.profitAndLoss.expenseRows}
-                    title="Expenses"
+                    title={screenCopy.sections.expenses}
                   />
                 </>
               )
@@ -410,8 +436,10 @@ export function LedgerScreen() {
           <View style={styles.endCapBar} />
           <Text style={styles.endCapLabel}>
             {snapshot.hasData
-              ? `${selectedScope === "personal" ? "Personal spending range" : "Reporting range"} ${selectedPeriod.summary}`
-              : `Add and review records to populate this ${selectedScope === "personal" ? "personal spending" : "ledger"} view`}
+              ? `${selectedScope === "personal" ? screenCopy.footer.personalRange : screenCopy.footer.reportingRange} · ${selectedPeriod.summary}`
+              : selectedScope === "personal"
+                ? screenCopy.footer.emptyPersonal
+                : screenCopy.footer.emptyBusiness}
           </Text>
         </View>
       </ScrollView>
@@ -430,6 +458,7 @@ export function LedgerScreen() {
         onYearChoice={handleYearChoice}
         pickerStep={pickerStep}
         quarterOptions={quarterOptions}
+        screenCopy={screenCopy}
         yearOptions={snapshot.yearOptions}
       />
     </SafeAreaView>
@@ -450,6 +479,7 @@ function LedgerPeriodPickerModal({
   onYearChoice,
   pickerStep,
   quarterOptions,
+  screenCopy,
   yearOptions,
 }: {
   currentPeriod: LedgerPeriodOption;
@@ -465,6 +495,7 @@ function LedgerPeriodPickerModal({
   onYearChoice: (yearId: string) => void;
   pickerStep: "month" | "quarter" | "year";
   quarterOptions: readonly LedgerQuarterPickerOption[];
+  screenCopy: ReturnType<typeof useAppShell>["copy"]["ledgerScreen"];
   yearOptions: readonly { id: string; label: string; year: number }[];
 }) {
   return (
@@ -480,8 +511,8 @@ function LedgerPeriodPickerModal({
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderCopy}>
-              <Text style={styles.modalEyebrow}>Calendar-style period picker</Text>
-              <Text style={styles.modalTitle}>Choose ledger range</Text>
+              <Text style={styles.modalEyebrow}>{screenCopy.modal.pickerEyebrow}</Text>
+              <Text style={styles.modalTitle}>{screenCopy.modal.chooseRange}</Text>
               <Text style={styles.modalSummary}>
                 {currentPeriod.label} · {currentPeriod.summary}
               </Text>
@@ -499,14 +530,14 @@ function LedgerPeriodPickerModal({
           </View>
 
           <View style={styles.modalStepRail}>
-            <StepPill active={pickerStep === "year"} label="Year" />
-            <StepPill active={pickerStep === "quarter"} label="Quarter" />
-            <StepPill active={pickerStep === "month"} label="Month" />
+            <StepPill active={pickerStep === "year"} label={screenCopy.modal.stepYear} />
+            <StepPill active={pickerStep === "quarter"} label={screenCopy.modal.stepQuarter} />
+            <StepPill active={pickerStep === "month"} label={screenCopy.modal.stepMonth} />
           </View>
 
           {pickerStep === "year" ? (
             <>
-              <Text style={styles.modalSectionTitle}>Start with a year</Text>
+              <Text style={styles.modalSectionTitle}>{screenCopy.modal.yearTitle}</Text>
               <View style={styles.modalGrid}>
                 {yearOptions.map((option) => (
                   <View key={option.id} style={styles.modalGridCell}>
@@ -533,7 +564,7 @@ function LedgerPeriodPickerModal({
                           option.id === String(currentPeriod.year) ? styles.modalBlockNoteActive : null,
                         ]}
                       >
-                        Open quarters and months
+                        {screenCopy.modal.openQuarters}
                       </Text>
                     </Pressable>
                     <Pressable
@@ -544,7 +575,9 @@ function LedgerPeriodPickerModal({
                         pressed ? styles.modalSubActionPressed : null,
                       ]}
                     >
-                      <Text style={styles.modalSubActionLabel}>All {option.label}</Text>
+                      <Text style={styles.modalSubActionLabel}>
+                        {option.label} · {screenCopy.range.fullYear}
+                      </Text>
                     </Pressable>
                   </View>
                 ))}
@@ -554,9 +587,9 @@ function LedgerPeriodPickerModal({
 
           {pickerStep === "quarter" ? (
             <>
-              <Text style={styles.modalSectionTitle}>Then narrow into a quarter</Text>
+              <Text style={styles.modalSectionTitle}>{screenCopy.modal.quarterTitle}</Text>
               <Text style={styles.modalSectionSummary}>
-                Or keep the full year as the default review range.
+                {screenCopy.modal.quarterHint}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -566,8 +599,10 @@ function LedgerPeriodPickerModal({
                   pressed ? styles.modalDefaultChoicePressed : null,
                 ]}
               >
-                <Text style={styles.modalDefaultChoiceTitle}>All {draftYearId}</Text>
-                <Text style={styles.modalDefaultChoiceNote}>Use the complete year without drilling into a quarter.</Text>
+                <Text style={styles.modalDefaultChoiceTitle}>
+                  {draftYearId} · {screenCopy.range.fullYear}
+                </Text>
+                <Text style={styles.modalDefaultChoiceNote}>{screenCopy.modal.reviewFullYear}</Text>
               </Pressable>
               <View style={styles.modalGrid}>
                 {quarterOptions.map((quarterOption) => (
@@ -595,7 +630,7 @@ function LedgerPeriodPickerModal({
                           quarterOption.id === draftQuarterId ? styles.modalBlockNoteActive : null,
                         ]}
                       >
-                        Open the months in this quarter
+                        {screenCopy.modal.openMonths}
                       </Text>
                     </Pressable>
                     <Pressable
@@ -606,7 +641,9 @@ function LedgerPeriodPickerModal({
                         pressed ? styles.modalSubActionPressed : null,
                       ]}
                     >
-                      <Text style={styles.modalSubActionLabel}>{quarterOption.wholeLabel}</Text>
+                      <Text style={styles.modalSubActionLabel}>
+                        {quarterOption.label} · {screenCopy.range.fullQuarter}
+                      </Text>
                     </Pressable>
                   </View>
                 ))}
@@ -616,9 +653,9 @@ function LedgerPeriodPickerModal({
 
           {pickerStep === "month" ? (
             <>
-              <Text style={styles.modalSectionTitle}>Finally choose a month</Text>
+              <Text style={styles.modalSectionTitle}>{screenCopy.modal.monthTitle}</Text>
               <Text style={styles.modalSectionSummary}>
-                Or keep the whole quarter as the default review range.
+                {screenCopy.modal.monthHint}
               </Text>
               {draftQuarterId ? (
                 <Pressable
@@ -630,10 +667,10 @@ function LedgerPeriodPickerModal({
                   ]}
                 >
                   <Text style={styles.modalDefaultChoiceTitle}>
-                    All {draftQuarterId.toUpperCase()} {draftYearId}
+                    {draftQuarterId.toUpperCase()} {draftYearId} · {screenCopy.range.fullQuarter}
                   </Text>
                   <Text style={styles.modalDefaultChoiceNote}>
-                    Keep the complete quarter instead of a single month.
+                    {screenCopy.modal.reviewFullQuarter}
                   </Text>
                 </Pressable>
               ) : null}
@@ -709,17 +746,29 @@ function getQuarterIdForSegment(
   return null;
 }
 
-function formatPopupSelection(period: LedgerPeriodOption): string {
+function formatYearAvailability(
+  yearCount: number,
+  screenCopy: ReturnType<typeof useAppShell>["copy"]["ledgerScreen"],
+): string {
+  return `${yearCount} ${
+    yearCount === 1 ? screenCopy.range.yearsAvailableSingular : screenCopy.range.yearsAvailablePlural
+  }`;
+}
+
+function formatPopupSelection(
+  period: LedgerPeriodOption,
+  screenCopy: ReturnType<typeof useAppShell>["copy"]["ledgerScreen"],
+): string {
   if (period.year < 1) {
     return period.label;
   }
 
   if (period.segmentId === "full-year") {
-    return `All ${period.year}`;
+    return `${period.year} · ${screenCopy.range.fullYear}`;
   }
 
   if (period.segmentId.startsWith("q")) {
-    return `${period.segmentId.toUpperCase()} ${period.year}`;
+    return period.label;
   }
 
   const quarterId = getQuarterIdForSegment(period.segmentId);
@@ -757,16 +806,16 @@ function GeneralLedgerCard({ entry }: { entry: GeneralLedgerEntry }) {
           <View
             style={[
               styles.transactionIconWrap,
-              entry.kindLabel === "Income"
+              entry.kind === "income"
                 ? styles.transactionIconIncome
-                : entry.kindLabel === "Personal"
+                : entry.kind === "personal"
                   ? styles.transactionIconPersonal
                   : styles.transactionIconExpense,
             ]}
           >
             <Ionicons
-              color={entry.kindLabel === "Income" ? "#45664A" : "#BA1A1A"}
-              name={entry.kindLabel === "Income" ? "arrow-down-outline" : "arrow-up-outline"}
+              color={entry.kind === "income" ? "#45664A" : "#BA1A1A"}
+              name={entry.kind === "income" ? "arrow-down-outline" : "arrow-up-outline"}
               size={18}
             />
           </View>
@@ -791,13 +840,14 @@ function GeneralLedgerCard({ entry }: { entry: GeneralLedgerEntry }) {
 }
 
 function PostingLine({ line }: { line: GeneralLedgerPostingLine }) {
+  const { copy } = useAppShell();
   const isDebit = line.side === "debit";
 
   return (
     <View style={styles.postingLineRow}>
       <View style={styles.postingLineCopy}>
         <Text style={styles.postingLineTitle}>
-          {isDebit ? "Debit" : "Credit"} · {line.accountName}
+          {isDebit ? copy.ledgerScreen.sections.debit : copy.ledgerScreen.sections.credit} · {line.accountName}
         </Text>
         <Text style={styles.postingLineDetail}>{line.detail}</Text>
       </View>
@@ -879,7 +929,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#F9F9F7",
     gap: 16,
-    paddingBottom: 140,
+    paddingBottom: 32,
     paddingHorizontal: 24,
     paddingTop: 16,
   },
@@ -929,12 +979,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 30,
   },
-  headerDot: {
-    backgroundColor: "#002045",
+  headerBadge: {
+    backgroundColor: "rgba(0, 32, 69, 0.06)",
     borderRadius: 999,
-    height: 10,
-    opacity: 0.2,
-    width: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  headerBadgeLabel: {
+    color: "#002045",
+    fontSize: 12,
+    fontWeight: "700",
   },
   metricAccentBar: {
     borderBottomRightRadius: 999,
@@ -1228,6 +1282,7 @@ const styles = StyleSheet.create({
     color: "rgba(0, 32, 69, 0.55)",
     fontSize: 12,
     lineHeight: 17,
+    textTransform: "none",
   },
   periodSummaryCardLabel: {
     color: "rgba(0, 32, 69, 0.5)",
@@ -1513,14 +1568,24 @@ const styles = StyleSheet.create({
   scopePill: {
     alignItems: "center",
     borderRadius: 14,
+    flexDirection: "row",
+    gap: 6,
     justifyContent: "center",
     minHeight: 36,
-    minWidth: 46,
+    minWidth: 0,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   scopePillActive: {
     backgroundColor: "#002045",
+  },
+  scopePillLabel: {
+    color: "rgba(0, 32, 69, 0.6)",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  scopePillLabelActive: {
+    color: "#FFFFFF",
   },
   scopePillPressed: {
     opacity: 0.88,

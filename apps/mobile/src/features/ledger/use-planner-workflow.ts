@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { useAppShell } from "../app-shell/provider";
 import type { LedgerReviewValues } from "./ledger-domain";
 import {
   approveWriteProposal,
@@ -15,7 +16,11 @@ export function usePlannerWorkflow(input: {
   rawJson: unknown;
   rawText: string;
 }) {
-  const [plannerResult, setPlannerResult] = useState<PlannerResult | null>(null);
+  const { copy } = useAppShell();
+  const parseCopy = copy.ledger.parse;
+  const [plannerResult, setPlannerResult] = useState<PlannerResult | null>(
+    null,
+  );
   const [review, setReview] = useState<LedgerReviewValues>({
     amount: "",
     category: "expense",
@@ -46,11 +51,18 @@ export function usePlannerWorkflow(input: {
       setPlannerResult(result);
       setReview(result.reviewValues);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Planner failed");
+      setError(err instanceof Error ? err.message : parseCopy.plannerFailed);
     } finally {
       setIsPlanning(false);
     }
-  }, [input.fileName, input.mimeType, input.model, input.rawJson, input.rawText]);
+  }, [
+    input.fileName,
+    input.mimeType,
+    input.model,
+    input.rawJson,
+    input.rawText,
+    parseCopy.plannerFailed,
+  ]);
 
   const approveProposal = useCallback(
     async (writeProposalId: string) => {
@@ -72,12 +84,12 @@ export function usePlannerWorkflow(input: {
           setReview(result.reviewValues);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Approval failed");
+        setError(err instanceof Error ? err.message : parseCopy.approvalFailed);
       } finally {
         setIsApproving(false);
       }
     },
-    [plannerResult, review],
+    [parseCopy.approvalFailed, plannerResult, review],
   );
 
   const rejectProposal = useCallback(
@@ -95,12 +107,14 @@ export function usePlannerWorkflow(input: {
 
         setPlannerResult(result);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Rejection failed");
+        setError(
+          err instanceof Error ? err.message : parseCopy.rejectionFailed,
+        );
       } finally {
         setIsApproving(false);
       }
     },
-    [plannerResult],
+    [parseCopy.rejectionFailed, plannerResult],
   );
 
   const updateField = useCallback(

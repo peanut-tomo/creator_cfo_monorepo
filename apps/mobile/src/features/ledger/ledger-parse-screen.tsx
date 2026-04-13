@@ -1,16 +1,29 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackHeaderBar } from "../../components/back-header-bar";
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { useAppShell } from "../app-shell/provider";
+import {
+  formatLedgerParseCandidateState,
+  formatLedgerParseProposalType,
+  formatLedgerParseWorkflowState,
+} from "./ledger-parse-localization";
 import { usePlannerWorkflow } from "./use-planner-workflow";
 
 export function LedgerParseScreen() {
   const router = useRouter();
-  const { palette } = useAppShell();
+  const { copy, palette, resolvedLocale } = useAppShell();
+  const parseCopy = copy.ledger.parse;
   const params = useLocalSearchParams<{
     fileName?: string;
     rawJson?: string;
@@ -20,7 +33,7 @@ export function LedgerParseScreen() {
     mimeType?: string;
   }>();
 
-  const fileName = params.fileName ?? "Unknown file";
+  const fileName = params.fileName ?? parseCopy.unknownFile;
   const rawJson = params.rawJson ?? "";
   const rawText = params.rawText ?? "";
   const model = params.model ?? "";
@@ -50,7 +63,8 @@ export function LedgerParseScreen() {
     rawText,
   });
 
-  const canStartPlanner = hasData && !parseError && parsedRawJson !== null && !plannerResult;
+  const canStartPlanner =
+    hasData && !parseError && parsedRawJson !== null && !plannerResult;
   const allApproved = plannerResult?.batchState === "approved";
 
   return (
@@ -72,31 +86,52 @@ export function LedgerParseScreen() {
           onBack={() => router.back()}
           palette={palette}
           rightAccessory={<CfoAvatar />}
-          title="Creator CFO"
+          title={copy.common.appName}
         />
       </View>
 
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.heroBlock}>
-          <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>Parse result</Text>
-          <Text style={[styles.heroTitle, { color: palette.ink }]}>OpenAI Response</Text>
+          <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>
+            {parseCopy.heroEyebrow}
+          </Text>
+          <Text style={[styles.heroTitle, { color: palette.ink }]}>
+            {parseCopy.heroTitle}
+          </Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: palette.paper, borderColor: palette.border },
+          ]}
+        >
           <View style={styles.cardHeader}>
             <Feather color={palette.inkMuted} name="file-text" size={16} />
-            <Text numberOfLines={1} style={[styles.fileName, { color: palette.ink }]}>
+            <Text
+              numberOfLines={1}
+              style={[styles.fileName, { color: palette.ink }]}
+            >
               {fileName}
             </Text>
           </View>
           {model ? (
-            <Text style={[styles.meta, { color: palette.inkMuted }]}>Model: {model}</Text>
+            <Text style={[styles.meta, { color: palette.inkMuted }]}>
+              {parseCopy.modelLabel}: {model}
+            </Text>
           ) : null}
         </View>
 
         {parseError ? (
-          <View style={[styles.card, { backgroundColor: "#FFF3F0", borderColor: "#BA1A1A" }]}>
-            <Text style={[styles.errorTitle, { color: "#BA1A1A" }]}>Error</Text>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: "#FFF3F0", borderColor: "#BA1A1A" },
+            ]}
+          >
+            <Text style={[styles.errorTitle, { color: "#BA1A1A" }]}>
+              {parseCopy.errorTitle}
+            </Text>
             <Text selectable style={[styles.errorText, { color: "#BA1A1A" }]}>
               {parseError}
             </Text>
@@ -104,24 +139,43 @@ export function LedgerParseScreen() {
         ) : null}
 
         {hasData ? (
-          <View style={[styles.card, { backgroundColor: palette.paper, borderColor: palette.border }]}>
-            <Text style={[styles.sectionTitle, { color: palette.ink }]}>Parsed JSON</Text>
-            <View style={[styles.jsonBox, { backgroundColor: palette.shellElevated, borderColor: palette.border }]}>
-              <Text selectable style={[styles.jsonText, { color: palette.ink }]}>
-                {formattedJson || rawText || "No data"}
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: palette.paper, borderColor: palette.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: palette.ink }]}>
+              {parseCopy.parsedJsonTitle}
+            </Text>
+            <View
+              style={[
+                styles.jsonBox,
+                {
+                  backgroundColor: palette.shellElevated,
+                  borderColor: palette.border,
+                },
+              ]}
+            >
+              <Text
+                selectable
+                style={[styles.jsonText, { color: palette.ink }]}
+              >
+                {formattedJson || rawText || parseCopy.noData}
               </Text>
             </View>
           </View>
         ) : !parseError ? (
           <View style={[styles.emptyState]}>
-            <Text style={[styles.emptyTitle, { color: palette.ink }]}>No parse result</Text>
+            <Text style={[styles.emptyTitle, { color: palette.ink }]}>
+              {parseCopy.emptyTitle}
+            </Text>
             <Text style={[styles.emptySub, { color: palette.inkMuted }]}>
-              Upload a file from the upload screen to see the OpenAI response here.
+              {parseCopy.emptySummary}
             </Text>
           </View>
         ) : null}
 
-        {/* Map to Records Button */}
         {canStartPlanner ? (
           <Pressable
             accessibilityRole="button"
@@ -136,83 +190,140 @@ export function LedgerParseScreen() {
             ]}
             testID="planner-start-button"
           >
-            <Text style={[styles.primaryButtonLabel, { color: palette.inkOnAccent }]}>
-              {isPlanning ? "Mapping..." : "Map to Records"}
+            <Text
+              style={[
+                styles.primaryButtonLabel,
+                { color: palette.inkOnAccent },
+              ]}
+            >
+              {isPlanning ? parseCopy.mapping : parseCopy.mapToRecords}
             </Text>
           </Pressable>
         ) : null}
 
-        {/* Planner Error */}
         {plannerError ? (
-          <View style={[styles.card, { backgroundColor: "#FFF3F0", borderColor: "#BA1A1A" }]}>
-            <Text style={[styles.errorTitle, { color: "#BA1A1A" }]}>Planner Error</Text>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: "#FFF3F0", borderColor: "#BA1A1A" },
+            ]}
+          >
+            <Text style={[styles.errorTitle, { color: "#BA1A1A" }]}>
+              {parseCopy.plannerErrorTitle}
+            </Text>
             <Text selectable style={[styles.errorText, { color: "#BA1A1A" }]}>
               {plannerError}
             </Text>
           </View>
         ) : null}
 
-        {/* Planner Summary */}
         {plannerResult?.plannerSummary ? (
-          <View style={[styles.card, { backgroundColor: palette.paper, borderColor: palette.border }]}>
-            <Text style={[styles.sectionTitle, { color: palette.ink }]}>Planner Summary</Text>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: palette.paper, borderColor: palette.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: palette.ink }]}>
+              {parseCopy.plannerSummaryTitle}
+            </Text>
             <Text style={[styles.summaryText, { color: palette.inkMuted }]}>
               {plannerResult.plannerSummary.summary}
             </Text>
             {plannerResult.plannerSummary.warnings.length > 0 ? (
               <View style={styles.warningList}>
                 {plannerResult.plannerSummary.warnings.map((warning, index) => (
-                  <Text key={index} style={[styles.warningText, { color: "#BA1A1A" }]}>
+                  <Text
+                    key={index}
+                    style={[styles.warningText, { color: "#BA1A1A" }]}
+                  >
                     {warning}
                   </Text>
                 ))}
               </View>
             ) : null}
             <View style={styles.statsRow}>
-              <StatPill label="Read Tasks" palette={palette} value={plannerResult.plannerSummary.readTasks.length} />
-              <StatPill label="Candidates" palette={palette} value={plannerResult.candidateRecords.length} />
-              <StatPill label="Proposals" palette={palette} value={plannerResult.writeProposals.length} />
+              <StatPill
+                label={parseCopy.statReadTasks}
+                palette={palette}
+                value={plannerResult.plannerSummary.readTasks.length}
+              />
+              <StatPill
+                label={parseCopy.statCandidates}
+                palette={palette}
+                value={plannerResult.candidateRecords.length}
+              />
+              <StatPill
+                label={parseCopy.statProposals}
+                palette={palette}
+                value={plannerResult.writeProposals.length}
+              />
             </View>
           </View>
         ) : null}
 
-        {/* Editable Candidate Fields */}
         {plannerResult && !allApproved ? (
-          <View style={[styles.card, { backgroundColor: palette.paper, borderColor: palette.border }]}>
-            <Text style={[styles.sectionTitle, { color: palette.ink }]}>Edit Record</Text>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: palette.paper, borderColor: palette.border },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: palette.ink }]}>
+              {parseCopy.editRecordTitle}
+            </Text>
             {plannerResult.candidateRecords[0] ? (
               <View style={styles.statePillRow}>
-                <View style={[styles.statePill, { backgroundColor: stateColor(plannerResult.candidateRecords[0].state) }]}>
-                  <Text style={styles.statePillText}>{plannerResult.candidateRecords[0].state}</Text>
+                <View
+                  style={[
+                    styles.statePill,
+                    {
+                      backgroundColor: stateColor(
+                        plannerResult.candidateRecords[0].state,
+                      ),
+                    },
+                  ]}
+                >
+                  <Text style={styles.statePillText}>
+                    {formatLedgerParseCandidateState(
+                      plannerResult.candidateRecords[0].state,
+                      resolvedLocale,
+                    )}
+                  </Text>
                 </View>
               </View>
             ) : null}
             <EditField
-              label="Amount"
+              fieldId="amount"
+              label={parseCopy.fieldAmount}
               onChangeText={(value) => updateField("amount", value)}
               palette={palette}
               value={review.amount}
             />
             <EditField
-              label="Date"
+              fieldId="date"
+              label={parseCopy.fieldDate}
               onChangeText={(value) => updateField("date", value)}
               palette={palette}
               value={review.date}
             />
             <EditField
-              label="Source"
+              fieldId="source"
+              label={parseCopy.fieldSource}
               onChangeText={(value) => updateField("source", value)}
               palette={palette}
               value={review.source}
             />
             <EditField
-              label="Target"
+              fieldId="target"
+              label={parseCopy.fieldTarget}
               onChangeText={(value) => updateField("target", value)}
               palette={palette}
               value={review.target}
             />
             <EditField
-              label="Description"
+              fieldId="description"
+              label={parseCopy.fieldDescription}
               onChangeText={(value) => updateField("description", value)}
               palette={palette}
               value={review.description}
@@ -220,24 +331,56 @@ export function LedgerParseScreen() {
           </View>
         ) : null}
 
-        {/* Write Proposals */}
-        {plannerResult && plannerResult.writeProposals.length > 0 && !allApproved ? (
+        {plannerResult &&
+        plannerResult.writeProposals.length > 0 &&
+        !allApproved ? (
           <View style={styles.proposalsSection}>
-            <Text style={[styles.sectionTitle, { color: palette.ink, marginBottom: 12 }]}>Write Proposals</Text>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: palette.ink, marginBottom: 12 },
+              ]}
+            >
+              {parseCopy.writeProposalsTitle}
+            </Text>
             {plannerResult.writeProposals.map((proposal) => (
               <View
                 key={proposal.writeProposalId}
-                style={[styles.proposalCard, { backgroundColor: palette.paper, borderColor: palette.border }]}
+                style={[
+                  styles.proposalCard,
+                  {
+                    backgroundColor: palette.paper,
+                    borderColor: palette.border,
+                  },
+                ]}
               >
                 <View style={styles.proposalHeader}>
                   <Text style={[styles.proposalType, { color: palette.ink }]}>
-                    {formatProposalType(proposal.proposalType)}
+                    {formatLedgerParseProposalType(
+                      proposal.proposalType,
+                      resolvedLocale,
+                    )}
                   </Text>
-                  <View style={[styles.statePill, { backgroundColor: proposalStateColor(proposal.state) }]}>
-                    <Text style={styles.statePillText}>{proposal.state}</Text>
+                  <View
+                    style={[
+                      styles.statePill,
+                      { backgroundColor: proposalStateColor(proposal.state) },
+                    ]}
+                  >
+                    <Text style={styles.statePillText}>
+                      {formatLedgerParseWorkflowState(
+                        proposal.state,
+                        resolvedLocale,
+                      )}
+                    </Text>
                   </View>
                 </View>
-                <Text style={[styles.proposalRationale, { color: palette.inkMuted }]}>
+                <Text
+                  style={[
+                    styles.proposalRationale,
+                    { color: palette.inkMuted },
+                  ]}
+                >
                   {proposal.rationale}
                 </Text>
                 {proposal.state === "pending_approval" ? (
@@ -255,7 +398,9 @@ export function LedgerParseScreen() {
                       ]}
                       testID={`approve-${proposal.writeProposalId}`}
                     >
-                      <Text style={styles.actionButtonLabel}>Approve</Text>
+                      <Text style={styles.actionButtonLabel}>
+                        {parseCopy.approve}
+                      </Text>
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
@@ -270,7 +415,9 @@ export function LedgerParseScreen() {
                       ]}
                       testID={`reject-${proposal.writeProposalId}`}
                     >
-                      <Text style={styles.actionButtonLabel}>Reject</Text>
+                      <Text style={styles.actionButtonLabel}>
+                        {parseCopy.reject}
+                      </Text>
                     </Pressable>
                   </View>
                 ) : null}
@@ -279,12 +426,18 @@ export function LedgerParseScreen() {
           </View>
         ) : null}
 
-        {/* Success State */}
         {allApproved ? (
-          <View style={[styles.card, { backgroundColor: "#E8F5E9", borderColor: "#4CAF50" }]}>
-            <Text style={[styles.sectionTitle, { color: "#2E7D32" }]}>Record Saved</Text>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: "#E8F5E9", borderColor: "#4CAF50" },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: "#2E7D32" }]}>
+              {parseCopy.recordSavedTitle}
+            </Text>
             <Text style={[styles.summaryText, { color: "#2E7D32" }]}>
-              All proposals have been approved and the record has been persisted.
+              {parseCopy.recordSavedSummary}
             </Text>
           </View>
         ) : null}
@@ -297,7 +450,11 @@ export function LedgerParseScreen() {
             { backgroundColor: pressed ? palette.heroEnd : palette.ink },
           ]}
         >
-          <Text style={[styles.backButtonLabel, { color: palette.inkOnAccent }]}>Back to Upload</Text>
+          <Text
+            style={[styles.backButtonLabel, { color: palette.inkOnAccent }]}
+          >
+            {parseCopy.backToUpload}
+          </Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -305,6 +462,7 @@ export function LedgerParseScreen() {
 }
 
 function EditField(props: {
+  fieldId: string;
   label: string;
   onChangeText: (value: string) => void;
   palette: Record<string, string>;
@@ -312,7 +470,9 @@ function EditField(props: {
 }) {
   return (
     <View style={styles.editFieldContainer}>
-      <Text style={[styles.editFieldLabel, { color: props.palette.inkMuted }]}>{props.label}</Text>
+      <Text style={[styles.editFieldLabel, { color: props.palette.inkMuted }]}>
+        {props.label}
+      </Text>
       <TextInput
         onChangeText={props.onChangeText}
         style={[
@@ -323,24 +483,33 @@ function EditField(props: {
             color: props.palette.ink,
           },
         ]}
-        testID={`edit-${props.label.toLowerCase()}`}
+        testID={`edit-${props.fieldId}`}
         value={props.value}
       />
     </View>
   );
 }
 
-function StatPill(props: { label: string; palette: Record<string, string>; value: number }) {
+function StatPill(props: {
+  label: string;
+  palette: Record<string, string>;
+  value: number;
+}) {
   return (
-    <View style={[styles.statPillContainer, { backgroundColor: props.palette.shellElevated }]}>
-      <Text style={[styles.statPillValue, { color: props.palette.ink }]}>{props.value}</Text>
-      <Text style={[styles.statPillLabel, { color: props.palette.inkMuted }]}>{props.label}</Text>
+    <View
+      style={[
+        styles.statPillContainer,
+        { backgroundColor: props.palette.shellElevated },
+      ]}
+    >
+      <Text style={[styles.statPillValue, { color: props.palette.ink }]}>
+        {props.value}
+      </Text>
+      <Text style={[styles.statPillLabel, { color: props.palette.inkMuted }]}>
+        {props.label}
+      </Text>
     </View>
   );
-}
-
-function formatProposalType(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function stateColor(state: string): string {

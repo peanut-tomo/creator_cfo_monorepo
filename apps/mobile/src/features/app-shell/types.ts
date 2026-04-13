@@ -27,6 +27,7 @@ export type AppSession = GuestSession | AppleSession;
 export interface PersistedAppState {
   localePreference: LocalePreference;
   openAiApiKey: string;
+  parseApiBaseUrl: string;
   profileInfo: ProfileInfo;
   session: AppSession | null;
   themePreference: ThemePreference;

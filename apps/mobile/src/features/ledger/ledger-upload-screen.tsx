@@ -15,10 +15,16 @@ import { useAppShell } from "../app-shell/provider";
 
 export function LedgerUploadScreen() {
   const router = useRouter();
-  const { copy, palette } = useAppShell();
+  const { copy, palette, resolvedLocale } = useAppShell();
+  const uploadCopy = copy.ledger.upload;
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
-  const [status, setStatus] = useState("Select files or photos to upload for OpenAI parsing.");
+  const [status, setStatus] = useState<{
+    fileName?: string;
+    kind: "empty" | "idle" | "parsing";
+  }>({
+    kind: "idle",
+  });
 
   async function handleImport(source: "documents" | "photos"): Promise<void> {
     setIsBusy(true);
@@ -27,18 +33,22 @@ export function LedgerUploadScreen() {
     try {
       const candidates =
         source === "photos"
-          ? await pickPhotoUploadCandidates()
+          ? await pickPhotoUploadCandidates(resolvedLocale)
           : await pickDocumentUploadCandidates();
 
       if (!candidates.length) {
-        setStatus("No files were selected.");
+        setStatus({ kind: "empty" });
         return;
       }
 
       const first = candidates[0]!;
-      setStatus(`Parsing ${first.originalFileName}...`);
+      setStatus({ fileName: first.originalFileName, kind: "parsing" });
 
-      const result = await parseFile(first.uri, first.originalFileName, first.mimeType);
+      const result = await parseFile(
+        first.uri,
+        first.originalFileName,
+        first.mimeType,
+      );
 
       router.push({
         params: {
@@ -51,11 +61,22 @@ export function LedgerUploadScreen() {
         pathname: "/ledger/parse",
       });
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : "Upload import failed.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : uploadCopy.errorFallback,
+      );
     } finally {
       setIsBusy(false);
     }
   }
+
+  const statusText =
+    status.kind === "empty"
+      ? uploadCopy.emptySelection
+      : status.kind === "parsing" && status.fileName
+        ? `${uploadCopy.parsingStatusPrefix} ${status.fileName}...`
+        : uploadCopy.hint;
 
   return (
     <SafeAreaView
@@ -81,11 +102,14 @@ export function LedgerUploadScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.heroBlock}>
-          <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>Upload center</Text>
-          <Text style={[styles.heroTitle, { color: palette.ink }]}>{copy.ledger.upload.title}</Text>
+          <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>
+            {uploadCopy.eyebrow}
+          </Text>
+          <Text style={[styles.heroTitle, { color: palette.ink }]}>
+            {uploadCopy.title}
+          </Text>
           <Text style={[styles.heroSummary, { color: palette.inkMuted }]}>
-            Upload receipts, PDFs, or photos. The file is sent to OpenAI for parsing and the raw
-            JSON result is displayed on the next screen.
+            {uploadCopy.summary}
           </Text>
         </View>
 
@@ -99,12 +123,19 @@ export function LedgerUploadScreen() {
             },
           ]}
         >
-          <View style={[styles.uploadGlyph, { backgroundColor: palette.accentSoft }]}>
+          <View
+            style={[
+              styles.uploadGlyph,
+              { backgroundColor: palette.accentSoft },
+            ]}
+          >
             <Feather color={palette.accent} name="upload-cloud" size={26} />
           </View>
-          <Text style={[styles.dropTitle, { color: palette.ink }]}>Upload & Parse</Text>
+          <Text style={[styles.dropTitle, { color: palette.ink }]}>
+            {uploadCopy.uploadCardTitle}
+          </Text>
           <Text style={[styles.dropSummary, { color: palette.inkMuted }]}>
-            Select a file, send it to OpenAI, and view the raw JSON response.
+            {uploadCopy.uploadCardSummary}
           </Text>
 
           <View style={styles.buttonStack}>
@@ -123,9 +154,18 @@ export function LedgerUploadScreen() {
               testID="ledger-upload-select-photos-button"
             >
               <View style={styles.primaryButtonContent}>
-                <MaterialCommunityIcons color={palette.inkOnAccent} name="image-multiple-outline" size={18} />
-                <Text style={[styles.primaryButtonLabel, { color: palette.inkOnAccent }]}>
-                  {isBusy ? "Parsing..." : "Select Photos"}
+                <MaterialCommunityIcons
+                  color={palette.inkOnAccent}
+                  name="image-multiple-outline"
+                  size={18}
+                />
+                <Text
+                  style={[
+                    styles.primaryButtonLabel,
+                    { color: palette.inkOnAccent },
+                  ]}
+                >
+                  {isBusy ? uploadCopy.parsing : uploadCopy.selectPhotos}
                 </Text>
               </View>
             </Pressable>
@@ -145,14 +185,27 @@ export function LedgerUploadScreen() {
               testID="ledger-upload-select-button"
             >
               <View style={styles.primaryButtonContent}>
-                <MaterialCommunityIcons color={palette.ink} name="file-upload-outline" size={18} />
-                <Text style={[styles.secondaryButtonLabel, { color: palette.ink }]}>Select Files</Text>
+                <MaterialCommunityIcons
+                  color={palette.ink}
+                  name="file-upload-outline"
+                  size={18}
+                />
+                <Text
+                  style={[styles.secondaryButtonLabel, { color: palette.ink }]}
+                >
+                  {uploadCopy.selectFiles}
+                </Text>
               </View>
             </Pressable>
           </View>
 
-          <Text style={[styles.hint, { color: error ? "#BA1A1A" : palette.inkMuted }]}>
-            {error ?? status}
+          <Text
+            style={[
+              styles.hint,
+              { color: error ? "#BA1A1A" : palette.inkMuted },
+            ]}
+          >
+            {error ?? statusText}
           </Text>
         </View>
       </ScrollView>

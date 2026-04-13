@@ -16,7 +16,7 @@ const emptySnapshot: HomeSnapshot = {
 };
 
 export function useHomeScreenData() {
-  const { storageRevision } = useAppShell();
+  const { resolvedLocale, storageRevision } = useAppShell();
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -25,17 +25,23 @@ export function useHomeScreenData() {
 
   useEffect(() => {
     void refresh();
-  }, [storageRevision]);
+  }, [resolvedLocale, storageRevision]);
 
   async function refresh(): Promise<void> {
     setIsRefreshing(true);
     setError(null);
 
     try {
-      const nextSnapshot = await loadHomeScreenSnapshot();
+      const nextSnapshot = await loadHomeScreenSnapshot({ locale: resolvedLocale });
       setSnapshot(nextSnapshot);
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : "Home data failed to load.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : resolvedLocale === "zh-CN"
+            ? "首页数据加载失败。"
+            : "Home data failed to load.",
+      );
     } finally {
       setIsLoaded(true);
       setIsRefreshing(false);
@@ -52,6 +58,7 @@ export function useHomeScreenData() {
 
     try {
       const nextSnapshot = await loadHomeScreenSnapshot({
+        locale: resolvedLocale,
         offset: snapshot.recentRecords.length,
       });
       setSnapshot((current) => ({
@@ -59,7 +66,13 @@ export function useHomeScreenData() {
         recentRecords: [...current.recentRecords, ...nextSnapshot.recentRecords],
       }));
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : "More home records failed to load.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : resolvedLocale === "zh-CN"
+            ? "更多首页记录加载失败。"
+            : "More home records failed to load.",
+      );
     } finally {
       setIsLoaded(true);
       setIsLoadingMore(false);

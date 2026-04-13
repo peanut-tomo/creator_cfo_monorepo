@@ -112,6 +112,41 @@ describe("ledger tax helper shared utilities", () => {
     ).toBe(
       "Tax year 2026 has business activity, but no authoritative local tax mappings are ready yet.",
     );
+    expect(
+      buildTaxHelperLauncherState({
+        latestYearLabel: "2026",
+        locale: "zh-CN",
+        selectedScope: "business",
+        yearCount: 2,
+      }),
+    ).toEqual({
+      canOpen: true,
+      note: "最新可用税年：2026",
+    });
+    expect(
+      buildTaxHelperLauncherState({
+        latestYearLabel: null,
+        locale: "zh-CN",
+        selectedScope: "personal",
+        yearCount: 1,
+      }),
+    ).toEqual({
+      canOpen: false,
+      note: "切回经营视角后，才能打开税务辅助。",
+    });
+    expect(
+      buildTaxHelperEmptyStateMessage(
+        {
+          businessRecordCount: 2,
+          derivedFields: [],
+          exportableRecordIds: [],
+          mappedRecordCount: 0,
+          notices: [],
+        },
+        2026,
+        "zh-CN",
+      ),
+    ).toBe("2026 税年已有经营活动，但还没有可用的本地权威税务映射。");
   });
 
   it("coalesces evidence links and builds a manifest", () => {
