@@ -434,7 +434,7 @@ export interface AppCopy {
 export const appCopy: Record<ResolvedLocale, AppCopy> = {
   en: {
     common: {
-      appName: "Creator CFO",
+      appName: "Ledgerly",
       dark: "Dark",
       english: "English",
       guest: "Guest",
@@ -952,7 +952,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
   },
   "zh-CN": {
     common: {
-      appName: "Creator CFO",
+      appName: "Ledgerly",
       dark: "黑夜",
       english: "英文",
       guest: "游客",
