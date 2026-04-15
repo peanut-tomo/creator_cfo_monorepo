@@ -14,6 +14,7 @@ The active runtime baseline is a hybrid `v5` contract:
 - the canonical persisted transaction surface is `records`
 - Schedule C and Schedule SE previews remain supported
 - extra information that cannot be derived from evidence must be supplied manually by the caller or user flow
+- native startup no longer auto-creates a brand-new empty database when no active package exists; the user must explicitly import a package or initialize an empty one
 
 Direct evidence capture is intentionally limited to:
 
@@ -73,7 +74,7 @@ The workflow layer is now persisted explicitly instead of only living in transie
 - `planner_runs` stores historical planner payloads plus locally validated summaries derived from extraction output
 - `planner_read_tasks` stores prerequisite reads and their results before approval-gated writes
 - `candidate_records` stores review-layer candidate rows before final books are mutated
-- `workflow_write_proposals` stores approval-gated proposals for `counterparties` and final `records` persistence
+- `workflow_write_proposals` stores approval-gated proposals for `counterparties`, duplicate-receipt decisions, and final `records` persistence
 - `workflow_audit_events` stores durable approval notes, rejection notes, and workflow rationale
 
 ## Runtime Scope
@@ -110,6 +111,7 @@ Expected upload-state rules:
 - parser failures become `parse_status = failed` and must remain retryable
 - runtime readers resolve `evidence_files.relative_path` and `evidences.file_path` from the active package root, not from a detached global storage location
 - runtime open/import fails closed when a tracked evidence path is absolute, escapes the package root, or points to a missing required file
+- known legacy portable CFO packages that still match the older core 8-table baseline remain acceptable migration inputs; activation upgrades them to the current contract before normal runtime reads and writes proceed
 - the authoritative workflow state now lives on `upload_batches.state` plus per-row `candidate_records.state`; `evidences.parse_status` remains a compatibility summary for queue screens
 
 Expected write-policy rules:
@@ -118,10 +120,13 @@ Expected write-policy rules:
 - `counterparties`, final `records`, and `record_evidence_links` must remain approval-gated
 - planner output must not be treated as final bookkeeping truth without local validation and operator approval
 - rejected write proposals do not roll back already executed approvals; the workflow records a rejection note and may re-plan downstream proposals
+- same-receipt duplicate review is stored as a durable `resolve_duplicate_receipt` proposal with overlap metadata in `workflow_write_proposals.payload_json`
+- counterparty overlap review is stored as a durable `merge_counterparty` proposal, while the fallback `create_counterparty` stays blocked until the operator chooses `Keep New Counterparty`
+- approving `Merge Receipt` suppresses duplicate final writes and links the new evidence onto the existing related records through `record_evidence_links`
 
 Expected `extracted_data` JSON fields:
 
-- `parser`: `openai_gpt` or `rule_fallback`
+- `parser`: `openai_gpt`, `gemini`, or `rule_fallback`
 - `model`: parsed model identifier when remote GPT parsing succeeds
 - `sourceLabel`: human-readable parse source
 - `originData`: validated parser DTO snapshot returned by the parser request and cached for testing plus review visibility
@@ -142,7 +147,7 @@ Expected `extraction_runs.parse_payload` semantics:
 Expected `planner_runs` semantics:
 
 - `planner_payload_json`: the validated remote planner DTO returned by the planner call
-- `summary_json`: the locally enriched planner summary after read-task execution, duplicate checks, counterparty resolution, dependency ordering, and writeability validation
+- `summary_json`: the locally enriched planner summary after read-task execution, duplicate checks, duplicate overlap grouping, counterparty resolution, dependency ordering, and writeability validation
 - planner DTO invalidation or missing required sections marks `planner_runs.state = failed`, `upload_batches.state = failed`, persists `error_message`, and appends `workflow_audit_events`
 
 Compatibility notes:
@@ -153,14 +158,23 @@ Compatibility notes:
 
 ## Device State
 
-The device-state contract is now at version `4`. In addition to theme, locale, and session, the app persists:
+The device-state contract is now at version `6`. In addition to theme, locale, and session, the app persists:
 
 - `openai_api_key`: the user-provided OpenAI API key used only for outbound parse requests
+- `ai_provider`: the user's selected AI provider for document parsing and planning (`"openai"`, `"gemini"`, or `"infer"`, default `"openai"`)
+- `gemini_api_key`: the user-provided Gemini API key for direct Gemini parse requests
+- `infer_api_key`: the user-provided Infer API key for OpenAI-compatible parse requests via Infer
+- `infer_base_url`: the user-provided Infer base URL for OpenAI-compatible parse requests via Infer
+- `infer_model`: the user-selected model name for Infer API parse requests (e.g. `deepseek-chat`)
+- `gemini_auth_mode`: whether Gemini uses a manual API key or Google OAuth token (`"api_key"` or `"google_oauth"`, default `"api_key"`)
+- `google_access_token`: the Google OAuth access token for direct Gemini API calls when using `google_oauth` auth mode
+- `google_refresh_token`: the Google OAuth refresh token for silent token renewal
+- `google_token_expires_at`: the ISO 8601 timestamp when the current Google access token expires
 - `profile_name`: profile name used as mapping source context
 - `profile_email`: profile email used as mapping source context
 - `profile_phone`: profile phone used as mapping source context
 
-The OpenAI base URL and model now come from the runtime env (`EXPO_PUBLIC_OPENAI_BASE_URL`, `EXPO_PUBLIC_OPENAI_MODEL`) rather than local device state.
+The OpenAI base URL and model now come from the runtime env (`EXPO_PUBLIC_OPENAI_BASE_URL`, `EXPO_PUBLIC_OPENAI_MODEL`) rather than local device state. Gemini base URL and model come from `EXPO_PUBLIC_GEMINI_BASE_URL` and `EXPO_PUBLIC_GEMINI_MODEL` respectively. Infer model can be overridden via `EXPO_PUBLIC_INFER_MODEL`.
 
 ## Contract Source Of Truth
 

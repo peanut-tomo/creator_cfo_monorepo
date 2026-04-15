@@ -196,6 +196,7 @@ export interface AppCopy {
       fieldTarget: string;
       heroEyebrow: string;
       heroTitle: string;
+      heroTitleSuffix: string;
       mapToRecords: string;
       mapping: string;
       modelLabel: string;
@@ -245,6 +246,7 @@ export interface AppCopy {
     summary: string;
     title: string;
     upload: {
+      cameraPermissionDenied: string;
       continue: string;
       emptySelection: string;
       eyebrow: string;
@@ -256,6 +258,7 @@ export interface AppCopy {
       selectPhotos: string;
       sourceTitle: string;
       summary: string;
+      takePhoto: string;
       title: string;
       uploadCardSummary: string;
       uploadCardTitle: string;
@@ -347,6 +350,10 @@ export interface AppCopy {
     body: string;
     caption: string;
     eyebrow: string;
+    googleButton: string;
+    googleCancelled: string;
+    googleHint: string;
+    googleUnavailable: string;
     privacyEyebrow: string;
     privacyMetrics: [string, string];
     privacySummary: string;
@@ -355,9 +362,21 @@ export interface AppCopy {
     title: string;
   };
   meScreen: {
+    aiProviderGemini: string;
+    aiProviderInfer: string;
+    aiProviderLabel: string;
+    aiProviderOpenAi: string;
     apiBaseUrlLabel: string;
     apiBaseUrlPlaceholder: string;
     apiClear: string;
+    apiGeminiKeyLabel: string;
+    apiGeminiKeyPlaceholder: string;
+    apiInferBaseUrlLabel: string;
+    apiInferBaseUrlPlaceholder: string;
+    apiInferKeyLabel: string;
+    apiInferKeyPlaceholder: string;
+    apiInferModelLabel: string;
+    apiInferModelPlaceholder: string;
     apiKeyLabel: string;
     apiKeyPlaceholder: string;
     apiSave: string;
@@ -365,22 +384,60 @@ export interface AppCopy {
     apiSectionEyebrow: string;
     apiSectionTitle: string;
     databaseDescription: string;
+    databaseDemoAction: string;
+    databaseDemoDescription: string;
+    databaseDemoFailure: string;
+    databaseDemoInProgress: string;
+    databaseDemoRecordSuffix: string;
+    databaseDemoSuccess: string;
     databaseImportAction: string;
     databaseImportCheckedSuffix: string;
     databaseImportFailure: string;
     databaseImportInProgress: string;
     databaseImportSuccess: string;
     databaseTitle: string;
+    geminiKeyRequiredAlert: string;
+    hideApiKey: string;
+    inferBaseUrlRequiredAlert: string;
+    inferKeyRequiredAlert: string;
     localeDescription: string;
     logoutDescription: string;
+    openAiKeyRequiredAlert: string;
+    profileDescription: string;
+    profileEmailLabel: string;
+    profileEmailPlaceholder: string;
+    profileEyebrow: string;
+    profileNameLabel: string;
+    profileNamePlaceholder: string;
+    profilePhoneLabel: string;
+    profilePhonePlaceholder: string;
+    profileSave: string;
+    profileTitle: string;
+    geminiOAuthConnected: string;
+    geminiOAuthConnecting: string;
+    geminiOAuthDisconnect: string;
+    geminiOAuthOrLabel: string;
     sessionApple: string;
     sessionDescription: string;
+    sessionGoogle: string;
     sessionGuest: string;
     sessionNone: string;
     sessionTitle: string;
+    showApiKey: string;
     storageEyebrow: string;
     themeDescription: string;
     title: string;
+  };
+  storageSetup: {
+    eyebrow: string;
+    importAction: string;
+    importInProgress: string;
+    initializeAction: string;
+    initializeInProgress: string;
+    missingSummary: string;
+    missingTitle: string;
+    recoverySummary: string;
+    recoveryTitle: string;
   };
   tabs: {
     discover: string;
@@ -393,7 +450,7 @@ export interface AppCopy {
 export const appCopy: Record<ResolvedLocale, AppCopy> = {
   en: {
     common: {
-      appName: "Creator CFO",
+      appName: "Ledgerly",
       dark: "Dark",
       english: "English",
       guest: "Guest",
@@ -570,8 +627,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       trendEmptySummary:
         "Add a posted income record to start the 30-day trend view.",
       trendEmptyTitle: "No income in the last 30 days",
-      trendSubtitle: "Pulled from local SQLite records",
-      trendTitle: "30-Day Income Trend",
+      trendSubtitle: "Built from 30 days of local ledger activity",
+      trendTitle: "30-Day Cash Flow Trend",
     },
     home: {
       cashTitle: "Cash confidence",
@@ -655,6 +712,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         fieldTarget: "Target",
         heroEyebrow: "Parse result",
         heroTitle: "OpenAI Response",
+        heroTitleSuffix: "Response",
         mapToRecords: "Map to Records",
         mapping: "Mapping...",
         modelLabel: "Model",
@@ -708,6 +766,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title:
         "The accounting shell is ready for the first local-first workflows.",
       upload: {
+        cameraPermissionDenied:
+          "Camera access is required to take a photo. Please enable it in Settings.",
         continue: "Continue to parser",
         emptySelection: "No files were selected.",
         eyebrow: "Upload center",
@@ -720,6 +780,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         sourceTitle: "Upload source",
         summary:
           "Upload receipts, PDFs, or photos. The file is sent to OpenAI for parsing and the raw JSON result is displayed on the next screen.",
+        takePhoto: "Take Photo",
         title: "Upload workspace",
         uploadCardSummary:
           "Select a file, send it to OpenAI, and view the raw JSON response.",
@@ -813,9 +874,13 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       appleUnavailable:
         "Apple sign-in is unavailable here. Continue as a guest.",
       brandSubtitle: "Your local-first financial workbench.",
-      body: "Sign in with Apple or step in as a guest. Your shell stays local, calm, and ready.",
+      body: "Sign in with Apple, Google, or step in as a guest. Your shell stays local, calm, and ready.",
       caption: "Theme and language stay in sync with your device.",
       eyebrow: "Local-first login",
+      googleButton: "Continue with Google",
+      googleCancelled: "Google sign-in canceled. Retry or continue as a guest.",
+      googleHint: "Sign in with Google to use Gemini AI without an API key.",
+      googleUnavailable: "Google sign-in is not available right now.",
       privacyEyebrow: "Privacy first",
       privacyMetrics: ["AES-256 local encryption", "Zero cloud sync default"],
       privacySummary: "Your records stay organized on-device first.",
@@ -824,38 +889,92 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title: "One calm place for creator cash.",
     },
     meScreen: {
+      aiProviderGemini: "Google AI Studio Gemini",
+      aiProviderInfer: "Infer API",
+      aiProviderLabel: "AI Provider",
+      aiProviderOpenAi: "OpenAI",
       apiBaseUrlLabel: "Vercel API Base URL",
       apiBaseUrlPlaceholder: "https://your-project.vercel.app",
       apiClear: "Clear",
+      apiGeminiKeyLabel: "Gemini API Key",
+      apiGeminiKeyPlaceholder: "AIza...",
+      apiInferBaseUrlLabel: "Infer Base URL",
+      apiInferBaseUrlPlaceholder: "https://api.infer.com/v1",
+      apiInferKeyLabel: "Infer API Key",
+      apiInferKeyPlaceholder: "sk-...",
+      apiInferModelLabel: "Infer Model",
+      apiInferModelPlaceholder: "e.g. gpt-4o, deepseek-chat",
       apiKeyLabel: "OpenAI API Key",
       apiKeyPlaceholder: "sk-...",
       apiSave: "Save API Settings",
       apiSectionDescription:
-        "Store your Vercel API URL and OpenAI API key locally on this device. Upload parsing sends the key only in the request header and does not save it to SQLite.",
+        "Choose an AI provider, store the API base URL and key locally on this device, and use them only in parse requests.",
       apiSectionEyebrow: "AI Parse",
-      apiSectionTitle: "Vercel Parse API",
+      apiSectionTitle: "AI Parse Settings",
       databaseDescription:
         "Import a CFO database package from Files or iCloud Drive. The selected database must keep its evidence files beside it under package-relative paths. On iPhone and iPad, choose the creator-cfo-vault folder, or a folder that contains it, in the folder picker.",
+      databaseDemoAction: "Load Demo Ledger",
+      databaseDemoDescription:
+        "Populate this local database with a creator-finance demo ledger so Home and Ledger show realistic balances, activity, and reports.",
+      databaseDemoFailure: "Demo ledger load failed.",
+      databaseDemoInProgress: "Loading demo ledger...",
+      databaseDemoRecordSuffix: "demo records created.",
+      databaseDemoSuccess: "Loaded demo ledger.",
       databaseImportAction: "Import Database",
       databaseImportCheckedSuffix: "path(s) checked.",
       databaseImportFailure: "Database import failed.",
       databaseImportInProgress: "Importing database package...",
       databaseImportSuccess: "Imported database package successfully.",
       databaseTitle: "Local database package",
+      geminiKeyRequiredAlert: "Enter a Gemini API key first.",
+      geminiOAuthConnected: "Connected via Google Sign-In",
+      geminiOAuthConnecting: "Connecting...",
+      geminiOAuthDisconnect: "Disconnect Google AI",
+      geminiOAuthOrLabel: "OR",
+      hideApiKey: "Hide API key",
+      inferBaseUrlRequiredAlert: "Enter an Infer Base URL first.",
+      inferKeyRequiredAlert: "Enter an Infer API Key first.",
       localeDescription:
         "Switch shell copy instantly and keep the choice on device.",
       logoutDescription:
         "Clear the local session summary and return to the login gate.",
+      openAiKeyRequiredAlert: "Enter an OpenAI API key first.",
+      profileDescription:
+        "Store your profile locally on this device and use it as mapping context when parsing records.",
+      profileEmailLabel: "Email",
+      profileEmailPlaceholder: "you@example.com",
+      profileEyebrow: "Profile",
+      profileNameLabel: "Name",
+      profileNamePlaceholder: "Your name",
+      profilePhoneLabel: "Phone",
+      profilePhonePlaceholder: "+1 555-0100",
+      profileSave: "Save Profile",
+      profileTitle: "Profile",
       sessionApple: "Apple ID",
       sessionDescription:
-        "Session state is stored locally for guest mode or Apple sign-in preview.",
+        "Session state is stored locally for guest mode, Apple, or Google sign-in.",
+      sessionGoogle: "Google",
       sessionGuest: "Guest mode",
       sessionNone: "Signed out",
       sessionTitle: "Session",
+      showApiKey: "Show API key",
       storageEyebrow: "Storage",
       themeDescription:
         "Move between light, dark, or system appearance without leaving the app.",
       title: "Preferences and session controls",
+    },
+    storageSetup: {
+      eyebrow: "Storage setup",
+      importAction: "Import Database",
+      importInProgress: "Importing database package...",
+      initializeAction: "Initialize Empty Database",
+      initializeInProgress: "Initializing empty database...",
+      missingSummary:
+        "This device does not have an active CFO database package yet. Import an existing portable package or create a new empty local database to continue.",
+      missingTitle: "Choose how to start local storage",
+      recoverySummary:
+        "The current active package could not be opened safely. Import another package or replace it with a new empty database after review.",
+      recoveryTitle: "Active database needs recovery",
     },
     tabs: {
       discover: "Discover",
@@ -866,7 +985,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
   },
   "zh-CN": {
     common: {
-      appName: "Creator CFO",
+      appName: "Ledgerly",
       dark: "黑夜",
       english: "英文",
       guest: "游客",
@@ -1037,8 +1156,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       trendEmptySummary:
         "新增一条已入账收入记录后，这里会开始展示近 30 天趋势。",
       trendEmptyTitle: "近 30 天还没有收入",
-      trendSubtitle: "从本地 SQLite 记录生成",
-      trendTitle: "30 天收入趋势",
+      trendSubtitle: "基于最近 30 天本地账本动态生成",
+      trendTitle: "30 天收支趋势",
     },
     home: {
       cashTitle: "现金把控",
@@ -1115,6 +1234,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         fieldTarget: "去向方",
         heroEyebrow: "解析结果",
         heroTitle: "OpenAI 返回结果",
+        heroTitleSuffix: "返回结果",
         mapToRecords: "映射到记录",
         mapping: "映射中...",
         modelLabel: "模型",
@@ -1165,6 +1285,8 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         "这个页面先验证导航、视觉节奏和模块边界，后续再接入更深的表单与数据流。",
       title: "记账壳层已经为首批本地流程预留好位置。",
       upload: {
+        cameraPermissionDenied:
+          "需要开启相机权限后才能拍照，请前往系统设置开启。",
         continue: "继续到解析页",
         emptySelection: "未选择任何文件。",
         eyebrow: "上传中心",
@@ -1177,6 +1299,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         sourceTitle: "上传来源",
         summary:
           "上传票据、PDF 或照片后，文件会被发送给 OpenAI 解析，原始 JSON 结果会在下一页展示。",
+        takePhoto: "拍照",
         title: "上传工作台",
         uploadCardSummary:
           "选择一个文件，发送给 OpenAI，并查看返回的原始 JSON 结果。",
@@ -1266,9 +1389,13 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       appleHint: "Apple 登录仅在支持的 iPhone / iPad 设备上可用。",
       appleUnavailable: "当前环境暂不支持 Apple 登录，请先使用游客模式。",
       brandSubtitle: "你的本地优先财务工作台。",
-      body: "用 Apple 登录，或先以游客进入。你的财务工作台会保持本地、清晰、轻量。",
+      body: "用 Apple、Google 登录，或先以游客进入。你的财务工作台会保持本地、清晰、轻量。",
       caption: "主题与语言会继续跟随你的设备偏好。",
       eyebrow: "本地优先登录",
+      googleButton: "使用 Google 继续",
+      googleCancelled: "已取消 Google 登录，你可以重试或先以游客进入。",
+      googleHint: "使用 Google 登录后可直接使用 Gemini AI，无需 API Key。",
+      googleUnavailable: "Google 登录暂不可用，请稍后重试。",
       privacyEyebrow: "隐私优先",
       privacyMetrics: ["AES-256 本地加密", "默认不启用云同步"],
       privacySummary: "你的记录会优先保存在本机并保持有序。",
@@ -1277,35 +1404,88 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title: "先给创作者现金流一个安静入口。",
     },
     meScreen: {
+      aiProviderGemini: "Google AI Studio Gemini",
+      aiProviderInfer: "Infer API",
+      aiProviderLabel: "AI 提供方",
+      aiProviderOpenAi: "OpenAI",
       apiBaseUrlLabel: "Vercel API 地址",
       apiBaseUrlPlaceholder: "https://your-project.vercel.app",
       apiClear: "清空",
+      apiGeminiKeyLabel: "Gemini API Key",
+      apiGeminiKeyPlaceholder: "AIza...",
+      apiInferBaseUrlLabel: "Infer Base URL",
+      apiInferBaseUrlPlaceholder: "https://api.infer.com/v1",
+      apiInferKeyLabel: "Infer API Key",
+      apiInferKeyPlaceholder: "sk-...",
+      apiInferModelLabel: "Infer Model",
+      apiInferModelPlaceholder: "如 gpt-4o, deepseek-chat",
       apiKeyLabel: "OpenAI API Key",
       apiKeyPlaceholder: "sk-...",
       apiSave: "保存设置",
       apiSectionDescription:
-        "把 Vercel API 地址和 OpenAI API Key 保存在当前设备本地。上传解析时只会在请求头里发送 Key，不会写入 SQLite。",
+        "选择 AI 提供方，并把 API 地址与 Key 保存在当前设备本地。上传解析时只会在请求头里发送 Key，不会写入 SQLite。",
       apiSectionEyebrow: "AI 解析",
-      apiSectionTitle: "Vercel 解析 API",
+      apiSectionTitle: "AI 解析设置",
       databaseDescription:
         "从文件或 iCloud Drive 导入一个 CFO 数据库包。所选数据库必须把凭证文件按相对路径放在数据库旁边。在 iPhone 和 iPad 上，请在文件夹选择器里选择 creator-cfo-vault 文件夹，或选择包含它的上级文件夹。",
+      databaseDemoAction: "导入演示账本",
+      databaseDemoDescription:
+        "向当前本地数据库注入一组创作者财务演示记录，让首页与记账页直接展示真实汇总、流水和报表效果。",
+      databaseDemoFailure: "演示账本导入失败。",
+      databaseDemoInProgress: "正在导入演示账本...",
+      databaseDemoRecordSuffix: "条演示记录已创建。",
+      databaseDemoSuccess: "演示账本导入成功。",
       databaseImportAction: "导入数据库",
       databaseImportCheckedSuffix: "个路径已检查。",
       databaseImportFailure: "数据库导入失败。",
       databaseImportInProgress: "正在导入数据库包...",
       databaseImportSuccess: "数据库包导入成功。",
       databaseTitle: "本地数据库包",
+      geminiKeyRequiredAlert: "请先填写 Gemini API Key。",
+      geminiOAuthConnected: "已通过 Google 登录连接",
+      geminiOAuthConnecting: "连接中...",
+      geminiOAuthDisconnect: "断开 Google AI",
+      geminiOAuthOrLabel: "或",
+      hideApiKey: "隐藏 Key",
+      inferBaseUrlRequiredAlert: "请填入 Infer Base URL",
+      inferKeyRequiredAlert: "请填入 Infer API Key",
       localeDescription: "立即切换界面语言，并把选择保存在设备本地。",
       logoutDescription: "清除本地会话摘要，并返回登录入口。",
+      openAiKeyRequiredAlert: "请先填写 OpenAI API Key。",
+      profileDescription: "把你的资料保存在当前设备本地，并在解析记录时作为映射上下文使用。",
+      profileEmailLabel: "邮箱",
+      profileEmailPlaceholder: "you@example.com",
+      profileEyebrow: "资料",
+      profileNameLabel: "姓名",
+      profileNamePlaceholder: "你的名字",
+      profilePhoneLabel: "电话",
+      profilePhonePlaceholder: "+1 555-0100",
+      profileSave: "保存资料",
+      profileTitle: "个人资料",
       sessionApple: "Apple ID",
       sessionDescription:
-        "游客态和 Apple 登录态都只保存在本机，方便本地优先阶段验证体验。",
+        "游客态、Apple 和 Google 登录态都只保存在本机，方便本地优先阶段验证体验。",
+      sessionGoogle: "Google",
       sessionGuest: "游客模式",
       sessionNone: "未登录",
       sessionTitle: "当前会话",
+      showApiKey: "显示 Key",
       storageEyebrow: "存储",
       themeDescription: "在应用内切换白天、黑夜或跟随系统，不打断当前流程。",
       title: "偏好设置与会话控制",
+    },
+    storageSetup: {
+      eyebrow: "存储设置",
+      importAction: "导入数据库",
+      importInProgress: "正在导入数据库包...",
+      initializeAction: "初始化空数据库",
+      initializeInProgress: "正在初始化空数据库...",
+      missingSummary:
+        "当前设备还没有可用的 CFO 数据库包。你可以导入一个现有的可携带数据库包，或新建一个空的本地数据库后继续。",
+      missingTitle: "选择本地存储的开始方式",
+      recoverySummary:
+        "当前激活的数据库包无法安全打开。请导入另一个数据库包，或在确认后用一个新的空数据库替换它。",
+      recoveryTitle: "当前数据库需要恢复",
     },
     tabs: {
       discover: "发现",

@@ -1,11 +1,14 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
-import type {
-  JsonValue,
-  PlannerSummary,
-  ReceiptPlannerPayload,
-} from "@creator-cfo/schemas";
+import type { PlannerSummary, ReceiptParsePayload } from "@creator-cfo/schemas";
+import {
+  createReadableStorageDatabase,
+  createWritableStorageDatabase,
+  resolveStandardReceiptEntry,
+  persistResolvedStandardReceiptEntry,
+} from "@creator-cfo/storage";
+import type { ResolvedLocale } from "../app-shell/types";
 
 import {
   parseFileWithOpenAiFromBlob,
@@ -13,7 +16,8 @@ import {
   type ParseResult,
 } from "./remote-parse";
 import {
-  buildExtractedData,
+  buildRemoteExtractedData,
+  defaultEntityId,
   type LedgerReviewValues,
   type WorkflowCandidateRecord,
   type WorkflowWriteProposalItem,
@@ -25,11 +29,15 @@ import {
   type PlannerReadResults,
 } from "./workflow-planner";
 import {
-  createTrendPointsFromTotals,
+  createTrendPointsFromDailyTotals,
   homeRecentPageSize,
   type HomeRecentRecord,
 } from "./ledger-domain";
 import type { HomeSnapshot } from "../home/home-data";
+import { loadHomeSnapshot } from "../home/home-data";
+import { getActiveWebDatabase, openWebSqliteDatabase } from "../../storage/web-sqlite";
+import { initializeLocalDatabase } from "../../storage/database";
+import { writeVaultFile } from "../../storage/web-file-vault";
 
 interface UploadCandidate {
   evidenceGroupKey: string;
@@ -79,8 +87,10 @@ export async function pickDocumentUploadCandidates(): Promise<
 }
 
 export async function pickPhotoUploadCandidates(
-  _locale?: import("../app-shell/types").ResolvedLocale,
+  locale?: ResolvedLocale,
 ): Promise<UploadCandidate[]> {
+  void locale;
+
   const result = await ImagePicker.launchImageLibraryAsync({
     allowsEditing: false,
     allowsMultipleSelection: true,
@@ -105,6 +115,33 @@ export async function pickPhotoUploadCandidates(
   }));
 }
 
+export async function takeCameraPhoto(
+  locale?: ResolvedLocale,
+): Promise<UploadCandidate[]> {
+  void locale;
+
+  const result = await ImagePicker.launchCameraAsync({
+    allowsEditing: false,
+    mediaTypes: ["images"] as never,
+    quality: 1,
+  });
+
+  if (result.canceled) {
+    return [];
+  }
+
+  return result.assets.map((asset, index) => ({
+    evidenceGroupKey:
+      asset.assetId || asset.fileName || `${asset.uri}-${index}`,
+    isPrimary: true,
+    kind: "image" as const,
+    mimeType: asset.mimeType ?? "image/jpeg",
+    originalFileName: asset.fileName ?? `camera-${Date.now()}.jpg`,
+    sizeBytes: asset.fileSize ?? null,
+    uri: asset.uri,
+  }));
+}
+
 export async function parseFile(
   fileUri: string,
   fileName: string,
@@ -118,69 +155,55 @@ export async function parseFile(
       rawText: "",
       model: "",
       error: `Unable to read selected file: ${response.status}`,
+      parserKind: "openai_gpt",
     };
   }
 
   const blob = await response.blob();
+
+  // Store file in IndexedDB vault for later reference
+  try {
+    const buffer = await blob.arrayBuffer();
+    const vaultPath = `uploads/${Date.now()}-${fileName}`;
+    await writeVaultFile(vaultPath, new Uint8Array(buffer));
+  } catch {
+    // Non-critical: parsing can proceed even if vault write fails
+  }
+
   return parseFileWithOpenAiFromBlob({ fileName, blob, mimeType });
 }
 
 export async function loadHomeScreenSnapshot(
   input: {
     limit?: number;
-    locale?: import("../app-shell/types").ResolvedLocale;
+    locale?: ResolvedLocale;
     now?: string;
     offset?: number;
   } = {},
 ): Promise<HomeSnapshot> {
-  const now = input.now ?? new Date().toISOString().slice(0, 10);
-  const locale = input.locale ?? "en";
-  const offset = input.offset ?? 0;
-  const limit = input.limit ?? homeRecentPageSize;
-  const records = loadRecords();
-  const monthStart = `${now.slice(0, 7)}-01`;
-  const monthEnd = endOfMonth(now);
-  const trendStart = shiftIsoDate(now, -29);
-  const metricRows = records.filter(
-    (r) => r.occurredOn >= monthStart && r.occurredOn <= monthEnd,
-  );
-  const incomeCents = metricRows
-    .filter((r) => r.recordKind === "income")
-    .reduce((s, r) => s + r.amountCents, 0);
-  const outflowCents = metricRows
-    .filter((r) => r.recordKind !== "income")
-    .reduce((s, r) => s + r.amountCents, 0);
-  const trendRows = records.filter(
-    (r) =>
-      r.recordKind === "income" &&
-      r.occurredOn >= trendStart &&
-      r.occurredOn <= now,
-  );
-  const totalsByDate = Object.fromEntries(
-    trendRows.map((row) => [
-      row.occurredOn,
-      trendRows
-        .filter((r) => r.occurredOn === row.occurredOn)
-        .reduce((s, r) => s + r.amountCents, 0),
-    ]),
-  );
+  let db = getActiveWebDatabase();
 
-  return {
-    hasMore: records.length > offset + limit,
-    metrics: {
-      incomeCents,
-      netCents: incomeCents - outflowCents,
-      outflowCents,
-    },
-    recentRecords: records.slice(offset, offset + limit),
-    trend: createTrendPointsFromTotals(totalsByDate, now, locale),
-  };
+  if (!db) {
+    db = await openWebSqliteDatabase();
+    await initializeLocalDatabase(db);
+  }
+
+  const readableDb = createReadableStorageDatabase({
+    getAllAsync: <Row>(source: string, ...params: unknown[]) =>
+      db.getAllAsync<Row>(source, ...(params as [])),
+    getFirstAsync: <Row>(source: string, ...params: unknown[]) =>
+      db.getFirstAsync<Row>(source, ...(params as [])),
+  });
+
+  return loadHomeSnapshot(readableDb, input);
 }
 
 export async function runPlanner(input: {
   fileName: string;
   mimeType: string | null;
   model: string;
+  parserKind?: string;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
   rawText: string;
 }): Promise<PlannerResult> {
@@ -194,26 +217,27 @@ export async function runPlanner(input: {
     evidenceId,
     fileName: input.fileName,
     mimeType: input.mimeType,
+    profileInfo: input.profileInfo,
     rawJson: input.rawJson,
   });
 
   // Build extracted data for planner summary
-  const extractedData = buildExtractedData({
-    fallbackDate: now.slice(0, 10),
+  const extractedData = buildRemoteExtractedData({
     fileName: input.fileName,
-    parser: "openai_gpt",
-    rawLines: input.rawText.split("\n").filter((l) => l.trim()),
-    rawText: input.rawText,
-    sourceLabel: "openai_upload",
+    parsePayload: input.rawJson as ReceiptParsePayload,
+    scheme: {},
+    sourceLabel:
+      input.parserKind === "gemini" ? "gemini_upload" : "openai_upload",
   });
-  extractedData.model = input.model;
-  extractedData.originData = input.rawJson as JsonValue;
 
   // Build read results (empty for web - no local DB)
   const readResults: PlannerReadResults = {
     duplicateRecordIds: [],
+    duplicateReceiptMatches: [],
     sourceCounterpartyMatches: [],
+    sourceCounterpartySuggestions: [],
     targetCounterpartyMatches: [],
+    targetCounterpartySuggestions: [],
   };
 
   const evidence = {
@@ -255,36 +279,13 @@ export async function runPlanner(input: {
       };
     });
 
-  const counterpartyProposalIds: string[] = [];
-  const writeProposals: WorkflowWriteProposalItem[] =
-    summary.writeProposals.map((proposal, index) => {
-      const writeProposalId = `${plannerRunId}-proposal-${index + 1}`;
-      const isCounterparty = proposal.proposalType === "create_counterparty";
-
-      if (isCounterparty) {
-        counterpartyProposalIds.push(writeProposalId);
-      }
-
-      const isPersist = proposal.proposalType === "persist_candidate_record";
-      const isBlocked = isPersist && counterpartyProposalIds.length > 0;
-
-      return {
-        approvalRequired: true,
-        candidateId: candidateRecords[0]?.candidateId ?? null,
-        createdAt: now,
-        dependencyIds: isPersist
-          ? [...counterpartyProposalIds.slice(0, -1)]
-          : [],
-        payload: proposal.values,
-        proposalType: proposal.proposalType,
-        rationale: isCounterparty
-          ? "Parsed label does not match an existing local counterparty, so creation requires approval."
-          : "Candidate record is ready for final persistence after approval and local validation.",
-        state: isBlocked ? "blocked" : "pending_approval",
-        updatedAt: now,
-        writeProposalId,
-      };
-    });
+  const writeProposals = buildWebWriteProposals({
+    candidateId: candidateRecords[0]?.candidateId ?? null,
+    candidateState: candidateRecords[0]?.state ?? "candidate",
+    createdAt: now,
+    plannerRunId,
+    proposals: summary.writeProposals,
+  });
 
   const primaryCandidate = candidateRecords[0];
 
@@ -323,47 +324,132 @@ export async function approveWriteProposal(
     throw new Error("Planner state not found for batch.");
   }
 
-  const proposalIndex = state.writeProposals.findIndex(
+  const proposal = state.writeProposals.find(
     (p) => p.writeProposalId === writeProposalId,
   );
-  const proposal = state.writeProposals[proposalIndex];
 
   if (!proposal) {
     throw new Error("Write proposal not found.");
   }
 
-  // Mark proposal as executed
   proposal.state = "executed";
   proposal.updatedAt = new Date().toISOString();
 
   if (proposal.proposalType === "create_counterparty") {
-    // Unblock dependent proposals
-    for (const p of state.writeProposals) {
-      if (p.dependencyIds.includes(writeProposalId) && p.state === "blocked") {
-        const allDepsExecuted = p.dependencyIds.every(
-          (depId) =>
-            state.writeProposals.find((wp) => wp.writeProposalId === depId)
-              ?.state === "executed",
-        );
+    applyWebCounterpartySelection(state, proposal, {
+      displayName: readFirstString(
+        proposal.payload.displayName,
+        proposal.payload.parsedDisplayName,
+      ),
+      counterpartyId: `counterparty-web-${proposal.writeProposalId}`,
+    });
+    releaseResolvedWebDependencies(state);
+    state.batchState = "review_required";
+    return state;
+  }
 
-        if (allDepsExecuted) {
-          p.state = "pending_approval";
-          p.updatedAt = new Date().toISOString();
-        }
+  if (proposal.proposalType === "merge_counterparty") {
+    applyWebCounterpartySelection(state, proposal, {
+      displayName: readFirstString(
+        proposal.payload.existingDisplayName,
+        proposal.payload.displayName,
+      ),
+      counterpartyId:
+        readFirstString(proposal.payload.existingCounterpartyId) ??
+        `counterparty-web-${proposal.writeProposalId}`,
+    });
+    rejectSiblingWebCounterpartyCreate(state, proposal);
+    releaseResolvedWebDependencies(state);
+    state.batchState = "review_required";
+    return state;
+  }
+
+  if (proposal.proposalType === "resolve_duplicate_receipt") {
+    if (state.candidateRecords[0]) {
+      state.candidateRecords[0].state = "approved";
+      state.candidateRecords[0].updatedAt = proposal.updatedAt;
+    }
+
+    for (const item of state.writeProposals) {
+      if (
+        item.writeProposalId !== writeProposalId &&
+        (item.state === "pending_approval" || item.state === "blocked")
+      ) {
+        item.state = "rejected";
+        item.updatedAt = proposal.updatedAt;
       }
     }
+
+    state.batchState = "approved";
+    return state;
   }
 
   if (
     proposal.proposalType === "persist_candidate_record" &&
     state.candidateRecords[0]
   ) {
-    state.candidateRecords[0].state = "persisted_final";
-    state.candidateRecords[0].updatedAt = new Date().toISOString();
+    const candidate = state.candidateRecords[0];
+    const now = new Date().toISOString();
+    candidate.state = "persisted_final";
+    candidate.updatedAt = now;
 
     if (review) {
-      state.candidateRecords[0].reviewValues = review;
+      candidate.reviewValues = review;
       state.reviewValues = review;
+    }
+
+    const finalReview = candidate.reviewValues;
+    const db = getActiveWebDatabase();
+
+    if (db && finalReview.amount && finalReview.date && finalReview.description) {
+      const amountCents = Math.round(
+        Number.parseFloat(finalReview.amount.replace(/[^0-9.]+/g, "")) * 100,
+      );
+      const userClassification =
+        finalReview.category === "income"
+          ? ("income" as const)
+          : finalReview.category === "spending"
+            ? ("personal_spending" as const)
+            : ("expense" as const);
+
+      const resolvedEntry = resolveStandardReceiptEntry(
+        {
+          amountCents,
+          currency: "USD",
+          description: finalReview.description.trim(),
+          entityId: defaultEntityId,
+          evidenceIds: [state.evidenceId],
+          memo: finalReview.notes?.trim() || null,
+          occurredOn: finalReview.date.trim(),
+          source: finalReview.source?.trim() || "",
+          target: finalReview.target?.trim() || "",
+          userClassification,
+        },
+        {
+          createdAt: now,
+          recordId: candidate.recordId ?? `record-${state.evidenceId}`,
+          sourceCounterpartyId: candidate.payload?.sourceCounterpartyId ?? null,
+          sourceSystem: "ledger-upload-workflow",
+          targetCounterpartyId: candidate.payload?.targetCounterpartyId ?? null,
+          updatedAt: now,
+        },
+      );
+
+      const writableDb = createWritableStorageDatabase({
+        getAllAsync: <Row>(source: string, ...params: unknown[]) =>
+          db.getAllAsync<Row>(source, ...(params as [])),
+        getFirstAsync: <Row>(source: string, ...params: unknown[]) =>
+          db.getFirstAsync<Row>(source, ...(params as [])),
+        runAsync: (source: string, ...params: unknown[]) =>
+          db.runAsync(source, ...(params as [])),
+      });
+
+      try {
+        await persistResolvedStandardReceiptEntry(writableDb, resolvedEntry);
+        candidate.recordId = resolvedEntry.record.recordId;
+      } catch (error) {
+        console.error("[web] Failed to persist record to sql.js:", error);
+      }
     }
 
     state.batchState = "approved";
@@ -400,6 +486,18 @@ export async function rejectWriteProposal(
         p.updatedAt = new Date().toISOString();
       }
     }
+
+    state.batchState = "rejected";
+    return state;
+  }
+
+  if (
+    proposal.proposalType === "merge_counterparty" ||
+    proposal.proposalType === "resolve_duplicate_receipt"
+  ) {
+    releaseResolvedWebDependencies(state);
+    state.batchState = "review_required";
+    return state;
   }
 
   if (
@@ -407,6 +505,7 @@ export async function rejectWriteProposal(
     state.candidateRecords[0]
   ) {
     state.candidateRecords[0].state = "rejected";
+    state.candidateRecords[0].updatedAt = proposal.updatedAt;
   }
 
   state.batchState = "rejected";
@@ -419,6 +518,206 @@ export async function loadPlannerState(
   return plannerStateStore.get(batchId) ?? null;
 }
 
+function buildWebWriteProposals(input: {
+  candidateId: string | null;
+  candidateState: WorkflowCandidateRecord["state"];
+  createdAt: string;
+  plannerRunId: string;
+  proposals: PlannerSummary["writeProposals"];
+}): WorkflowWriteProposalItem[] {
+  const inserted: Array<{
+    proposal: PlannerSummary["writeProposals"][number];
+    writeProposalId: string;
+  }> = [];
+
+  return input.proposals.map((proposal, index) => {
+    const writeProposalId = `${input.plannerRunId}-proposal-${index + 1}`;
+    const dependencyIds = resolveWebProposalDependencies(inserted, proposal);
+    const state =
+      dependencyIds.length > 0 ||
+      (proposal.proposalType === "persist_candidate_record" &&
+        input.candidateState !== "validated" &&
+        input.candidateState !== "needs_review")
+        ? "blocked"
+        : "pending_approval";
+
+    inserted.push({ proposal, writeProposalId });
+
+    return {
+      approvalRequired: true,
+      candidateId: input.candidateId,
+      createdAt: input.createdAt,
+      dependencyIds,
+      payload: proposal.values,
+      proposalType: proposal.proposalType,
+      rationale: buildWebProposalRationale(proposal),
+      state,
+      updatedAt: input.createdAt,
+      writeProposalId,
+    };
+  });
+}
+
+function resolveWebProposalDependencies(
+  inserted: Array<{
+    proposal: PlannerSummary["writeProposals"][number];
+    writeProposalId: string;
+  }>,
+  proposal: PlannerSummary["writeProposals"][number],
+): string[] {
+  if (proposal.proposalType === "create_counterparty") {
+    const role = readFirstString(proposal.values.role, proposal.role);
+
+    return inserted
+      .filter(
+        (item) =>
+          item.proposal.proposalType === "merge_counterparty" &&
+          readFirstString(item.proposal.values.role, item.proposal.role) ===
+            role,
+      )
+      .map((item) => item.writeProposalId);
+  }
+
+  if (proposal.proposalType === "persist_candidate_record") {
+    return inserted
+      .filter(
+        (item) =>
+          item.proposal.proposalType === "create_counterparty" ||
+          item.proposal.proposalType === "merge_counterparty" ||
+          item.proposal.proposalType === "resolve_duplicate_receipt",
+      )
+      .map((item) => item.writeProposalId);
+  }
+
+  return [];
+}
+
+function buildWebProposalRationale(
+  proposal: PlannerSummary["writeProposals"][number],
+): string {
+  if (proposal.proposalType === "create_counterparty") {
+    return "Parsed label does not match an existing local counterparty, so creation requires approval.";
+  }
+
+  if (proposal.proposalType === "merge_counterparty") {
+    return "A likely existing local counterparty was found, so the operator must decide whether to merge it or keep a new counterparty.";
+  }
+
+  if (proposal.proposalType === "resolve_duplicate_receipt") {
+    return "A likely duplicate receipt was found, so the operator must decide whether to merge the evidence or keep the uploads separate.";
+  }
+
+  return "Candidate record is ready for final persistence after approval and local validation.";
+}
+
+function applyWebCounterpartySelection(
+  state: PlannerResult,
+  proposal: WorkflowWriteProposalItem,
+  input: {
+    counterpartyId: string;
+    displayName: string | null;
+  },
+): void {
+  const role =
+    readFirstString(proposal.payload.role) === "target" ? "target" : "source";
+  const displayName = input.displayName ?? "";
+  const candidate = state.candidateRecords[0];
+
+  if (!candidate) {
+    return;
+  }
+
+  candidate.payload = {
+    ...candidate.payload,
+    ...(role === "source"
+      ? { sourceCounterpartyId: input.counterpartyId, sourceLabel: displayName }
+      : {
+          targetCounterpartyId: input.counterpartyId,
+          targetLabel: displayName,
+        }),
+  };
+  candidate.reviewValues = buildReviewValuesFromPayload(candidate.payload);
+  candidate.state = "validated";
+  candidate.updatedAt = proposal.updatedAt;
+  state.reviewValues = candidate.reviewValues;
+}
+
+function rejectSiblingWebCounterpartyCreate(
+  state: PlannerResult,
+  mergeProposal: WorkflowWriteProposalItem,
+): void {
+  const role = readFirstString(mergeProposal.payload.role);
+
+  for (const proposal of state.writeProposals) {
+    if (
+      proposal.proposalType === "create_counterparty" &&
+      proposal.writeProposalId !== mergeProposal.writeProposalId &&
+      readFirstString(proposal.payload.role) === role &&
+      proposal.state !== "executed"
+    ) {
+      proposal.state = "rejected";
+      proposal.updatedAt = mergeProposal.updatedAt;
+      removeWebProposalDependency(state, proposal.writeProposalId);
+    }
+  }
+}
+
+function releaseResolvedWebDependencies(state: PlannerResult): void {
+  for (const proposal of state.writeProposals) {
+    if (proposal.state !== "blocked" || proposal.dependencyIds.length === 0) {
+      continue;
+    }
+
+    const dependencyStates = proposal.dependencyIds
+      .map((dependencyId) =>
+        state.writeProposals.find(
+          (item) => item.writeProposalId === dependencyId,
+        ),
+      )
+      .filter((item): item is WorkflowWriteProposalItem => Boolean(item));
+    const allResolved = dependencyStates.every(
+      (dependency) =>
+        dependency.state === "executed" || dependency.state === "rejected",
+    );
+    const rejectedCreateDependency = dependencyStates.some(
+      (dependency) =>
+        dependency.proposalType === "create_counterparty" &&
+        dependency.state === "rejected",
+    );
+
+    if (allResolved && !rejectedCreateDependency) {
+      proposal.state = "pending_approval";
+      proposal.updatedAt = new Date().toISOString();
+    }
+  }
+}
+
+function removeWebProposalDependency(
+  state: PlannerResult,
+  dependencyProposalId: string,
+): void {
+  for (const proposal of state.writeProposals) {
+    if (!proposal.dependencyIds.includes(dependencyProposalId)) {
+      continue;
+    }
+
+    proposal.dependencyIds = proposal.dependencyIds.filter(
+      (dependencyId) => dependencyId !== dependencyProposalId,
+    );
+    proposal.updatedAt = new Date().toISOString();
+  }
+}
+
+function readFirstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
 function inferUploadKind(
   mimeType: string | null,
   fileName: string,
@@ -429,34 +728,6 @@ function inferUploadKind(
   return "image";
 }
 
-function endOfMonth(dateValue: string): string {
-  const date = new Date(`${dateValue.slice(0, 7)}-01T00:00:00Z`);
-  date.setUTCMonth(date.getUTCMonth() + 1, 0);
-  return date.toISOString().slice(0, 10);
-}
-
-function shiftIsoDate(dateValue: string, offsetDays: number): string {
-  const date = new Date(`${dateValue}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-}
-
-const storageKey = "creator-cfo-web-records-v1";
-
-function loadRecords(): HomeRecentRecord[] {
-  if (typeof localStorage === "undefined") return [];
-  try {
-    return JSON.parse(
-      localStorage.getItem(storageKey) ?? "[]",
-    ) as HomeRecentRecord[];
-  } catch {
-    return [];
-  }
-}
-
 export function resetLedgerWebRuntimeStateForTests() {
   plannerStateStore.clear();
-  if (typeof localStorage !== "undefined") {
-    localStorage.removeItem(storageKey);
-  }
 }

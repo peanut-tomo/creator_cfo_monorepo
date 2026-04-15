@@ -2,12 +2,12 @@ import * as Crypto from "expo-crypto";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
-import { Platform } from "react-native";
 import { buildEvidenceUploadPath } from "@creator-cfo/storage";
 import {
   normalizeReceiptParsePayload,
   type EvidenceExtractedData,
   type JsonValue,
+  type ReceiptParsePayload,
 } from "@creator-cfo/schemas";
 
 import {
@@ -135,6 +135,40 @@ export async function pickPhotoUploadCandidates(
       },
     ];
   });
+}
+
+export async function takeCameraPhoto(
+  locale: ResolvedLocale = "en",
+): Promise<UploadCandidate[]> {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+  if (!permission.granted) {
+    throw new Error(
+      locale === "zh-CN"
+        ? "需要开启相机权限后才能拍照，请前往系统设置开启。"
+        : "Camera access is required to take a photo. Please enable it in Settings.",
+    );
+  }
+
+  const result = await ImagePicker.launchCameraAsync({
+    allowsEditing: false,
+    mediaTypes: ["images"] as never,
+    quality: 1,
+  });
+
+  if (result.canceled) {
+    return [];
+  }
+
+  return result.assets.map((asset, index) => ({
+    evidenceGroupKey: asset.assetId || asset.fileName || `${asset.uri}-${index}`,
+    isPrimary: true,
+    kind: "image" as const,
+    mimeType: asset.mimeType ?? "image/jpeg",
+    originalFileName: asset.fileName ?? `camera-${Date.now()}.jpg`,
+    sizeBytes: asset.fileSize ?? null,
+    uri: asset.uri,
+  }));
 }
 
 export async function importUploadCandidates(
@@ -293,7 +327,7 @@ export async function parseFile(
 export async function loadHomeScreenSnapshot(
   input: {
     limit?: number;
-    locale?: import("../app-shell/types").ResolvedLocale;
+    locale?: ResolvedLocale;
     now?: string;
     offset?: number;
   } = {},
@@ -318,11 +352,13 @@ export async function runPlanner(input: {
   fileName: string;
   mimeType: string | null;
   model: string;
+  parserKind?: string;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
   rawText: string;
 }): Promise<PlannerResult> {
   const { planEvidenceDbUpdates } = await import("./remote-parse");
-  const { buildExtractedData } = await import("./ledger-domain");
+  const { buildRemoteExtractedData } = await import("./ledger-domain");
   const {
     createExtractionRun,
     createPlannerRun,
@@ -411,17 +447,13 @@ export async function runPlanner(input: {
       updatedAt: now,
     });
 
-    // 7. Build extracted data for the evidence row
-    const extractedData = buildExtractedData({
-      fallbackDate: now.slice(0, 10),
+    // 7. Build extracted data for the evidence row from the validated parse payload
+    const extractedData = buildRemoteExtractedData({
       fileName: input.fileName,
-      parser: "openai_gpt",
-      rawLines: input.rawText.split("\n").filter((l: string) => l.trim()),
-      rawText: input.rawText,
-      sourceLabel: "openai_upload",
+      parsePayload: input.rawJson as ReceiptParsePayload,
+      scheme: {},
+      sourceLabel: input.parserKind === "gemini" ? "gemini_upload" : "openai_upload",
     });
-    extractedData.model = input.model;
-    extractedData.originData = input.rawJson as never;
 
     await writableDatabase.runAsync(
       `UPDATE evidences SET parse_status = 'parsed', extracted_data = ? WHERE evidence_id = ?;`,
@@ -441,6 +473,7 @@ export async function runPlanner(input: {
       evidenceId,
       fileName: input.fileName,
       mimeType: input.mimeType,
+      profileInfo: input.profileInfo,
       rawJson: input.rawJson,
     });
 
@@ -499,8 +532,7 @@ export async function approveWriteProposal(
   writeProposalId: string,
   review?: LedgerReviewValues,
 ): Promise<PlannerResult> {
-  const { approveWorkflowWriteProposal, updateUploadBatchState } =
-    await import("./ledger-store");
+  const { approveWorkflowWriteProposal } = await import("./ledger-store");
 
   return withWritableLocalDatabase(async ({ writableDatabase }) => {
     const now = new Date().toISOString();
@@ -546,8 +578,7 @@ export async function rejectWriteProposal(
   batchId: string,
   writeProposalId: string,
 ): Promise<PlannerResult> {
-  const { rejectWorkflowWriteProposal, updateUploadBatchState } =
-    await import("./ledger-store");
+  const { rejectWorkflowWriteProposal } = await import("./ledger-store");
 
   return withWritableLocalDatabase(async ({ writableDatabase }) => {
     const now = new Date().toISOString();
@@ -564,12 +595,6 @@ export async function rejectWriteProposal(
     await rejectWorkflowWriteProposal(writableDatabase, {
       updatedAt: now,
       writeProposalId,
-    });
-
-    await updateUploadBatchState(writableDatabase, {
-      batchId,
-      state: "rejected",
-      updatedAt: now,
     });
 
     const evidence = await loadEvidenceById(writableDatabase, batch.evidenceId);
@@ -708,32 +733,30 @@ async function extractEvidenceData(
       fileUri: absolutePath,
       mimeType: evidence.mimeType,
     });
+    const rawJsonValue = result.rawJson as unknown as JsonValue;
 
     if (result.error || result.rawJson == null) {
       return buildFailedExtractedData({
         fallbackDate,
         failureReason: result.error ?? "Remote GPT parsing failed.",
         fileName: evidence.originalFileName,
-        originData: (result.rawJson as JsonValue | null) ?? null,
+        originData: rawJsonValue ?? null,
         parser: "openai_gpt",
         sourceLabel: "Vercel OpenAI GPT",
       });
     }
 
-    const parsePayload = normalizeReceiptParsePayload(
-      result.rawJson as JsonValue,
-      {
-        defaultModel: result.model || null,
-        defaultParser: "openai_gpt",
-      },
-    );
+    const parsePayload = normalizeReceiptParsePayload(rawJsonValue, {
+      defaultModel: result.model || null,
+      defaultParser: "openai_gpt",
+    });
 
     if (!parsePayload) {
       return buildFailedExtractedData({
         fallbackDate,
         failureReason: "OpenAI response is not valid receipt parse JSON.",
         fileName: evidence.originalFileName,
-        originData: (result.rawJson as JsonValue | null) ?? null,
+        originData: rawJsonValue ?? null,
         parser: "openai_gpt",
         sourceLabel: "Vercel OpenAI GPT",
       });
