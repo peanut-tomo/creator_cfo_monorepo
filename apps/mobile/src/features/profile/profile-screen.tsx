@@ -119,6 +119,7 @@ export function ProfileScreen() {
     <SafeAreaView
       edges={["top", "left", "right"]}
       style={[styles.safeArea, { backgroundColor: palette.shell }]}
+      testID="profile-screen"
     >
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.hero}>

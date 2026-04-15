@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -14,6 +15,10 @@ import { BackHeaderBar } from "../../components/back-header-bar";
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { useAppShell } from "../app-shell/provider";
 import {
+  beginDemoAutoplayStep,
+  isUploadParsePersistDemoEnabled,
+} from "../demo/demo-autoplay";
+import {
   formatLedgerParseCandidateState,
   formatLedgerParseProposalType,
   formatLedgerParseWorkflowState,
@@ -23,6 +28,10 @@ import { usePlannerWorkflow } from "./use-planner-workflow";
 export function LedgerParseScreen() {
   const router = useRouter();
   const { copy, palette, resolvedLocale } = useAppShell();
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const latestPlannerResultRef =
+    useRef<ReturnType<typeof usePlannerWorkflow>["plannerResult"]>(null);
+  const latestIsApprovingRef = useRef(false);
   const parseCopy = copy.ledger.parse;
   const params = useLocalSearchParams<{
     fileName?: string;
@@ -66,6 +75,118 @@ export function LedgerParseScreen() {
   const canStartPlanner =
     hasData && !parseError && parsedRawJson !== null && !plannerResult;
   const allApproved = plannerResult?.batchState === "approved";
+  const [demoApprovalActive, setDemoApprovalActive] = useState(false);
+
+  useEffect(() => {
+    latestPlannerResultRef.current = plannerResult;
+  }, [plannerResult]);
+
+  useEffect(() => {
+    latestIsApprovingRef.current = isApproving;
+  }, [isApproving]);
+
+  useEffect(() => {
+    if (!canStartPlanner || !isUploadParsePersistDemoEnabled()) {
+      return;
+    }
+
+    if (!beginDemoAutoplayStep("planner")) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      console.log("[demo-autoplay] start planner");
+      void startPlanner();
+    }, 4500);
+
+    return () => clearTimeout(timeout);
+  }, [canStartPlanner, startPlanner]);
+
+  useEffect(() => {
+    if (!plannerResult || allApproved || !isUploadParsePersistDemoEnabled()) {
+      return;
+    }
+
+    if (!beginDemoAutoplayStep("review")) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      console.log("[demo-autoplay] scroll to review");
+      scrollViewRef.current?.scrollTo({ animated: true, y: 980 });
+    }, 3500);
+
+    return () => clearTimeout(timeout);
+  }, [allApproved, plannerResult]);
+
+  useEffect(() => {
+    if (!plannerResult || allApproved || !isUploadParsePersistDemoEnabled()) {
+      return;
+    }
+
+    if (beginDemoAutoplayStep("approve")) {
+      console.log("[demo-autoplay] enable auto-approval");
+      setDemoApprovalActive(true);
+    }
+  }, [allApproved, plannerResult]);
+
+  useEffect(() => {
+    if (
+      !demoApprovalActive ||
+      allApproved ||
+      !isUploadParsePersistDemoEnabled()
+    ) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (latestIsApprovingRef.current) {
+        return;
+      }
+
+      const currentPlannerResult = latestPlannerResultRef.current;
+      const pendingProposal = currentPlannerResult?.writeProposals.find(
+        (proposal) => proposal.state === "pending_approval",
+      );
+
+      if (!pendingProposal) {
+        console.log(
+          "[demo-autoplay] no pending proposal",
+          currentPlannerResult?.writeProposals.map((proposal) => ({
+            id: proposal.writeProposalId,
+            state: proposal.state,
+          })),
+        );
+        return;
+      }
+
+      console.log(
+        "[demo-autoplay] approve pending proposal",
+        pendingProposal.writeProposalId,
+      );
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+      void approveProposal(pendingProposal.writeProposalId);
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [allApproved, approveProposal, demoApprovalActive]);
+
+  useEffect(() => {
+    if (!allApproved || !isUploadParsePersistDemoEnabled()) {
+      return;
+    }
+
+    if (!beginDemoAutoplayStep("ledger")) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      console.log("[demo-autoplay] route to ledger");
+      router.replace("/(tabs)/ledger");
+    }, 4500);
+
+    return () => clearTimeout(timeout);
+  }, [allApproved, router]);
 
   return (
     <SafeAreaView
@@ -90,7 +211,7 @@ export function LedgerParseScreen() {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} ref={scrollViewRef}>
         <View style={styles.heroBlock}>
           <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>
             {parseCopy.heroEyebrow}
@@ -449,6 +570,7 @@ export function LedgerParseScreen() {
             styles.backButton,
             { backgroundColor: pressed ? palette.heroEnd : palette.ink },
           ]}
+          testID="parse-back-to-upload-button"
         >
           <Text
             style={[styles.backButtonLabel, { color: palette.inkOnAccent }]}

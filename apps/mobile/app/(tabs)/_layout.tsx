@@ -92,6 +92,7 @@ export default function TabLayout() {
             tabBarButton: (props) => (
               <TabBarIcon
                 {...props}
+                testID={`tab-button-${screen.name}`}
               />
             ),
           }}
