@@ -811,7 +811,11 @@ async function performOpenAiRequest(
     });
 
     const useProxy = Platform.OS === "web" && !isFirstPartyApiHost(settings.baseUrl);
-    const fetchUrl = useProxy ? "http://localhost:19007" : targetUrl;
+    const proxyUrl =
+      typeof window !== "undefined" && window.location.hostname === "localhost"
+        ? "http://localhost:19007"
+        : "/api/cors-proxy";
+    const fetchUrl = useProxy ? proxyUrl : targetUrl;
     const fetchHeaders: Record<string, string> = {
       Authorization: `Bearer ${settings.openAiApiKey}`,
       "Content-Type": "application/json",

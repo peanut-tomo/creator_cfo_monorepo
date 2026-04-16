@@ -1,13 +1,18 @@
 {
-  "functions": {
-    "api/map-evidence-scheme.ts": {
-      "maxDuration": 60
-    },
-    "api/parse-origin-data.ts": {
-      "maxDuration": 60
-    },
-    "api/parse-evidence.ts": {
-      "maxDuration": 60
+  "buildCommand": "pnpm --filter @creator-cfo/mobile run build && cp apps/mobile/public/*.wasm apps/mobile/dist/",
+  "outputDirectory": "apps/mobile/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    {
+      "source": "/((?!_expo|assets|favicon\\.ico|sql-wasm|metadata\\.json).*)",
+      "destination": "/index.html"
     }
+  ],
+  "functions": {
+    "api/map-evidence-scheme.ts": { "maxDuration": 60 },
+    "api/parse-origin-data.ts": { "maxDuration": 60 },
+    "api/parse-evidence.ts": { "maxDuration": 60 },
+    "api/cors-proxy.ts": { "maxDuration": 30 }
   }
 }
