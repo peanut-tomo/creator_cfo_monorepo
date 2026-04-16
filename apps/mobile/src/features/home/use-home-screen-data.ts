@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAppShell } from "../app-shell/provider";
 import { loadHomeScreenSnapshot } from "../ledger/ledger-runtime";
@@ -23,16 +24,33 @@ export function useHomeScreenData() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [snapshot, setSnapshot] = useState<HomeSnapshot>(emptySnapshot);
 
+  // Load data on mount and when locale changes
   useEffect(() => {
     void refresh();
-  }, [resolvedLocale, storageRevision]);
+  }, [resolvedLocale]);
+
+  // Reload when storageRevision bumps (e.g. new records written from another screen)
+  const revisionRef = useRef(storageRevision);
+  useEffect(() => {
+    if (storageRevision !== revisionRef.current) {
+      revisionRef.current = storageRevision;
+      void refresh();
+    }
+  }, [storageRevision]);
+
+  // Reload every time the tab regains focus (tab switch, navigate back)
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [resolvedLocale]),
+  );
 
   async function refresh(): Promise<void> {
     setIsRefreshing(true);
     setError(null);
 
     try {
-      const nextSnapshot = await loadHomeScreenSnapshot({ locale: resolvedLocale });
+      const nextSnapshot = await loadHomeScreenSnapshot();
       setSnapshot(nextSnapshot);
     } catch (nextError: unknown) {
       setError(
@@ -58,7 +76,6 @@ export function useHomeScreenData() {
 
     try {
       const nextSnapshot = await loadHomeScreenSnapshot({
-        locale: resolvedLocale,
         offset: snapshot.recentRecords.length,
       });
       setSnapshot((current) => ({

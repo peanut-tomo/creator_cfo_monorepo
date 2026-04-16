@@ -1,74 +1,75 @@
 import { Redirect, Tabs } from "expo-router";
-import { Text } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Platform, Text, View } from "react-native";
 
 import { LaunchScreen } from "../../src/features/app-shell/launch-screen";
 import { AppIcon } from "../../src/components/app-icon";
 import { useAppShell } from "../../src/features/app-shell/provider";
+import { resolveProtectedRouteRedirect } from "../../src/features/app-shell/storage-entry";
+import { DesktopSideNav } from "../../src/features/navigation/desktop-side-nav";
 import { TabBarIcon } from "../../src/features/navigation/tab-bar-icon";
 import { buildTabScreenSpecs } from "../../src/features/navigation/tab-config";
+import { useResponsive } from "../../src/hooks/use-responsive";
 
 export default function TabLayout() {
-  const { copy, isHydrated, session } = useAppShell();
-  const insets = useSafeAreaInsets();
+  const { copy, isHydrated, session, storageGateState } = useAppShell();
   const tabScreens = buildTabScreenSpecs(copy);
-  const tabBarBottomOffset = 12;
-  const tabBarHorizontalInset = 16;
-  const tabBarHeight = 68 + Math.max(insets.bottom, 16);
-  const sceneBottomClearance = tabBarHeight + tabBarBottomOffset + 8;
+  const { isExpanded } = useResponsive();
+  const showSidebar = Platform.OS === "web" && isExpanded;
+  const redirectHref = resolveProtectedRouteRedirect({
+    isHydrated,
+    session: Boolean(session),
+    storageGateState,
+  });
 
-  if (!isHydrated) {
+  if (!isHydrated || storageGateState.kind === "checking") {
     return <LaunchScreen />;
   }
 
-  if (!session) {
-    return <Redirect href="/login" />;
+  if (redirectHref) {
+    return <Redirect href={redirectHref} />;
   }
 
-  return (
+  const tabBar = (
     <Tabs
       screenOptions={{
         headerShown: false,
         sceneStyle: {
-          backgroundColor: "#F9F9F7",
-          paddingBottom: sceneBottomClearance,
+          backgroundColor: "#F5F6F8",
         },
         tabBarActiveTintColor: "#002045",
         tabBarInactiveTintColor: "rgba(0, 32, 69, 0.4)",
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: "500",
-          letterSpacing: 0.5,
+          fontWeight: "600",
+          letterSpacing: 0.2,
           marginTop: 0,
-          textTransform: "uppercase",
+          textTransform: "none",
         },
         tabBarIconStyle: {
-          marginBottom: 2,
+          marginBottom: 1,
         },
         tabBarItemStyle: {
-          paddingTop: 0,
+          paddingTop: 2,
         },
-        tabBarStyle: {
-          backgroundColor: "rgba(249, 249, 247, 0.8)",
-          bottom: tabBarBottomOffset,
-          borderTopColor: "transparent",
-          borderTopLeftRadius: 32,
-          borderTopRightRadius: 32,
-          borderTopWidth: 0,
-          elevation: 0,
-          height: tabBarHeight,
-          left: tabBarHorizontalInset,
-          paddingBottom: Math.max(insets.bottom, 16),
-          paddingHorizontal: 24,
-          paddingTop: 12,
-          position: "absolute",
-          right: tabBarHorizontalInset,
-          shadowColor: "rgba(0, 0, 0, 0.04)",
-          shadowOffset: { height: -8, width: 0 },
-          shadowOpacity: 1,
-          shadowRadius: 32,
-        },
+        tabBarStyle: showSidebar
+          ? { display: "none" as const }
+          : {
+              backgroundColor: "#FFFFFF",
+              borderTopColor: "rgba(0, 32, 69, 0.08)",
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              borderTopWidth: 1,
+              elevation: 0,
+              height: 82,
+              paddingBottom: 12,
+              paddingHorizontal: 12,
+              paddingTop: 8,
+              shadowColor: "rgba(0, 32, 69, 0.08)",
+              shadowOffset: { height: -4, width: 0 },
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+            },
       }}
     >
       <Tabs.Screen
@@ -85,14 +86,13 @@ export default function TabLayout() {
             title: screen.title,
             tabBarIcon: ({ color }) => <AppIcon color={color} name={screen.icon} size={screen.iconSize} />,
             tabBarLabel: ({ color }) => (
-              <Text style={{ color, fontSize: 10, fontWeight: "500", letterSpacing: 0.5, textTransform: "uppercase" }}>
+              <Text style={{ color, fontSize: 10, fontWeight: "600", letterSpacing: 0.2, textTransform: "none" }}>
                 {screen.title}
               </Text>
             ),
             tabBarButton: (props) => (
               <TabBarIcon
                 {...props}
-                testID={`tab-button-${screen.name}`}
               />
             ),
           }}
@@ -100,4 +100,15 @@ export default function TabLayout() {
       ))}
     </Tabs>
   );
+
+  if (showSidebar) {
+    return (
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        <DesktopSideNav />
+        <View style={{ flex: 1 }}>{tabBar}</View>
+      </View>
+    );
+  }
+
+  return tabBar;
 }

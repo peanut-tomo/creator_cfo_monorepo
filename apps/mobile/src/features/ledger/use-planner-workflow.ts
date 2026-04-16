@@ -13,10 +13,12 @@ export function usePlannerWorkflow(input: {
   fileName: string;
   mimeType: string | null;
   model: string;
+  parserKind?: string;
+  profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
   rawText: string;
 }) {
-  const { copy } = useAppShell();
+  const { bumpStorageRevision, copy } = useAppShell();
   const parseCopy = copy.ledger.parse;
   const [plannerResult, setPlannerResult] = useState<PlannerResult | null>(
     null,
@@ -44,6 +46,8 @@ export function usePlannerWorkflow(input: {
         fileName: input.fileName,
         mimeType: input.mimeType,
         model: input.model,
+        parserKind: input.parserKind,
+        profileInfo: input.profileInfo,
         rawJson: input.rawJson,
         rawText: input.rawText,
       });
@@ -72,37 +76,28 @@ export function usePlannerWorkflow(input: {
       setError(null);
 
       try {
-        console.log("[demo-autoplay] approveProposal start", {
-          batchId: plannerResult.batchId,
-          review,
-          writeProposalId,
-        });
         const result = await approveWriteProposal(
           plannerResult.batchId,
           writeProposalId,
           review,
         );
 
-        console.log("[demo-autoplay] approveProposal success", {
-          batchState: result.batchState,
-          proposals: result.writeProposals.map((proposal) => ({
-            id: proposal.writeProposalId,
-            state: proposal.state,
-          })),
-        });
         setPlannerResult(result);
 
         if (result.reviewValues) {
           setReview(result.reviewValues);
         }
+
+        if (result.batchState === "approved") {
+          bumpStorageRevision();
+        }
       } catch (err) {
-        console.log("[demo-autoplay] approveProposal error", err);
         setError(err instanceof Error ? err.message : parseCopy.approvalFailed);
       } finally {
         setIsApproving(false);
       }
     },
-    [parseCopy.approvalFailed, plannerResult, review],
+    [bumpStorageRevision, parseCopy.approvalFailed, plannerResult, review],
   );
 
   const rejectProposal = useCallback(

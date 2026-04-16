@@ -1,5 +1,4 @@
 import type { ReadableStorageDatabase } from "@creator-cfo/storage";
-import type { ResolvedLocale } from "../app-shell/types";
 
 import {
   createTrendPointsFromTotals,
@@ -22,19 +21,30 @@ export async function loadHomeSnapshot(
   input: {
     entityId?: string;
     limit?: number;
-    locale?: ResolvedLocale;
     now?: string;
     offset?: number;
   } = {},
 ): Promise<HomeSnapshot> {
   const entityId = input.entityId ?? defaultEntityId;
-  const locale = input.locale ?? "en";
   const now = input.now ?? new Date().toISOString().slice(0, 10);
   const offset = input.offset ?? 0;
   const limit = input.limit ?? homeRecentPageSize;
   const monthStart = `${now.slice(0, 7)}-01`;
   const monthEnd = endOfMonth(now);
-  const trendStart = shiftIsoDate(now, -29);
+  const latestRecordRow = await database.getFirstAsync<{ latestOn: string | null }>(
+    `SELECT MAX(occurred_on) AS latestOn
+      FROM records
+      WHERE entity_id = ?
+        AND record_kind IN ('income', 'expense', 'personal_spending');`,
+    entityId,
+  );
+  const latestRecordDate = latestRecordRow?.latestOn ?? null;
+  const defaultTrendStart = shiftIsoDate(now, -29);
+  const trendEnd =
+    latestRecordDate && latestRecordDate < defaultTrendStart
+      ? latestRecordDate
+      : now;
+  const trendStart = shiftIsoDate(trendEnd, -29);
   const recentRows = await database.getAllAsync<HomeRecentRecord>(
     `SELECT
       record_id AS recordId,
@@ -72,13 +82,13 @@ export async function loadHomeSnapshot(
     occurredOn: string;
   }>({
     dateRange: {
-      endOn: now,
+      endOn: trendEnd,
       startOn: trendStart,
     },
     entityId,
     groupBy: "r.occurred_on",
     orderBy: "r.occurred_on ASC",
-    recordKinds: ["income"],
+    recordKinds: ["income", "expense", "personal_spending"],
     select: `r.occurred_on AS occurredOn,
       COALESCE(SUM(r.amount_cents), 0) AS amountCents`,
   });
@@ -94,7 +104,7 @@ export async function loadHomeSnapshot(
       outflowCents,
     },
     recentRecords: recentRows.slice(0, limit),
-    trend: createTrendPointsFromTotals(totalsByDate, now, locale),
+    trend: createTrendPointsFromTotals(totalsByDate, trendEnd),
   };
 }
 

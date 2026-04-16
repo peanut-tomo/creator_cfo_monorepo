@@ -29,7 +29,6 @@ import {
   type PlannerReadResults,
 } from "./workflow-planner";
 import {
-  createTrendPointsFromDailyTotals,
   homeRecentPageSize,
   type HomeRecentRecord,
 } from "./ledger-domain";
@@ -67,8 +66,7 @@ export async function pickDocumentUploadCandidates(): Promise<
 > {
   const result = await DocumentPicker.getDocumentAsync({
     copyToCacheDirectory: true,
-    // The current upload flow only consumes one primary file at a time.
-    multiple: false,
+    multiple: true,
     type: ["application/pdf", "image/*"],
   });
 
@@ -94,10 +92,10 @@ export async function pickPhotoUploadCandidates(
 
   const result = await ImagePicker.launchImageLibraryAsync({
     allowsEditing: false,
-    allowsMultipleSelection: false,
+    allowsMultipleSelection: true,
     mediaTypes: ["images"] as never,
     quality: 1,
-    selectionLimit: 1,
+    selectionLimit: 0,
   });
 
   if (result.canceled) {
@@ -177,7 +175,6 @@ export async function parseFile(
 export async function loadHomeScreenSnapshot(
   input: {
     limit?: number;
-    locale?: ResolvedLocale;
     now?: string;
     offset?: number;
   } = {},
@@ -731,4 +728,27 @@ function inferUploadKind(
 
 export function resetLedgerWebRuntimeStateForTests() {
   plannerStateStore.clear();
+}
+
+export async function loadJournalScreenEntries(
+  input: { locale?: string } = {},
+): Promise<import("./ledger-reporting").GeneralLedgerEntry[]> {
+  const { loadJournalEntries } = await import("./ledger-reporting");
+  let db = getActiveWebDatabase();
+
+  if (!db) {
+    db = await openWebSqliteDatabase();
+    await initializeLocalDatabase(db);
+  }
+
+  const readableDb = createReadableStorageDatabase({
+    getAllAsync: <Row>(source: string, ...params: unknown[]) =>
+      db.getAllAsync<Row>(source, ...(params as [])),
+    getFirstAsync: <Row>(source: string, ...params: unknown[]) =>
+      db.getFirstAsync<Row>(source, ...(params as [])),
+  });
+
+  return loadJournalEntries(readableDb, {
+    locale: (input.locale as "en" | "zh-CN") ?? "en",
+  });
 }

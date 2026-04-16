@@ -19,11 +19,10 @@ import { getLocalStorageBootstrapPlan } from "@creator-cfo/storage";
 import type { ResolvedLocale } from "../app-shell/types";
 import {
   formatLedgerDisplayDate,
-  formatTrendPointLabel,
 } from "./ledger-localization";
 
 export const defaultEntityId = "entity-main";
-export const homeRecentPageSize = 20;
+export const homeRecentPageSize = 8;
 
 export type LedgerCategory = "expense" | "income" | "spending";
 
@@ -451,7 +450,6 @@ export function formatDisplayDate(
 export function createTrendPointsFromTotals(
   totalsByDate: Record<string, number>,
   endingOn: string,
-  locale: ResolvedLocale = "en",
 ): HomeTrendPoint[] {
   const endDate = new Date(`${endingOn}T00:00:00Z`);
   const points: HomeTrendPoint[] = [];
@@ -463,19 +461,15 @@ export function createTrendPointsFromTotals(
     points.push({
       amountCents: totalsByDate[date] ?? 0,
       date,
-      label: formatTrendPointLabel(date, locale),
+      label: current.toLocaleDateString("en-US", {
+        day: "numeric",
+        month: "short",
+        timeZone: "UTC",
+      }),
     });
   }
 
   return points;
-}
-
-export function createTrendPointsFromDailyTotals(
-  totalsByDate: Record<string, number>,
-  endingOn: string,
-  locale: ResolvedLocale = "en",
-): HomeTrendPoint[] {
-  return createTrendPointsFromTotals(totalsByDate, endingOn, locale);
 }
 
 function extractFieldCandidates(
