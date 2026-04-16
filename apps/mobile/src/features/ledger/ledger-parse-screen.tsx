@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackHeaderBar } from "../../components/back-header-bar";
 import { CfoAvatar } from "../../components/cfo-avatar";
+import { useResponsive } from "../../hooks/use-responsive";
 import { useAppShell } from "../app-shell/provider";
 import {
   formatLedgerParseCandidateState,
@@ -22,7 +23,8 @@ import { usePlannerWorkflow } from "./use-planner-workflow";
 
 export function LedgerParseScreen() {
   const router = useRouter();
-  const { copy, palette, resolvedLocale } = useAppShell();
+  const { isExpanded } = useResponsive();
+  const { copy, palette, profileInfo, resolvedLocale } = useAppShell();
   const parseCopy = copy.ledger.parse;
   const params = useLocalSearchParams<{
     fileName?: string;
@@ -31,6 +33,7 @@ export function LedgerParseScreen() {
     model?: string;
     parseError?: string;
     mimeType?: string;
+    parserKind?: string;
   }>();
 
   const fileName = params.fileName ?? parseCopy.unknownFile;
@@ -39,9 +42,12 @@ export function LedgerParseScreen() {
   const model = params.model ?? "";
   const parseError = params.parseError ?? "";
   const mimeType = params.mimeType ?? null;
+  const parserKind = params.parserKind || undefined;
 
   const hasData = rawJson || rawText;
   const formattedJson = formatJson(rawJson);
+  const providerLabel =
+    parserKind === "gemini" ? "Gemini" : parserKind === "infer" ? "Infer API" : "OpenAI";
 
   const parsedRawJson = rawJson ? tryParse(rawJson) : null;
 
@@ -59,6 +65,8 @@ export function LedgerParseScreen() {
     fileName,
     mimeType,
     model,
+    parserKind,
+    profileInfo,
     rawJson: parsedRawJson,
     rawText,
   });
@@ -70,33 +78,39 @@ export function LedgerParseScreen() {
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={[styles.safeArea, { backgroundColor: palette.shell }]}
+      style={[styles.safeArea, { backgroundColor: "#F5F6F8" }]}
       testID="ledger-parse-screen"
     >
       <View
         style={[
           styles.appBar,
           {
-            backgroundColor: palette.shell,
+            backgroundColor: "#F5F6F8",
             borderBottomColor: palette.divider,
           },
         ]}
       >
         <BackHeaderBar
-          onBack={() => router.back()}
+          onBack={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)/ledger");
+            }
+          }}
           palette={palette}
           rightAccessory={<CfoAvatar />}
           title={copy.common.appName}
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, isExpanded ? styles.containerWide : null]}>
         <View style={styles.heroBlock}>
           <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>
             {parseCopy.heroEyebrow}
           </Text>
           <Text style={[styles.heroTitle, { color: palette.ink }]}>
-            {parseCopy.heroTitle}
+            {`${providerLabel} ${parseCopy.heroTitleSuffix}`}
           </Text>
         </View>
 
@@ -444,7 +458,13 @@ export function LedgerParseScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)/ledger");
+            }
+          }}
           style={({ pressed }) => [
             styles.backButton,
             { backgroundColor: pressed ? palette.heroEnd : palette.ink },
@@ -567,20 +587,20 @@ const styles = StyleSheet.create({
   },
   appBar: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 12,
-    paddingHorizontal: 20,
+    paddingBottom: 10,
+    paddingHorizontal: 18,
   },
   approveButton: {
     alignItems: "center",
-    borderRadius: 999,
+    borderRadius: 14,
     flex: 1,
     height: 40,
     justifyContent: "center",
   },
   backButton: {
     alignItems: "center",
-    borderRadius: 999,
-    height: 48,
+    borderRadius: 14,
+    height: 44,
     justifyContent: "center",
     marginTop: 8,
   },
@@ -589,10 +609,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   card: {
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1,
     gap: 8,
-    padding: 18,
+    padding: 16,
   },
   cardHeader: {
     alignItems: "center",
@@ -600,17 +620,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   container: {
-    gap: 18,
-    padding: 20,
-    paddingBottom: 40,
+    gap: 14,
+    padding: 18,
+    paddingBottom: 36,
+  },
+  containerWide: {
+    alignSelf: "center",
+    maxWidth: 720,
+    width: "100%",
   },
   editFieldContainer: {
     gap: 4,
   },
   editFieldInput: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    fontSize: 15,
+    fontSize: 14,
     height: 44,
     paddingHorizontal: 14,
   },
@@ -620,18 +645,20 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   emptyState: {
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 40,
+    alignItems: "flex-start",
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    padding: 18,
   },
   emptySub: {
-    fontSize: 15,
-    lineHeight: 22,
-    maxWidth: 300,
-    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "800",
   },
   errorText: {
@@ -650,20 +677,25 @@ const styles = StyleSheet.create({
   },
   fileName: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
   },
   heroBlock: {
-    gap: 10,
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    padding: 16,
   },
   heroTitle: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: "800",
-    letterSpacing: -1,
-    lineHeight: 40,
+    letterSpacing: -0.5,
+    lineHeight: 30,
   },
   jsonBox: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     minHeight: 200,
     paddingHorizontal: 14,
@@ -680,8 +712,8 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: "center",
-    borderRadius: 999,
-    height: 48,
+    borderRadius: 14,
+    height: 44,
     justifyContent: "center",
   },
   primaryButtonLabel: {
@@ -690,15 +722,22 @@ const styles = StyleSheet.create({
   },
   proposalActions: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     marginTop: 4,
   },
   proposalCard: {
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     gap: 8,
-    marginBottom: 12,
-    padding: 16,
+    marginBottom: 10,
+    padding: 14,
+  },
+  proposalDetailLine: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  proposalDetailList: {
+    gap: 4,
   },
   proposalHeader: {
     alignItems: "center",
@@ -709,8 +748,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  proposalSummary: {
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 19,
+  },
   proposalType: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
   },
   proposalsSection: {
@@ -718,7 +762,7 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     alignItems: "center",
-    borderRadius: 999,
+    borderRadius: 14,
     flex: 1,
     height: 40,
     justifyContent: "center",
@@ -727,11 +771,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "800",
   },
   statePill: {
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },

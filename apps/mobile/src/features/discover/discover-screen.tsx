@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -10,7 +11,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Ionicons } from "@expo/vector-icons";
 import { AppIcon } from "../../components/app-icon";
+import { useResponsive } from "../../hooks/use-responsive";
 import { useAppShell } from "../app-shell/provider";
 import {
   getNewsPage,
@@ -22,6 +25,7 @@ import { formatDiscoverPublishedDate } from "./discover-localization";
 
 export function DiscoverScreen() {
   const router = useRouter();
+  const { columns } = useResponsive();
   const { copy, palette, resolvedLocale } = useAppShell();
   const initialPage = getNewsPage(0, resolvedLocale);
   const [articles, setArticles] = useState<NewsArticle[]>(initialPage.articles);
@@ -67,9 +71,12 @@ export function DiscoverScreen() {
       style={[styles.safeArea, { backgroundColor: palette.shell }]}
     >
       <FlatList
+        key={columns}
+        columnWrapperStyle={columns > 1 ? styles.columnWrapper : undefined}
         contentContainerStyle={styles.container}
         data={articles}
         keyExtractor={(item) => item.slug}
+        numColumns={columns}
         ListEmptyComponent={
           <View
             style={[
@@ -143,19 +150,32 @@ export function DiscoverScreen() {
               <Text style={[styles.refreshHintLabel, { color: palette.ink }]}>
                 {copy.discover.refreshHint}
               </Text>
+              {Platform.OS === "web" ? (
+                <Pressable
+                  accessibilityLabel="Refresh"
+                  accessibilityRole="button"
+                  onPress={handleRefresh}
+                  style={({ pressed }) => [
+                    styles.webRefreshButton,
+                    { opacity: pressed || isRefreshing ? 0.5 : 1 },
+                  ]}
+                >
+                  <Ionicons color={palette.accent} name="refresh-outline" size={18} />
+                </Pressable>
+              ) : null}
             </View>
           </View>
         }
-        onRefresh={handleRefresh}
-        refreshing={isRefreshing}
+        {...(Platform.OS !== "web" ? { onRefresh: handleRefresh, refreshing: isRefreshing } : {})}
         renderItem={({ item }) => (
           <Pressable
             accessibilityRole="button"
             onPress={() => {
-              router.push(`/news/${item.slug}`);
+              router.push(`/news/${item.slug}` as never);
             }}
             style={[
               styles.card,
+              columns > 1 ? styles.cardMultiCol : null,
               {
                 backgroundColor: palette.paper,
                 borderColor: palette.border,
@@ -214,27 +234,33 @@ export function DiscoverScreen() {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1,
-    gap: 12,
-    padding: 18,
-    shadowOffset: { width: 0, height: 12 },
+    gap: 10,
+    padding: 16,
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
-    shadowRadius: 24,
+    shadowRadius: 16,
+  },
+  cardMultiCol: {
+    flex: 1,
   },
   cardSummary: {
     fontSize: 14,
     lineHeight: 21,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
-    lineHeight: 25,
+    lineHeight: 23,
   },
   cardTop: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  columnWrapper: {
+    gap: 12,
   },
   categoryLabel: {
     fontSize: 12,
@@ -248,22 +274,22 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   container: {
-    gap: 14,
-    padding: 20,
-    paddingBottom: 36,
+    gap: 12,
+    padding: 18,
+    paddingBottom: 32,
   },
   emptyState: {
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1,
-    gap: 10,
-    padding: 20,
+    gap: 8,
+    padding: 18,
   },
   emptySummary: {
     fontSize: 14,
     lineHeight: 21,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
   },
   eyebrow: {
@@ -273,14 +299,19 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   footer: {
-    paddingBottom: 20,
-    paddingTop: 6,
+    paddingBottom: 18,
+    paddingTop: 4,
   },
   header: {
-    gap: 14,
+    gap: 12,
   },
   hero: {
-    gap: 10,
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    padding: 16,
   },
   latestLabel: {
     fontSize: 13,
@@ -288,13 +319,13 @@ const styles = StyleSheet.create({
   },
   loadMoreButton: {
     alignItems: "center",
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 18,
+    minHeight: 46,
+    paddingHorizontal: 16,
   },
   loadMoreLabel: {
     fontSize: 15,
@@ -320,12 +351,12 @@ const styles = StyleSheet.create({
   },
   refreshHint: {
     alignItems: "center",
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   refreshHintLabel: {
     flex: 1,
@@ -341,12 +372,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   summary: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 21,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
-    lineHeight: 34,
+    lineHeight: 30,
+  },
+  webRefreshButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
   },
 });
