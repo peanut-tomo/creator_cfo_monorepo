@@ -1,0 +1,10 @@
+{
+  "databaseName": "creator-cfo-local.db",
+  "packageDirectory": "package-c-grouped-ledger",
+  "packageTitle": "Package C Grouped Ledger",
+  "recordCount": 7,
+  "evidenceCount": 7,
+  "taxYears": [
+    2026
+  ]
+}

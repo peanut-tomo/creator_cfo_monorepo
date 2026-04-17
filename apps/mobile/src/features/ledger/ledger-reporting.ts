@@ -10,6 +10,7 @@ import {
 import type { ResolvedLocale } from "../app-shell/types";
 import {
   formatLedgerDisplayDate,
+  formatLedgerEntryCount,
   formatLedgerMonthChip,
   formatLedgerMonthTitle,
   formatLedgerQuarterTitle,
@@ -85,7 +86,18 @@ export interface GeneralLedgerPostingLine {
   amount: string;
   detail: string;
   id: string;
+  record: GeneralLedgerPostingRecord;
   side: "credit" | "debit";
+}
+
+export interface GeneralLedgerPostingRecord {
+  amount: string;
+  dateLabel: string;
+  description: string;
+  memo: string | null;
+  recordId: string;
+  sourceLabel: string;
+  targetLabel: string;
 }
 
 export interface GeneralLedgerEntry {
@@ -95,6 +107,8 @@ export interface GeneralLedgerEntry {
   kind: GeneralLedgerEntryKind;
   kindLabel: string;
   lines: GeneralLedgerPostingLine[];
+  side: "credit" | "debit" | "mixed";
+  signedAmountCents: number;
   subtitle: string;
   title: string;
 }
@@ -150,6 +164,22 @@ interface LedgerRecordRow {
   sourceLabel: string;
   targetLabel: string;
   taxLineCode: string | null;
+}
+
+interface NormalizedLedgerRecordRow extends LedgerRecordRow {
+  effectiveAmountCents: number;
+}
+
+interface GeneralLedgerGroup {
+  accountName: string;
+  kind: GeneralLedgerEntryKind;
+  kindLabel: string;
+  latestCreatedAt: string;
+  latestOccurredOn: string;
+  latestRecordId: string;
+  lines: GeneralLedgerPostingLine[];
+  totalCreditCents: number;
+  totalDebitCents: number;
 }
 
 interface LedgerAvailableDateRow {
@@ -365,10 +395,24 @@ export function buildLedgerSnapshotFromRows(
   const normalizedProfitLossRows = normalizeDerivedRows(input.profitLossRows ?? rows);
   const normalizedBalanceSheetRows = normalizeDerivedRows(input.balanceSheetRows ?? rows);
   const hasBalanceSheetData = normalizedBalanceSheetRows.length > 0;
-  const generalLedgerTotalCents =
-    input.selectedScope === "personal"
-      ? sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents))
-      : sumAmounts(normalizedRows.map((row) => row.effectiveAmountCents));
+  const incomeRows = normalizedRows.filter((row) => row.recordKind === "income");
+  const expenseRows = normalizedRows.filter((row) => row.recordKind === "expense");
+  const personalRows = normalizedRows.filter(
+    (row) => row.recordKind === "personal_spending",
+  );
+  const incomeTotalCents = sumAmounts(
+    incomeRows.map((row) => row.effectiveAmountCents),
+  );
+  const expenseTotalCents = sumAmounts(
+    expenseRows.map((row) => row.effectiveAmountCents),
+  );
+  const personalTotalCents = sumAmounts(
+    personalRows.map((row) => row.effectiveAmountCents),
+  );
+  const generalLedgerEntries = buildGeneralLedgerEntries(normalizedRows, locale);
+  const totalJournalEntryCents = sumAmounts(
+    normalizedRows.map((row) => row.effectiveAmountCents),
+  );
   const balanceSheet = buildBalanceSheetSnapshot(
     normalizedBalanceSheetRows,
     {
@@ -386,8 +430,8 @@ export function buildLedgerSnapshotFromRows(
   return {
     balanceSheet,
     generalLedger: {
-      debitTotal: formatCurrencyFromCents(generalLedgerTotalCents),
-      entries: normalizedRows.map((row) => buildGeneralLedgerEntry(row, locale)),
+      debitTotal: formatCurrencyFromCents(totalJournalEntryCents),
+      entries: generalLedgerEntries,
       metricCards: [
         {
           accent: input.selectedScope === "personal" ? "danger" : "success",
@@ -396,7 +440,11 @@ export function buildLedgerSnapshotFromRows(
             input.selectedScope === "personal"
               ? runtimeCopy.journal.personalSpendMetric
               : runtimeCopy.journal.totalDebitsMetric,
-          value: formatCurrencyFromCents(generalLedgerTotalCents),
+          value: formatCurrencyFromCents(
+            input.selectedScope === "personal"
+              ? personalTotalCents
+              : totalJournalEntryCents,
+          ),
         },
         {
           accent: "neutral",
@@ -408,10 +456,10 @@ export function buildLedgerSnapshotFromRows(
           value:
             input.selectedScope === "personal"
               ? String(normalizedRows.length)
-              : formatCurrencyFromCents(generalLedgerTotalCents),
+              : formatCurrencyFromCents(totalJournalEntryCents),
         },
       ],
-      recordCountLabel: formatLedgerRecordCount(normalizedRows.length, locale),
+      recordCountLabel: formatLedgerEntryCount(generalLedgerEntries.length, locale),
     },
     hasData: normalizedRows.length > 0 || hasBalanceSheetData,
     isEmpty: normalizedRows.length === 0 && !hasBalanceSheetData,
@@ -670,78 +718,135 @@ function createUnavailableLedgerPeriodOption(
   };
 }
 
-function buildGeneralLedgerEntry(
-  row: LedgerRecordRow & { effectiveAmountCents: number },
+function buildGeneralLedgerEntries(
+  rows: readonly NormalizedLedgerRecordRow[],
   locale: ResolvedLocale,
-): GeneralLedgerEntry {
+): GeneralLedgerEntry[] {
   const runtimeCopy = getLedgerRuntimeCopy(locale);
-  const amount = formatCurrencyFromCents(row.effectiveAmountCents);
-  const counterparty =
-    row.recordKind === "income"
-      ? normalizeLabel(row.sourceLabel, locale)
-      : normalizeLabel(row.targetLabel, locale);
-  const lines =
-    row.recordKind === "income"
-      ? [
-          {
-            accountName: runtimeCopy.journal.cashAndBank,
-            amount,
-            detail: counterparty,
-            id: `${row.recordId}-debit`,
-            side: "debit" as const,
-          },
-          {
-            accountName: buildRevenueAccountName(row.sourceLabel, locale),
-            amount,
-            detail: normalizeLabel(row.description, locale),
-            id: `${row.recordId}-credit`,
-            side: "credit" as const,
-          },
-        ]
-      : [
-          {
-            accountName:
-              row.recordKind === "personal_spending"
-                ? runtimeCopy.journal.personalSpendAccount
-                : buildExpenseAccountName(row.taxLineCode, locale),
-            amount,
-            detail: normalizeLabel(row.description, locale),
-            id: `${row.recordId}-debit`,
-            side: "debit" as const,
-          },
-          {
-            accountName: runtimeCopy.journal.cashAndBank,
-            amount,
-            detail: normalizeLabel(row.sourceLabel, locale),
-            id: `${row.recordId}-credit`,
-            side: "credit" as const,
-          },
-        ];
+  const groups = new Map<string, GeneralLedgerGroup>();
 
-  return {
-    amount,
-    dateLabel: formatLedgerDisplayDate(row.occurredOn, locale),
-    id: row.recordId,
-    kind:
+  for (const row of [...rows].sort((left, right) =>
+    compareLedgerRowRecency(
+      left.occurredOn,
+      left.createdAt,
+      left.recordId,
+      right.occurredOn,
+      right.createdAt,
+      right.recordId,
+    ),
+  )) {
+    const kind =
       row.recordKind === "income"
         ? "income"
         : row.recordKind === "personal_spending"
           ? "personal"
-          : "expense",
-    kindLabel:
+          : "expense";
+    const kindLabel =
       row.recordKind === "income"
         ? runtimeCopy.journal.incomeRecordKind
         : row.recordKind === "personal_spending"
           ? runtimeCopy.journal.personalRecordKind
-          : runtimeCopy.journal.expenseRecordKind,
-    lines,
-    subtitle: row.memo?.trim() || formatLedgerReferenceSubtitle(row.occurredOn, row.recordId, locale),
-    title: normalizeLabel(row.description, locale),
-  };
+          : runtimeCopy.journal.expenseRecordKind;
+
+    for (const line of buildPostingLinesForRecord(row, locale)) {
+      const key = line.accountName;
+      const existing = groups.get(key);
+
+      if (!existing) {
+        groups.set(key, {
+          accountName: line.accountName,
+          kind,
+          kindLabel,
+          latestCreatedAt: row.createdAt,
+          latestOccurredOn: row.occurredOn,
+          latestRecordId: row.recordId,
+          lines: [line],
+          totalCreditCents:
+            line.side === "credit" ? row.effectiveAmountCents : 0,
+          totalDebitCents:
+            line.side === "debit" ? row.effectiveAmountCents : 0,
+        });
+        continue;
+      }
+
+      existing.lines.push(line);
+      if (line.side === "credit") {
+        existing.totalCreditCents += row.effectiveAmountCents;
+      } else {
+        existing.totalDebitCents += row.effectiveAmountCents;
+      }
+
+      if (
+        compareLedgerRowRecency(
+          row.occurredOn,
+          row.createdAt,
+          row.recordId,
+          existing.latestOccurredOn,
+          existing.latestCreatedAt,
+          existing.latestRecordId,
+        ) < 0
+      ) {
+        existing.latestOccurredOn = row.occurredOn;
+        existing.latestCreatedAt = row.createdAt;
+        existing.latestRecordId = row.recordId;
+      }
+    }
+  }
+
+  return [...groups.values()]
+    .sort((left, right) =>
+      compareLedgerRowRecency(
+        left.latestOccurredOn,
+        left.latestCreatedAt,
+        left.latestRecordId,
+        right.latestOccurredOn,
+        right.latestCreatedAt,
+        right.latestRecordId,
+      ),
+    )
+    .map((group) => {
+      const side: GeneralLedgerEntry["side"] =
+        group.totalDebitCents > 0 && group.totalCreditCents > 0
+          ? "mixed"
+          : group.totalDebitCents > 0
+            ? "debit"
+            : "credit";
+
+      return {
+        amount: formatCurrencyFromCents(
+          computeGroupedDisplayAmountCents(group, locale),
+        ),
+        dateLabel: "",
+        id: `party-${group.accountName.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "account"}`,
+        kind: group.kind,
+        kindLabel: group.kindLabel,
+        lines: group.lines,
+        side,
+        signedAmountCents: group.totalDebitCents - group.totalCreditCents,
+        subtitle: formatLedgerRecordCount(group.lines.length, locale),
+        title: group.accountName,
+      };
+    });
+}
+
+function computeGroupedDisplayAmountCents(
+  group: GeneralLedgerGroup,
+  locale: ResolvedLocale,
+): number {
+  return isOwnerGroup(group.accountName, locale)
+    ? group.totalDebitCents - group.totalCreditCents
+    : group.totalCreditCents - group.totalDebitCents;
+}
+
+function isOwnerGroup(
+  accountName: string,
+  locale: ResolvedLocale,
+): boolean {
+  return accountName === getLedgerRuntimeCopy(locale).journal.cashAndBank;
 }
 
 function buildGroupedSectionRows(
-  rows: readonly (LedgerRecordRow & { effectiveAmountCents: number })[],
+  rows: readonly NormalizedLedgerRecordRow[],
   kind: "expense" | "income",
   locale: ResolvedLocale,
 ): LedgerSectionRow[] {
@@ -769,21 +874,74 @@ function buildGroupedSectionRows(
     }));
 }
 
-function buildExpenseAccountName(
-  taxLineCode: string | null,
+function buildPostingLinesForRecord(
+  row: NormalizedLedgerRecordRow,
   locale: ResolvedLocale,
-): string {
+  idPrefix: string = row.recordId,
+): GeneralLedgerPostingLine[] {
   const runtimeCopy = getLedgerRuntimeCopy(locale);
+  const amount = formatCurrencyFromCents(row.effectiveAmountCents);
+  const detail = normalizeLabel(row.description, locale);
+  const record = buildPostingLineRecord(row, locale);
+  const counterpartyAccountName =
+    row.recordKind === "income"
+      ? normalizeLabel(row.sourceLabel, locale)
+      : normalizeLabel(row.targetLabel, locale);
 
-  if (!taxLineCode) {
-    return runtimeCopy.journal.operatingExpense;
+  if (row.recordKind === "income") {
+    return [
+      {
+        accountName: counterpartyAccountName,
+        amount,
+        detail,
+        id: `${idPrefix}-credit`,
+        record,
+        side: "credit",
+      },
+      {
+        accountName: runtimeCopy.journal.cashAndBank,
+        amount,
+        detail,
+        id: `${idPrefix}-debit`,
+        record,
+        side: "debit",
+      },
+    ];
   }
 
-  if (taxLineCode.toLowerCase() === "line27a") {
-    return runtimeCopy.journal.scheduleCOtherExpense;
-  }
+  return [
+    {
+      accountName: counterpartyAccountName,
+      amount,
+      detail,
+      id: `${idPrefix}-debit`,
+      record,
+      side: "debit",
+    },
+    {
+      accountName: runtimeCopy.journal.cashAndBank,
+      amount,
+      detail,
+      id: `${idPrefix}-credit`,
+      record,
+      side: "credit",
+    },
+  ];
+}
 
-  return `${runtimeCopy.journal.expensePrefix} ${taxLineCode.toUpperCase()}`;
+function buildPostingLineRecord(
+  row: NormalizedLedgerRecordRow,
+  locale: ResolvedLocale,
+): GeneralLedgerPostingRecord {
+  return {
+    amount: formatCurrencyFromCents(row.effectiveAmountCents),
+    dateLabel: formatLedgerDisplayDate(row.occurredOn, locale),
+    description: normalizeLabel(row.description, locale),
+    memo: row.memo?.trim() || null,
+    recordId: row.recordId,
+    sourceLabel: normalizeLabel(row.sourceLabel, locale),
+    targetLabel: normalizeLabel(row.targetLabel, locale),
+  };
 }
 
 function applyScopeAmount(
@@ -1316,7 +1474,6 @@ function buildRevenueAccountName(
 
   return `${normalized}${runtimeCopy.journal.revenueSuffix}`;
 }
-
 function applyBusinessUse(amountCents: number, businessUseBps: number): number {
   return Math.round((amountCents * normalizeBusinessUseBps(businessUseBps)) / 10_000);
 }
@@ -1418,6 +1575,21 @@ async function loadLedgerRowsForRange(
   });
 }
 
+function compareLedgerRowRecency(
+  leftOccurredOn: string,
+  leftCreatedAt: string,
+  leftRecordId: string,
+  rightOccurredOn: string,
+  rightCreatedAt: string,
+  rightRecordId: string,
+): number {
+  return (
+    rightOccurredOn.localeCompare(leftOccurredOn) ||
+    rightCreatedAt.localeCompare(leftCreatedAt) ||
+    rightRecordId.localeCompare(leftRecordId)
+  );
+}
+
 export const ledgerPostableStatuses = [...accountingPostableRecordStatuses];
 
 export async function loadJournalEntries(
@@ -1457,11 +1629,13 @@ export async function loadJournalEntries(
       r.tax_line_code AS taxLineCode`,
   });
 
-  return rows
-    .map((row) => ({
-      ...row,
-      effectiveAmountCents: row.amountCents,
-    }))
-    .filter((row) => row.effectiveAmountCents > 0)
-    .map((row) => buildGeneralLedgerEntry(row, locale));
+  return buildGeneralLedgerEntries(
+    rows
+      .map((row) => ({
+        ...row,
+        effectiveAmountCents: row.amountCents,
+      }))
+      .filter((row) => row.effectiveAmountCents > 0),
+    locale,
+  );
 }

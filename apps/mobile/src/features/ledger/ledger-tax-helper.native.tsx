@@ -1,6 +1,4 @@
-import { File } from "expo-file-system";
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
+import { Directory, File } from "expo-file-system";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -22,7 +20,7 @@ import type { LedgerScopeId, LedgerYearOption } from "./ledger-reporting";
 import {
   buildTaxHelperEmptyStateMessage,
   buildTaxHelperLauncherState,
-  buildArchiveTimestamp,
+  buildLedgerTaxHelperArchiveFileName,
   buildLedgerTaxHelperArchiveManifest,
   coalesceEvidenceFileLinks,
   createStoredZipArchive,
@@ -50,6 +48,7 @@ type ExportState =
 
 type WritableFileHandle = InstanceType<typeof File> & {
   bytes(): Promise<Uint8Array>;
+  uri: string;
   write(
     content: string | Uint8Array,
     options?: { append?: boolean; encoding?: "utf8" | "base64" },
@@ -196,7 +195,20 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
 
       const packageRoot = getActivePackageRootDirectory();
       const exportedAt = new Date().toISOString();
-      const archiveFileName = `ledger-tax-helper-${selectedYear}-${buildArchiveTimestamp(exportedAt)}.zip`;
+      const archiveFileName = buildLedgerTaxHelperArchiveFileName(
+        selectedYear,
+        exportedAt,
+      );
+      const destinationDirectory = await pickExportDirectoryAsync();
+
+      if (!destinationDirectory) {
+        setExportState({ kind: "idle" });
+        return;
+      }
+
+      const archiveFile = asWritableFileHandle(
+        new File(destinationDirectory, archiveFileName),
+      );
       const archiveEntries = await Promise.all([
         Promise.resolve({
           data: new TextEncoder().encode(
@@ -239,27 +251,13 @@ export function LedgerTaxHelper(props: LedgerTaxHelperProps) {
         }),
       ]);
 
-      const tempDir = `${FileSystem.cacheDirectory}tax-export/`;
-      const tempPath = `${tempDir}${archiveFileName}`;
-
-      await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
-      asWritableFileHandle(new File(tempPath)).write(
-        createStoredZipArchive(archiveEntries),
-      );
-
-      await Sharing.shareAsync(tempPath, {
-        mimeType: "application/zip",
-        UTI: "com.pkware.zip-archive",
-      });
-
-      // Clean up temp file after sharing dialog closes
-      await FileSystem.deleteAsync(tempPath, { idempotent: true });
+      archiveFile.write(createStoredZipArchive(archiveEntries));
 
       setExportState({
         kind: "success",
         message: helperCopy.exportSaved(
           evidenceFiles.length,
-          archiveFileName,
+          archiveFile.uri,
         ),
       });
     } catch (nextError) {
@@ -467,6 +465,27 @@ function asWritableFileHandle(
   file: InstanceType<typeof File>,
 ): WritableFileHandle {
   return file as WritableFileHandle;
+}
+
+async function pickExportDirectoryAsync(): Promise<InstanceType<typeof Directory> | null> {
+  try {
+    return await Directory.pickDirectoryAsync();
+  } catch (error) {
+    if (isDirectoryPickerCancelledError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function isDirectoryPickerCancelledError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("cancel") || message.includes("cancelled") || message.includes("canceled");
 }
 
 const styles = StyleSheet.create({

@@ -16,6 +16,11 @@ export interface HomeSnapshot {
   trend: HomeTrendPoint[];
 }
 
+export interface JournalListSnapshot {
+  hasMore: boolean;
+  records: HomeRecentRecord[];
+}
+
 export async function loadHomeSnapshot(
   database: ReadableStorageDatabase,
   input: {
@@ -45,25 +50,11 @@ export async function loadHomeSnapshot(
       ? latestRecordDate
       : now;
   const trendStart = shiftIsoDate(trendEnd, -29);
-  const recentRows = await database.getAllAsync<HomeRecentRecord>(
-    `SELECT
-      record_id AS recordId,
-      description,
-      amount_cents AS amountCents,
-      record_kind AS recordKind,
-      occurred_on AS occurredOn,
-      created_at AS createdAt,
-      source_label AS sourceLabel,
-      target_label AS targetLabel
-    FROM records
-    WHERE entity_id = ?
-    ORDER BY occurred_on DESC, created_at DESC
-    LIMIT ?
-    OFFSET ?;`,
+  const recentSnapshot = await loadJournalListSnapshot(database, {
     entityId,
-    limit + 1,
+    limit,
     offset,
-  );
+  });
   const metricRow =
     (await database.searchFirstRecordsByDateRangeAsync<{
       incomeCents: number | null;
@@ -97,14 +88,51 @@ export async function loadHomeSnapshot(
   const outflowCents = metricRow.outflowCents ?? 0;
 
   return {
-    hasMore: recentRows.length > limit,
+    hasMore: recentSnapshot.hasMore,
     metrics: {
       incomeCents,
       netCents: incomeCents - outflowCents,
       outflowCents,
     },
-    recentRecords: recentRows.slice(0, limit),
+    recentRecords: recentSnapshot.records,
     trend: createTrendPointsFromTotals(totalsByDate, trendEnd),
+  };
+}
+
+export async function loadJournalListSnapshot(
+  database: ReadableStorageDatabase,
+  input: {
+    entityId?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<JournalListSnapshot> {
+  const entityId = input.entityId ?? defaultEntityId;
+  const offset = input.offset ?? 0;
+  const limit = input.limit ?? homeRecentPageSize;
+  const records = await database.getAllAsync<HomeRecentRecord>(
+    `SELECT
+      record_id AS recordId,
+      description,
+      amount_cents AS amountCents,
+      record_kind AS recordKind,
+      occurred_on AS occurredOn,
+      created_at AS createdAt,
+      source_label AS sourceLabel,
+      target_label AS targetLabel
+    FROM records
+    WHERE entity_id = ?
+    ORDER BY occurred_on DESC, created_at DESC, record_id DESC
+    LIMIT ?
+    OFFSET ?;`,
+    entityId,
+    limit + 1,
+    offset,
+  );
+
+  return {
+    hasMore: records.length > limit,
+    records: records.slice(0, limit),
   };
 }
 

@@ -6,11 +6,13 @@ import type {
 
 import {
   buildTaxHelperEmptyStateMessage,
+  buildLedgerTaxHelperArchiveFileName,
   buildTaxHelperLauncherState,
   buildArchiveTimestamp,
   buildLedgerTaxHelperArchiveManifest,
   coalesceEvidenceFileLinks,
   createStoredZipArchive,
+  getLedgerTaxHelperCopy,
   groupTaxHelperFields,
 } from "../src/features/ledger/ledger-tax-helper.shared";
 
@@ -187,6 +189,12 @@ describe("ledger tax helper shared utilities", () => {
       fieldCount: 2,
       taxYear: 2026,
     });
+    expect(
+      buildLedgerTaxHelperArchiveFileName(
+        2026,
+        "2026-04-06T08:52:00.000Z",
+      ),
+    ).toBe("ledger-tax-helper-2026-20260406-085200.zip");
     expect(buildArchiveTimestamp("2026-04-06T08:52:00.000Z")).toBe("20260406-085200");
   });
 
@@ -206,6 +214,25 @@ describe("ledger tax helper shared utilities", () => {
       "manifest.json",
       "evidence-objects/entity-main/uploads/2026/01/income.pdf",
     ]);
+  });
+
+  it("formats the export success message with the chosen destination path", () => {
+    expect(
+      getLedgerTaxHelperCopy("en").exportSaved(
+        2,
+        "file:///exports/ledger-tax-helper-2026.zip",
+      ),
+    ).toBe(
+      "Saved 2 linked evidence files to file:///exports/ledger-tax-helper-2026.zip.",
+    );
+    expect(
+      getLedgerTaxHelperCopy("zh-CN").exportSaved(
+        1,
+        "file:///导出/ledger-tax-helper-2026.zip",
+      ),
+    ).toBe(
+      "已将 1 个关联凭证文件保存到 file:///导出/ledger-tax-helper-2026.zip。",
+    );
   });
 });
 

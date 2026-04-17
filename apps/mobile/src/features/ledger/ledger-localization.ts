@@ -21,6 +21,8 @@ interface LedgerRuntimeCopy {
     positivePosition: string;
   };
   common: {
+    entryPlural: string;
+    entrySingular: string;
     pendingDate: string;
     recordPlural: string;
     recordSingular: string;
@@ -78,6 +80,8 @@ const runtimeCopyByLocale: Record<ResolvedLocale, LedgerRuntimeCopy> = {
       positivePosition: "Positive owner position for this reporting slice",
     },
     common: {
+      entryPlural: "entries",
+      entrySingular: "entry",
       pendingDate: "Pending date",
       recordPlural: "records",
       recordSingular: "record",
@@ -130,6 +134,8 @@ const runtimeCopyByLocale: Record<ResolvedLocale, LedgerRuntimeCopy> = {
       positivePosition: "本报表范围内为正向所有者头寸",
     },
     common: {
+      entryPlural: "条分录",
+      entrySingular: "条分录",
       pendingDate: "待定日期",
       recordPlural: "条记录",
       recordSingular: "条记录",
@@ -274,6 +280,15 @@ export function formatLedgerRecordCount(
   const common = getLedgerRuntimeCopy(locale).common;
 
   return `${count} ${count === 1 ? common.recordSingular : common.recordPlural}`;
+}
+
+export function formatLedgerEntryCount(
+  count: number,
+  locale: ResolvedLocale,
+): string {
+  const common = getLedgerRuntimeCopy(locale).common;
+
+  return `${count} ${count === 1 ? common.entrySingular : common.entryPlural}`;
 }
 
 export function formatLedgerReferenceSubtitle(

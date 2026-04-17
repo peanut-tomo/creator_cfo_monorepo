@@ -122,7 +122,7 @@ describe("ledger reporting", () => {
     expect(ledgerPostableStatuses).toEqual(["posted", "reconciled"]);
     expect(snapshot.selectedPeriod.id).toBe("2026:m04");
     expect(snapshot.generalLedger.entries).toHaveLength(2);
-    expect(snapshot.generalLedger.recordCountLabel).toBe("2 records");
+    expect(snapshot.generalLedger.recordCountLabel).toBe("2 entries");
     expect(snapshot.generalLedger.entries.map((entry) => entry.title)).toEqual([
       "Brand sponsorship",
       "Editing subscription",
@@ -362,6 +362,7 @@ describe("ledger reporting", () => {
       "$1,660.00",
     ]);
     expect(personalSnapshot.selectedScope).toBe("personal");
+    expect(personalSnapshot.generalLedger.recordCountLabel).toBe("1 record");
     expect(personalSnapshot.generalLedger.entries).toHaveLength(1);
     expect(personalSnapshot.generalLedger.entries[0]?.title).toBe("Personal lunch");
     expect(personalSnapshot.generalLedger.entries[0]?.kindLabel).toBe("Personal");
@@ -451,8 +452,8 @@ describe("ledger reporting", () => {
 
     expect(snapshotWithPriorActivity.profitAndLoss.netIncomeLabel).toBe("$950.00");
     expect(snapshotWithoutPriorActivity.profitAndLoss.netIncomeLabel).toBe("$950.00");
-    expect(snapshotWithPriorActivity.generalLedger.recordCountLabel).toBe("2 records");
-    expect(snapshotWithoutPriorActivity.generalLedger.recordCountLabel).toBe("2 records");
+    expect(snapshotWithPriorActivity.generalLedger.recordCountLabel).toBe("2 entries");
+    expect(snapshotWithoutPriorActivity.generalLedger.recordCountLabel).toBe("2 entries");
     expect(snapshotWithPriorActivity.generalLedger.entries.map((entry) => entry.title)).toEqual([
       "Brand sponsorship",
       "Editing subscription",
@@ -473,6 +474,198 @@ describe("ledger reporting", () => {
       "$0.00",
       "$1,750.00",
       "$1,750.00",
+    ]);
+  });
+
+  it("groups repeated business journals by external counterparty while keeping income and expense groups separate", async () => {
+    const database = createFakeLedgerDatabase([
+      {
+        amountCents: 120_000,
+        businessUseBps: 10_000,
+        createdAt: "2026-04-04T10:00:00Z",
+        currency: "USD",
+        description: "TechDaily sponsorship installment one",
+        entityId: "entity-main",
+        memo: null,
+        occurredOn: "2026-04-04",
+        recordId: "record-income-techdaily-1",
+        recordKind: "income",
+        recordStatus: "reconciled",
+        sourceLabel: "TechDaily",
+        targetLabel: "Creator CFO",
+        taxLineCode: "line1",
+      },
+      {
+        amountCents: 80_000,
+        businessUseBps: 10_000,
+        createdAt: "2026-04-02T10:00:00Z",
+        currency: "USD",
+        description: "TechDaily sponsorship installment two",
+        entityId: "entity-main",
+        memo: null,
+        occurredOn: "2026-04-02",
+        recordId: "record-income-techdaily-2",
+        recordKind: "income",
+        recordStatus: "posted",
+        sourceLabel: "TechDaily",
+        targetLabel: "Creator CFO",
+        taxLineCode: "line1",
+      },
+      {
+        amountCents: 25_000,
+        businessUseBps: 10_000,
+        createdAt: "2026-04-03T09:00:00Z",
+        currency: "USD",
+        description: "Adobe Creative Cloud annual renewal",
+        entityId: "entity-main",
+        memo: null,
+        occurredOn: "2026-04-03",
+        recordId: "record-expense-adobe-1",
+        recordKind: "expense",
+        recordStatus: "posted",
+        sourceLabel: "Creator CFO",
+        targetLabel: "Adobe",
+        taxLineCode: "line18",
+      },
+      {
+        amountCents: 15_000,
+        businessUseBps: 10_000,
+        createdAt: "2026-04-01T09:00:00Z",
+        currency: "USD",
+        description: "Adobe Stock add-on seats",
+        entityId: "entity-main",
+        memo: null,
+        occurredOn: "2026-04-01",
+        recordId: "record-expense-adobe-2",
+        recordKind: "expense",
+        recordStatus: "reconciled",
+        sourceLabel: "Creator CFO",
+        targetLabel: "Adobe",
+        taxLineCode: "line27a",
+      },
+      {
+        amountCents: 5_000,
+        businessUseBps: 10_000,
+        createdAt: "2026-04-01T08:00:00Z",
+        currency: "USD",
+        description: "TechDaily campaign props",
+        entityId: "entity-main",
+        memo: null,
+        occurredOn: "2026-04-01",
+        recordId: "record-expense-techdaily",
+        recordKind: "expense",
+        recordStatus: "posted",
+        sourceLabel: "Creator CFO",
+        targetLabel: "TechDaily",
+        taxLineCode: "line27a",
+      },
+    ]);
+
+    const snapshot = await loadLedgerSnapshot(database, {
+      now: "2026-04-05",
+      preferredPeriodId: buildLedgerPeriodId(2026, "m04"),
+    });
+
+    expect(snapshot.generalLedger.recordCountLabel).toBe("3 entries");
+    expect(
+      snapshot.generalLedger.entries.slice(0, 3).map((entry) => ({
+        amount: entry.amount,
+        kind: entry.kind,
+        side: entry.side,
+        subtitle: entry.subtitle,
+        title: entry.title,
+      })),
+    ).toEqual([
+      {
+        amount: "$1,950.00",
+        kind: "income",
+        side: "mixed",
+        subtitle: "3 records",
+        title: "TechDaily",
+      },
+      {
+        amount: "$1,550.00",
+        kind: "income",
+        side: "mixed",
+        subtitle: "5 records",
+        title: "Cash & Bank",
+      },
+      {
+        amount: "-$400.00",
+        kind: "expense",
+        side: "debit",
+        subtitle: "2 records",
+        title: "Adobe",
+      },
+    ]);
+    expect(
+      snapshot.generalLedger.entries[0]?.lines.map((line) => ({
+        accountName: line.accountName,
+        amount: line.amount,
+        detail: line.detail,
+        recordId: line.record.recordId,
+        side: line.side,
+      })),
+    ).toEqual([
+      {
+        accountName: "TechDaily",
+        amount: "$1,200.00",
+        detail: "TechDaily sponsorship installment one",
+        recordId: "record-income-techdaily-1",
+        side: "credit",
+      },
+      {
+        accountName: "TechDaily",
+        amount: "$800.00",
+        detail: "TechDaily sponsorship installment two",
+        recordId: "record-income-techdaily-2",
+        side: "credit",
+      },
+      {
+        accountName: "TechDaily",
+        amount: "$50.00",
+        detail: "TechDaily campaign props",
+        recordId: "record-expense-techdaily",
+        side: "debit",
+      },
+    ]);
+    expect(
+      snapshot.generalLedger.entries.reduce(
+        (total, entry) => total + entry.signedAmountCents,
+        0,
+      ),
+    ).toBe(0);
+    expect(snapshot.generalLedger.entries[0]?.lines[0]?.record).toMatchObject({
+      amount: "$1,200.00",
+      dateLabel: "Apr 04, 2026",
+      description: "TechDaily sponsorship installment one",
+      recordId: "record-income-techdaily-1",
+      sourceLabel: "TechDaily",
+      targetLabel: "Creator CFO",
+    });
+    expect(
+      snapshot.generalLedger.entries[2]?.lines.map((line) => ({
+        accountName: line.accountName,
+        amount: line.amount,
+        detail: line.detail,
+        recordId: line.record.recordId,
+        side: line.side,
+      })),
+    ).toEqual([
+      {
+        accountName: "Adobe",
+        amount: "$250.00",
+        detail: "Adobe Creative Cloud annual renewal",
+        recordId: "record-expense-adobe-1",
+        side: "debit",
+      },
+      {
+        accountName: "Adobe",
+        amount: "$150.00",
+        detail: "Adobe Stock add-on seats",
+        recordId: "record-expense-adobe-2",
+        side: "debit",
+      },
     ]);
   });
 

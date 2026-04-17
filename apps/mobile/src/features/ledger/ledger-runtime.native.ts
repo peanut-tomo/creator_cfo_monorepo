@@ -33,7 +33,12 @@ import {
 } from "./ledger-store";
 import { parseFileWithOpenAi, type ParseResult } from "./remote-parse";
 import type { PlannerSummary } from "@creator-cfo/schemas";
-import { loadHomeSnapshot, type HomeSnapshot } from "../home/home-data";
+import {
+  loadHomeSnapshot,
+  loadJournalListSnapshot,
+  type HomeSnapshot,
+  type JournalListSnapshot,
+} from "../home/home-data";
 import type { ResolvedLocale } from "../app-shell/types";
 import { getActivePackageRootDirectory } from "../../storage/package-environment.native";
 import { buildPackageAbsolutePath } from "../../storage/package-paths";
@@ -333,6 +338,17 @@ export async function loadHomeScreenSnapshot(
 ): Promise<HomeSnapshot> {
   return withWritableLocalDatabase(async ({ writableDatabase }) =>
     loadHomeSnapshot(writableDatabase, input),
+  );
+}
+
+export async function loadJournalListScreenSnapshot(
+  input: {
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<JournalListSnapshot> {
+  return withWritableLocalDatabase(async ({ writableDatabase }) =>
+    loadJournalListSnapshot(writableDatabase, input),
   );
 }
 

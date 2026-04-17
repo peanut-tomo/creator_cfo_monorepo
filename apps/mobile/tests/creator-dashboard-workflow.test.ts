@@ -10,11 +10,8 @@ import {
   type StandardReceiptEntryInput,
 } from "@creator-cfo/storage";
 
-import { loadHomeSnapshot } from "../src/features/home/home-data";
-import {
-  buildLedgerPeriodId,
-  loadLedgerSnapshot,
-} from "../src/features/ledger/ledger-reporting";
+import { loadHomeSnapshot, loadJournalListSnapshot } from "../src/features/home/home-data";
+import { buildLedgerPeriodId, loadLedgerSnapshot } from "../src/features/ledger/ledger-reporting";
 import { ensureDefaultEntity } from "../src/features/ledger/ledger-store";
 
 function createStorageDatabase(): DatabaseSync {
@@ -233,6 +230,29 @@ describe("creator dashboard workflow", () => {
     );
   });
 
+  it("orders the full journal list from newest to oldest for the Home See All flow", async () => {
+    const database = createStorageDatabase();
+    const writableDatabase = createWritableDatabase(database);
+    await ensureDefaultEntity(writableDatabase, "2026-01-01T08:00:00.000Z");
+    await seedCreatorMockRecords(writableDatabase);
+
+    const snapshot = await loadJournalListSnapshot(writableDatabase, {
+      limit: 7,
+      offset: 0,
+    });
+
+    expect(snapshot.hasMore).toBe(false);
+    expect(snapshot.records.map((record) => record.recordId)).toEqual([
+      "mock-affiliate-income",
+      "mock-personal-spend",
+      "mock-camera-expense",
+      "mock-tiktok-income",
+      "mock-adobe-expense",
+      "mock-patreon-income",
+      "mock-youtube-income",
+    ]);
+  });
+
   it("keeps business and personal ledger reporting separate with the same mock dataset", async () => {
     const database = createStorageDatabase();
     const writableDatabase = createWritableDatabase(database);
@@ -252,38 +272,45 @@ describe("creator dashboard workflow", () => {
       scopeId: "personal",
     });
 
-    expect(businessSnapshot.generalLedger.recordCountLabel).toBe("6 records");
-    expect(
-      businessSnapshot.profitAndLoss.metricCards.map((card) => card.value),
-    ).toEqual(["$8,120.00", "$127.39"]);
+    expect(businessSnapshot.generalLedger.recordCountLabel).toBe("7 entries");
+    expect(businessSnapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
+      "$8,120.00",
+      "$127.39",
+    ]);
     expect(businessSnapshot.profitAndLoss.netIncomeLabel).toBe("$7,992.61");
-    expect(
-      businessSnapshot.profitAndLoss.revenueRows.map((row) => row.label),
-    ).toEqual(["TikTok", "YouTube", "Affiliate Network", "Patreon"]);
-    expect(
-      businessSnapshot.profitAndLoss.expenseRows.map((row) => row.label),
-    ).toEqual(["Camera Rental Co", "Adobe"]);
+    expect(businessSnapshot.profitAndLoss.revenueRows.map((row) => row.label)).toEqual([
+      "TikTok",
+      "YouTube",
+      "Affiliate Network",
+      "Patreon",
+    ]);
+    expect(businessSnapshot.profitAndLoss.expenseRows.map((row) => row.label)).toEqual([
+      "Camera Rental Co",
+      "Adobe",
+    ]);
     expect(
       businessSnapshot.generalLedger.entries.find(
-        (entry) => entry.id === "mock-camera-expense",
+        (entry) => entry.id === "party-camera-rental-co",
       )?.amount,
-    ).toBe("$74.40");
+    ).toBe(
+      "-$74.40",
+    );
 
     expect(q1BusinessSnapshot.selectedPeriod.id).toBe("2026:q1");
-    expect(q1BusinessSnapshot.generalLedger.recordCountLabel).toBe("4 records");
-    expect(
-      q1BusinessSnapshot.profitAndLoss.metricCards.map((card) => card.value),
-    ).toEqual(["$6,970.00", "$52.99"]);
+    expect(q1BusinessSnapshot.generalLedger.recordCountLabel).toBe("5 entries");
+    expect(q1BusinessSnapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
+      "$6,970.00",
+      "$52.99",
+    ]);
 
     expect(personalSnapshot.selectedScope).toBe("personal");
-    expect(personalSnapshot.generalLedger.recordCountLabel).toBe("1 record");
-    expect(personalSnapshot.generalLedger.entries[0]?.title).toBe(
-      "Family dinner",
-    );
-    expect(personalSnapshot.generalLedger.entries[0]?.amount).toBe("$88.00");
-    expect(
-      personalSnapshot.profitAndLoss.metricCards.map((card) => card.value),
-    ).toEqual(["$7,992.61", "$88.00"]);
+    expect(personalSnapshot.generalLedger.recordCountLabel).toBe("2 entries");
+    expect(personalSnapshot.generalLedger.entries[0]?.title).toBe("Cafe Luna");
+    expect(personalSnapshot.generalLedger.entries[0]?.amount).toBe("-$88.00");
+    expect(personalSnapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
+      "$7,992.61",
+      "$88.00",
+    ]);
   });
 
   it("localizes home and ledger runtime labels when the locale switches to zh-CN", async () => {
@@ -307,22 +334,18 @@ describe("creator dashboard workflow", () => {
       homeSnapshot.trend.find((point) => point.date === "2026-04-18")?.label,
     ).toBe("Apr 18");
     expect(ledgerSnapshot.selectedPeriod.label).toBe("2026年4月");
-    expect(ledgerSnapshot.selectedPeriod.summary).toBe(
-      "2026年4月01日 - 2026年4月30日",
-    );
-    expect(ledgerSnapshot.generalLedger.recordCountLabel).toBe("2 条记录");
+    expect(ledgerSnapshot.selectedPeriod.summary).toBe("2026年4月01日 - 2026年4月30日");
+    expect(ledgerSnapshot.generalLedger.recordCountLabel).toBe("3 条分录");
     expect(ledgerSnapshot.generalLedger.entries[0]?.kindLabel).toBe("收入");
-    expect(ledgerSnapshot.generalLedger.entries[0]?.lines[0]?.accountName).toBe(
-      "现金与银行",
-    );
-    expect(ledgerSnapshot.generalLedger.entries[0]?.subtitle).toContain(
-      "参考编号",
-    );
-    expect(
-      ledgerSnapshot.profitAndLoss.metricCards.map((card) => card.label),
-    ).toEqual(["总收入", "总支出"]);
-    expect(
-      ledgerSnapshot.balanceSheet.metricCards.map((card) => card.label),
-    ).toEqual(["总资产", "总负债"]);
+    expect(ledgerSnapshot.generalLedger.entries[0]?.lines[0]?.accountName).toBe("Affiliate Network");
+    expect(ledgerSnapshot.generalLedger.entries[0]?.subtitle).toBe("1 条记录");
+    expect(ledgerSnapshot.profitAndLoss.metricCards.map((card) => card.label)).toEqual([
+      "总收入",
+      "总支出",
+    ]);
+    expect(ledgerSnapshot.balanceSheet.metricCards.map((card) => card.label)).toEqual([
+      "总资产",
+      "总负债",
+    ]);
   });
 });
