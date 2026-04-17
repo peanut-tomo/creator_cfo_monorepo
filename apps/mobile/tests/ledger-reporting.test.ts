@@ -121,11 +121,18 @@ describe("ledger reporting", () => {
 
     expect(ledgerPostableStatuses).toEqual(["posted", "reconciled"]);
     expect(snapshot.selectedPeriod.id).toBe("2026:m04");
-    expect(snapshot.generalLedger.entries).toHaveLength(2);
-    expect(snapshot.generalLedger.recordCountLabel).toBe("2 entries");
+    expect(snapshot.generalLedger.entries).toHaveLength(3);
+    expect(snapshot.generalLedger.recordCountLabel).toBe("3 entries");
     expect(snapshot.generalLedger.entries.map((entry) => entry.title)).toEqual([
-      "Brand sponsorship",
-      "Editing subscription",
+      "TechDaily",
+      "Cash & Bank",
+      "Adobe",
+    ]);
+    expect(snapshot.generalLedger.equation.label).toBe("Owner balance");
+    expect(snapshot.generalLedger.equation.rows.map((row) => row.value)).toEqual([
+      "$1,200.00",
+      "-$250.00",
+      "$950.00",
     ]);
     expect(snapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
       "$1,200.00",
@@ -143,11 +150,17 @@ describe("ledger reporting", () => {
       "$1,750.00",
     ]);
     expect(snapshot.balanceSheet.equationSummary).toBe(
-      "Opening $0.00 + business movement $1,750.00 = closing business asset $1,750.00",
+      "Opening $0.00 + business movement $1,750.00 = closing net asset $1,750.00",
     );
     expect(snapshot.balanceSheet.netPositionLabel).toBe(
-      "Closing business asset as of the selected period end before current-year personal-spending deductions.",
+      "Closing net asset as of the selected period end before current-year personal-spending deductions.",
     );
+    expect(snapshot.balanceSheet.equationLabel).toBe("Net asset");
+    expect(snapshot.balanceSheet.equation.rows.map((row) => row.value)).toEqual([
+      "$0.00",
+      "$1,750.00",
+      "$1,750.00",
+    ]);
     expect(snapshot.yearOptions.map((option) => option.id)).toEqual(["2026"]);
     expect(snapshot.segmentOptions.map((option) => option.id)).toEqual([
       "full-year",
@@ -361,11 +374,40 @@ describe("ledger reporting", () => {
       "-$90.00",
       "$1,660.00",
     ]);
+    expect(personalSnapshot.balanceSheet.assetRows.map((row) => row.amount)).toEqual([
+      "$1,660.00",
+    ]);
+    expect(personalSnapshot.balanceSheet.liabilityRows.map((row) => row.amount)).toEqual([
+      "$0.00",
+    ]);
+    expect(personalSnapshot.balanceSheet.equityRows.map((row) => row.amount)).toEqual([
+      "$1,660.00",
+    ]);
+    expect(personalSnapshot.balanceSheet.equation.rows.map((row) => row.value)).toEqual([
+      "$0.00",
+      "$1,750.00",
+      "-$90.00",
+      "$1,660.00",
+    ]);
     expect(personalSnapshot.selectedScope).toBe("personal");
-    expect(personalSnapshot.generalLedger.recordCountLabel).toBe("1 record");
-    expect(personalSnapshot.generalLedger.entries).toHaveLength(1);
-    expect(personalSnapshot.generalLedger.entries[0]?.title).toBe("Personal lunch");
+    expect(personalSnapshot.generalLedger.recordCountLabel).toBe("2 entries");
+    expect(personalSnapshot.generalLedger.entries).toHaveLength(2);
+    expect(personalSnapshot.generalLedger.entries.map((entry) => entry.title)).toEqual([
+      "Cafe",
+      "Cash & Bank",
+    ]);
     expect(personalSnapshot.generalLedger.entries[0]?.kindLabel).toBe("Personal");
+    expect(personalSnapshot.generalLedger.equation.label).toBe("Owner balance");
+    expect(personalSnapshot.generalLedger.equation.rows.map((row) => row.label)).toEqual([
+      "Owner balance increase",
+      "Less personal spending",
+      "Left owner balance",
+    ]);
+    expect(personalSnapshot.generalLedger.equation.rows.map((row) => row.value)).toEqual([
+      "$950.00",
+      "-$60.00",
+      "$890.00",
+    ]);
     expect(personalSnapshot.generalLedger.metricCards.map((card) => card.value)).toEqual([
       "$60.00",
       "1",
@@ -452,15 +494,17 @@ describe("ledger reporting", () => {
 
     expect(snapshotWithPriorActivity.profitAndLoss.netIncomeLabel).toBe("$950.00");
     expect(snapshotWithoutPriorActivity.profitAndLoss.netIncomeLabel).toBe("$950.00");
-    expect(snapshotWithPriorActivity.generalLedger.recordCountLabel).toBe("2 entries");
-    expect(snapshotWithoutPriorActivity.generalLedger.recordCountLabel).toBe("2 entries");
+    expect(snapshotWithPriorActivity.generalLedger.recordCountLabel).toBe("3 entries");
+    expect(snapshotWithoutPriorActivity.generalLedger.recordCountLabel).toBe("3 entries");
     expect(snapshotWithPriorActivity.generalLedger.entries.map((entry) => entry.title)).toEqual([
-      "Brand sponsorship",
-      "Editing subscription",
+      "TechDaily",
+      "Cash & Bank",
+      "Adobe",
     ]);
     expect(snapshotWithoutPriorActivity.generalLedger.entries.map((entry) => entry.title)).toEqual([
-      "Brand sponsorship",
-      "Editing subscription",
+      "TechDaily",
+      "Cash & Bank",
+      "Adobe",
     ]);
     expect(snapshotWithoutPriorActivity.balanceSheet.metricCards.map((card) => card.value)).toEqual([
       "$950.00",
@@ -841,6 +885,16 @@ describe("ledger reporting", () => {
     expect(personalSnapshot.yearOptions.map((option) => option.id)).toEqual(["2027", "2026"]);
     expect(personalSnapshot.isEmpty).toBe(false);
     expect(personalSnapshot.generalLedger.entries).toEqual([]);
+    expect(personalSnapshot.generalLedger.equation.rows.map((row) => row.label)).toEqual([
+      "Owner balance increase",
+      "Less personal spending",
+      "Left owner balance",
+    ]);
+    expect(personalSnapshot.generalLedger.equation.rows.map((row) => row.value)).toEqual([
+      "$300.00",
+      "$0.00",
+      "$300.00",
+    ]);
     expect(personalSnapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
       "$300.00",
       "$0.00",
@@ -855,6 +909,18 @@ describe("ledger reporting", () => {
     expect(personalSnapshot.balanceSheet.metricCards.map((card) => card.value)).toEqual([
       "$1,000.00",
       "$0.00",
+    ]);
+    expect(personalSnapshot.balanceSheet.assetRows.map((row) => row.amount)).toEqual([
+      "$1,000.00",
+    ]);
+    expect(personalSnapshot.balanceSheet.equityRows.map((row) => row.amount)).toEqual([
+      "$1,000.00",
+    ]);
+    expect(personalSnapshot.balanceSheet.equation.rows.map((row) => row.value)).toEqual([
+      "$700.00",
+      "$300.00",
+      "$0.00",
+      "$1,000.00",
     ]);
     expect(businessSnapshot.profitAndLoss.netIncomeLabel).toBe("$300.00");
     expect(businessSnapshot.balanceSheet.metricCards.map((card) => card.value)).toEqual([
@@ -921,7 +987,7 @@ describe("ledger reporting", () => {
     const snapshot = await loadLedgerSnapshot(database);
 
     expect(snapshot.selectedPeriod.id).toBe("2026:full-year");
-    expect(snapshot.generalLedger.entries).toHaveLength(2);
+    expect(snapshot.generalLedger.entries).toHaveLength(3);
     expect(snapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
       "$1,000.00",
       "$200.00",
@@ -999,7 +1065,7 @@ describe("ledger reporting", () => {
     ]);
     expect(snapshot.profitAndLoss.netIncomeLabel).toBe("-$350.00");
     expect(snapshot.balanceSheet.equationSummary).toBe(
-      "Opening $0.00 + business movement -$150.00 = closing business asset -$150.00",
+      "Opening $0.00 + business movement -$150.00 = closing net asset -$150.00",
     );
     expect(snapshot.balanceSheet.liabilityRows[0]?.label).toBe("Funding gap (derived)");
     expect(snapshot.balanceSheet.equityRows[0]?.amount).toBe("-$150.00");

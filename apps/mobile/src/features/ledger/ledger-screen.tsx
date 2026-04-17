@@ -16,6 +16,7 @@ import { useAppShell } from "../app-shell/provider";
 import { formatCurrencyFromCents } from "./ledger-domain";
 import type {
   GeneralLedgerEntry,
+  LedgerEquationSnapshot,
   GeneralLedgerPostingLine,
   LedgerMetricCard,
   LedgerPeriodOption,
@@ -351,48 +352,31 @@ export function LedgerScreen() {
                     />
                   ))}
                 </View>
-                {selectedScope === "business" ? (
-                  <GeneralLedgerEquationCard
-                    entries={snapshot.generalLedger.entries}
-                  />
-                ) : null}
+                <GeneralLedgerEquationCard
+                  equation={snapshot.generalLedger.equation}
+                />
               </>
             ) : null}
 
             {selectedView === "balance-sheet" ? (
-              selectedScope === "personal" ? (
-                <StatusCard
-                  body={screenCopy.sections.balanceOnlyBody}
-                  title={screenCopy.sections.balanceOnlyTitle}
+              <>
+                <MetricGrid cards={snapshot.balanceSheet.metricCards} />
+                <SectionCard
+                  rows={snapshot.balanceSheet.assetRows}
+                  title={screenCopy.sections.assets}
                 />
-              ) : (
-                <>
-                  <MetricGrid cards={snapshot.balanceSheet.metricCards} />
-                  <SectionCard
-                    rows={snapshot.balanceSheet.assetRows}
-                    title={screenCopy.sections.assets}
-                  />
-                  <SectionCard
-                    rows={snapshot.balanceSheet.liabilityRows}
-                    title={screenCopy.sections.liabilities}
-                  />
-                  <SectionCard
-                    rows={snapshot.balanceSheet.equityRows}
-                    title={screenCopy.sections.equity}
-                  />
-                  <View style={styles.equationCard}>
-                    <Text style={styles.equationEyebrow}>
-                      {screenCopy.sections.equation}
-                    </Text>
-                    <Text style={styles.equationTitle}>
-                      {snapshot.balanceSheet.equationSummary}
-                    </Text>
-                    <Text style={styles.equationSummary}>
-                      {snapshot.balanceSheet.netPositionLabel}
-                    </Text>
-                  </View>
-                </>
-              )
+                <SectionCard
+                  rows={snapshot.balanceSheet.liabilityRows}
+                  title={screenCopy.sections.liabilities}
+                />
+                <SectionCard
+                  rows={snapshot.balanceSheet.equityRows}
+                  title={screenCopy.sections.equity}
+                />
+                <GeneralLedgerEquationCard
+                  equation={snapshot.balanceSheet.equation}
+                />
+              </>
             ) : null}
 
             {selectedView === "profit-loss" ? (
@@ -1140,46 +1124,39 @@ function GroupedEntryDetailModal({
 }
 
 function GeneralLedgerEquationCard({
-  entries,
+  equation,
 }: {
-  entries: readonly GeneralLedgerEntry[];
+  equation: LedgerEquationSnapshot;
 }) {
-  const { copy, resolvedLocale } = useAppShell();
-  const runtimeCopy = getLedgerRuntimeCopy(resolvedLocale);
-  const ownerTitle = runtimeCopy.journal.cashAndBank;
-  const ownerBalanceCents = entries
-    .filter((entry) => entry.title === ownerTitle)
-    .reduce((total, entry) => total + entry.signedAmountCents, 0);
-  const otherBalanceCents = entries
-    .filter((entry) => entry.title !== ownerTitle)
-    .reduce((total, entry) => total + entry.signedAmountCents, 0);
-  const netBalanceCents = entries.reduce(
-    (total, entry) => total + entry.signedAmountCents,
-    0,
-  );
-
   return (
     <View style={styles.equationDetailCard}>
-      <Text style={styles.equationDetailTitle}>
-        {copy.ledgerScreen.sections.generalLedgerEquationTitle}
-      </Text>
-      <Text style={styles.equationDetailBody}>
-        {copy.ledgerScreen.sections.generalLedgerEquationOwnerRule}
-      </Text>
-      <Text style={styles.equationDetailBody}>
-        {copy.ledgerScreen.sections.generalLedgerEquationOtherRule}
-      </Text>
-      <Text style={styles.equationDetailFormula}>
-        {ownerTitle}: {formatCurrencyFromCents(ownerBalanceCents)}
-      </Text>
-      <Text style={styles.equationDetailFormula}>
-        {copy.ledgerScreen.sections.generalLedgerEquationOtherTotal}:{" "}
-        {formatCurrencyFromCents(otherBalanceCents)}
-      </Text>
-      <Text style={styles.equationDetailFormula}>
-        {copy.ledgerScreen.sections.generalLedgerEquationNet}:{" "}
-        {formatCurrencyFromCents(netBalanceCents)}
-      </Text>
+      <Text style={styles.equationDetailTitle}>{equation.label}</Text>
+      <Text style={styles.equationDetailBody}>{equation.summary}</Text>
+      <View style={styles.equationBreakdownStack}>
+        {equation.rows.map((row, index) => (
+          <View
+            key={row.id}
+            style={[
+              styles.equationBreakdownRow,
+              index > 0 ? styles.listRowSplit : null,
+            ]}
+          >
+            <Text style={styles.equationBreakdownLabel}>{row.label}</Text>
+            <Text
+              style={[
+                styles.equationBreakdownAmount,
+                row.accent === "danger"
+                  ? styles.equationBreakdownAmountDanger
+                  : row.accent === "success"
+                    ? styles.equationBreakdownAmountSuccess
+                    : null,
+              ]}
+            >
+              {row.value}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -1737,6 +1714,36 @@ const styles = StyleSheet.create({
     color: "rgba(0, 32, 69, 0.62)",
     fontSize: 13,
     lineHeight: 19,
+  },
+  equationBreakdownAmount: {
+    color: "#002045",
+    fontSize: 15,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  equationBreakdownAmountDanger: {
+    color: "#BA1A1A",
+  },
+  equationBreakdownAmountSuccess: {
+    color: "#45664A",
+  },
+  equationBreakdownLabel: {
+    color: "#002045",
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 19,
+  },
+  equationBreakdownRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  equationBreakdownStack: {
+    marginTop: 2,
   },
   equationDetailCard: {
     backgroundColor: "#F4F9FF",

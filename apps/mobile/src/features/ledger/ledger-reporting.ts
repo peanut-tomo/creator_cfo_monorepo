@@ -81,6 +81,19 @@ export interface LedgerSectionRow {
   note: string;
 }
 
+export interface LedgerEquationRow {
+  accent?: "danger" | "neutral" | "success";
+  id: string;
+  label: string;
+  value: string;
+}
+
+export interface LedgerEquationSnapshot {
+  label: string;
+  rows: LedgerEquationRow[];
+  summary: string;
+}
+
 export interface GeneralLedgerPostingLine {
   accountName: string;
   amount: string;
@@ -116,6 +129,7 @@ export interface GeneralLedgerEntry {
 export interface GeneralLedgerSnapshot {
   debitTotal: string;
   entries: GeneralLedgerEntry[];
+  equation: LedgerEquationSnapshot;
   metricCards: LedgerMetricCard[];
   recordCountLabel: string;
 }
@@ -123,6 +137,8 @@ export interface GeneralLedgerSnapshot {
 export interface BalanceSheetSnapshot {
   assetRows: LedgerSectionRow[];
   carryForwardRows: LedgerSectionRow[];
+  equation: LedgerEquationSnapshot;
+  equationLabel: string;
   equationSummary: string;
   equityAmount: string;
   equityRows: LedgerSectionRow[];
@@ -410,6 +426,11 @@ export function buildLedgerSnapshotFromRows(
     personalRows.map((row) => row.effectiveAmountCents),
   );
   const generalLedgerEntries = buildGeneralLedgerEntries(normalizedRows, locale);
+  const generalLedgerEquation = buildGeneralLedgerEquationSnapshot(
+    normalizedProfitLossRows,
+    input.selectedScope,
+    locale,
+  );
   const totalJournalEntryCents = sumAmounts(
     normalizedRows.map((row) => row.effectiveAmountCents),
   );
@@ -432,6 +453,7 @@ export function buildLedgerSnapshotFromRows(
     generalLedger: {
       debitTotal: formatCurrencyFromCents(totalJournalEntryCents),
       entries: generalLedgerEntries,
+      equation: generalLedgerEquation,
       metricCards: [
         {
           accent: input.selectedScope === "personal" ? "danger" : "success",
@@ -1024,6 +1046,117 @@ function buildProfitAndLossSnapshot(
   };
 }
 
+function buildGeneralLedgerEquationSnapshot(
+  rows: readonly (LedgerRecordRow & { effectiveAmountCents: number })[],
+  scopeId: LedgerScopeId,
+  locale: ResolvedLocale,
+): LedgerEquationSnapshot {
+  const incomeRows = rows.filter((row) => row.recordKind === "income");
+  const expenseRows = rows.filter((row) => row.recordKind === "expense");
+  const personalRows = rows.filter((row) => row.recordKind === "personal_spending");
+  const businessRevenueTotalCents = sumAmounts(
+    incomeRows.map((row) => row.effectiveAmountCents),
+  );
+  const businessExpenseTotalCents = sumAmounts(
+    expenseRows.map((row) => row.effectiveAmountCents),
+  );
+  const personalSpendingTotalCents = sumAmounts(
+    personalRows.map((row) => row.effectiveAmountCents),
+  );
+  const businessMovementCents = businessRevenueTotalCents - businessExpenseTotalCents;
+  const ownerBalanceMovementCents =
+    scopeId === "personal"
+      ? businessMovementCents - personalSpendingTotalCents
+      : businessMovementCents;
+
+  if (scopeId === "personal") {
+    return {
+      label: getOwnerBalanceLabel(locale),
+      rows: [
+        {
+          accent:
+            businessMovementCents > 0
+              ? "success"
+              : businessMovementCents < 0
+                ? "danger"
+                : "neutral",
+          id: "initial-owner-balance",
+          label: buildOwnerBalanceResultLabel(businessMovementCents, locale),
+          value: formatCurrencyFromCents(
+            normalizeSignedZeroCents(businessMovementCents),
+          ),
+        },
+        {
+          accent: personalSpendingTotalCents > 0 ? "danger" : "neutral",
+          id: "personal-spending",
+          label: locale === "zh-CN" ? "减：个人支出" : "Less personal spending",
+          value: formatCurrencyFromCents(
+            normalizeSignedZeroCents(personalSpendingTotalCents * -1),
+          ),
+        },
+        {
+          accent:
+            ownerBalanceMovementCents > 0
+              ? "success"
+              : ownerBalanceMovementCents < 0
+                ? "danger"
+                : "neutral",
+          id: "left-owner-balance",
+          label: buildLeftOwnerBalanceLabel(locale),
+          value: formatCurrencyFromCents(
+            normalizeSignedZeroCents(ownerBalanceMovementCents),
+          ),
+        },
+      ],
+      summary:
+        locale === "zh-CN"
+          ? "个人页签先保留本期所有者余额增加值，再减去个人支出，得到剩余所有者余额。这里只展示所选期间的变动。"
+          : "Personal tab starts from the selected-period owner balance increase, then subtracts personal spend to show the left owner balance. Selected-period movement only.",
+    };
+  }
+
+  const rowsForEquation: LedgerEquationRow[] = [
+    {
+      accent: businessRevenueTotalCents > 0 ? "success" : "neutral",
+      id: "business-revenue",
+      label: locale === "zh-CN" ? "经营收入" : "Business revenue",
+      value: formatCurrencyFromCents(
+        normalizeSignedZeroCents(businessRevenueTotalCents),
+      ),
+    },
+    {
+      accent: businessExpenseTotalCents > 0 ? "danger" : "neutral",
+      id: "business-expense",
+      label: locale === "zh-CN" ? "减：经营支出" : "Less business expense",
+      value: formatCurrencyFromCents(
+        normalizeSignedZeroCents(businessExpenseTotalCents * -1),
+      ),
+    },
+    {
+      accent:
+        ownerBalanceMovementCents > 0
+          ? "success"
+          : ownerBalanceMovementCents < 0
+            ? "danger"
+            : "neutral",
+      id: "owner-balance-movement",
+      label: buildOwnerBalanceResultLabel(ownerBalanceMovementCents, locale),
+      value: formatCurrencyFromCents(
+        normalizeSignedZeroCents(ownerBalanceMovementCents),
+      ),
+    },
+  ];
+
+  return {
+    label: getOwnerBalanceLabel(locale),
+    rows: rowsForEquation,
+    summary:
+      locale === "zh-CN"
+        ? "这里只展示所选期间的变动。经营收入减去经营支出，说明所有者余额在本期间如何变化；结转余额保留在资产负债页。"
+        : "Selected-period movement only. Business revenue minus business expense explains how owner balance changed here; carried balance stays in the balance sheet.",
+  };
+}
+
 function buildBalanceSheetSnapshot(
   rows: readonly (LedgerRecordRow & { effectiveAmountCents: number })[],
   input: {
@@ -1044,28 +1177,41 @@ function buildBalanceSheetSnapshot(
   const businessAssetTotalCents = Math.max(summary.businessClosingAssetCents, 0);
   const assetTotalCents = Math.max(closingAssetCents, 0);
   const fundingGapCents = Math.max(closingAssetCents * -1, 0);
+  const carryForwardRows = buildBalanceSheetCarryForwardRows(
+    summary,
+    input.selectedPeriod.year,
+    input.scopeId,
+    input.locale,
+  );
+  const equationSummary = buildBalanceSheetEquationSummary(
+    summary,
+    input.scopeId,
+    input.locale,
+  );
+  const netPositionLabel = buildBalanceSheetNetPositionLabel(
+    input.scopeId,
+    closingAssetCents,
+    input.locale,
+  );
 
   return {
     assetRows: [
       buildBalanceSheetAssetRow(
         input.scopeId,
         assetTotalCents,
-        businessAssetTotalCents,
-        summary.businessClosingAssetCents,
         closingAssetCents,
         input.locale,
       ),
     ],
-    carryForwardRows: buildBalanceSheetCarryForwardRows(
-      summary,
-      input.selectedPeriod.year,
-      input.scopeId,
-    ),
-    equationSummary: buildBalanceSheetEquationSummary(
+    carryForwardRows,
+    equation: buildBalanceSheetEquationSnapshot(
       summary,
       input.scopeId,
       input.locale,
+      netPositionLabel,
     ),
+    equationLabel: getNetAssetLabel(input.locale),
+    equationSummary,
     equityAmount: formatCurrencyFromCents(closingAssetCents),
     equityRows: [
       buildBalanceSheetEquityRow(
@@ -1095,19 +1241,87 @@ function buildBalanceSheetSnapshot(
         value: formatCurrencyFromCents(fundingGapCents),
       },
     ],
-    netPositionLabel: buildBalanceSheetNetPositionLabel(
-      input.scopeId,
-      closingAssetCents,
-      input.locale,
+    netPositionLabel,
+  };
+}
+
+function buildBalanceSheetEquationSnapshot(
+  summary: {
+    businessClosingAssetCents: number;
+    currentYearBusinessProfitCents: number;
+    currentYearPersonalSpendingCents: number;
+    openingBalanceCents: number;
+    personalClosingAssetCents: number;
+  },
+  scopeId: LedgerScopeId,
+  locale: ResolvedLocale,
+  netPositionLabel: string,
+): LedgerEquationSnapshot {
+  const rows: LedgerEquationRow[] = [
+    {
+      accent: "neutral",
+      id: "opening-balance",
+      label: locale === "zh-CN" ? "期初余额" : "Opening balance",
+      value: formatCurrencyFromCents(
+        normalizeSignedZeroCents(summary.openingBalanceCents),
+      ),
+    },
+    {
+      accent:
+        summary.currentYearBusinessProfitCents > 0
+          ? "success"
+          : summary.currentYearBusinessProfitCents < 0
+            ? "danger"
+            : "neutral",
+      id: "business-movement",
+      label: locale === "zh-CN" ? "经营变动" : "Business movement",
+      value: formatCurrencyFromCents(
+        normalizeSignedZeroCents(summary.currentYearBusinessProfitCents),
+      ),
+    },
+  ];
+
+  if (scopeId === "personal") {
+    rows.push({
+      accent:
+        summary.currentYearPersonalSpendingCents > 0 ? "danger" : "neutral",
+      id: "personal-spending",
+      label: locale === "zh-CN" ? "减：个人支出" : "Less personal spending",
+      value: formatCurrencyFromCents(
+        normalizeSignedZeroCents(summary.currentYearPersonalSpendingCents * -1),
+      ),
+    });
+  }
+
+  const closingNetAssetCents =
+    scopeId === "business"
+      ? summary.businessClosingAssetCents
+      : summary.personalClosingAssetCents;
+
+  rows.push({
+    accent:
+      closingNetAssetCents > 0
+        ? "success"
+        : closingNetAssetCents < 0
+          ? "danger"
+          : "neutral",
+    id: "closing-net-asset",
+    label: locale === "zh-CN" ? "期末净资产" : "Closing net asset",
+    value: formatCurrencyFromCents(
+      normalizeSignedZeroCents(closingNetAssetCents),
     ),
+  });
+
+  return {
+    label: getNetAssetLabel(locale),
+    rows,
+    summary: netPositionLabel,
   };
 }
 
 function buildBalanceSheetAssetRow(
   scopeId: LedgerScopeId,
   assetTotalCents: number,
-  businessAssetTotalCents: number,
-  businessClosingAssetCents: number,
   closingNetAssetCents: number,
   locale: ResolvedLocale,
 ): LedgerSectionRow {
@@ -1115,13 +1329,20 @@ function buildBalanceSheetAssetRow(
 
   if (scopeId === "personal") {
     return {
-      amount: formatCurrencyFromCents(businessAssetTotalCents),
-      id: "business-total-asset-basis",
-      label: runtimeCopy.balance.businessAssetsLabel,
+      amount: formatCurrencyFromCents(assetTotalCents),
+      id: "closing-personal-net-asset",
+      label:
+        locale === "zh-CN"
+          ? "期末净资产（推导）"
+          : "Closing net asset (derived)",
       note:
-        businessClosingAssetCents >= 0
-          ? runtimeCopy.balance.businessAssetsNote
-          : runtimeCopy.balance.deficitPosition,
+        locale === "zh-CN"
+          ? closingNetAssetCents >= 0
+            ? "个人页资产按扣除当年个人支出后的期末净资产展示。"
+            : "扣除当年个人支出后的个人页净资产为负，因此资产展示为零。"
+          : closingNetAssetCents >= 0
+            ? "Personal-tab assets show the closing net asset after current-year personal-spending deductions."
+            : "Personal-tab net asset is negative after current-year personal-spending deductions, so assets are shown as zero.",
     };
   }
 
@@ -1153,7 +1374,9 @@ function buildBalanceSheetLiabilityRow(
         fundingGapCents > 0 ? fundingGapLabel : runtimeCopy.balance.liabilitiesMetric,
       note:
         fundingGapCents > 0
-          ? runtimeCopy.balance.fundingGapNote
+          ? locale === "zh-CN"
+            ? "当扣除当年个人支出后个人页期末净资产仍为负时展示。"
+            : "Shown when personal-tab closing net asset remains negative after current-year personal-spending deductions."
           : runtimeCopy.balance.liabilitiesMetric,
     };
   }
@@ -1185,7 +1408,10 @@ function buildBalanceSheetEquityRow(
         netPositionCents >= 0
           ? runtimeCopy.balance.equityLabel
           : runtimeCopy.balance.deficitLabel,
-      note: runtimeCopy.balance.equityNote,
+      note:
+        locale === "zh-CN"
+          ? "扣除当年个人支出后的推导所有者净头寸。"
+          : "Derived owner position after current-year personal-spending deductions.",
     };
   }
 
@@ -1228,26 +1454,29 @@ function buildBalanceSheetEquationSummary(
   const businessMovement = formatCurrencyFromCents(
     normalizeSignedZeroCents(summary.currentYearBusinessProfitCents),
   );
-
-  if (scopeId === "business") {
-    return `Opening ${opening} + business movement ${businessMovement} = closing business asset ${formatCurrencyFromCents(
-      normalizeSignedZeroCents(summary.businessClosingAssetCents),
-    )}`;
-  }
+  const businessClosingNetAsset = formatCurrencyFromCents(
+    normalizeSignedZeroCents(summary.businessClosingAssetCents),
+  );
+  const personalClosingNetAsset = formatCurrencyFromCents(
+    normalizeSignedZeroCents(summary.personalClosingAssetCents),
+  );
+  const personalSpending = formatCurrencyFromCents(
+    normalizeSignedZeroCents(summary.currentYearPersonalSpendingCents),
+  );
 
   if (locale === "zh-CN") {
-    return `期初 ${opening} + 经营变动 ${businessMovement} - 个人支出 ${formatCurrencyFromCents(
-      normalizeSignedZeroCents(summary.currentYearPersonalSpendingCents),
-    )} = 期末个人资产 ${formatCurrencyFromCents(
-      normalizeSignedZeroCents(summary.personalClosingAssetCents),
-    )}`;
+    if (scopeId === "business") {
+      return `期初 ${opening} + 经营变动 ${businessMovement} = 期末净资产 ${businessClosingNetAsset}`;
+    }
+
+    return `期初 ${opening} + 经营变动 ${businessMovement} - 个人支出 ${personalSpending} = 期末净资产 ${personalClosingNetAsset}`;
   }
 
-  return `Opening ${opening} + business movement ${businessMovement} - personal spending ${formatCurrencyFromCents(
-    normalizeSignedZeroCents(summary.currentYearPersonalSpendingCents),
-  )} = closing personal asset ${formatCurrencyFromCents(
-    normalizeSignedZeroCents(summary.personalClosingAssetCents),
-  )}`;
+  if (scopeId === "business") {
+    return `Opening ${opening} + business movement ${businessMovement} = closing net asset ${businessClosingNetAsset}`;
+  }
+
+  return `Opening ${opening} + business movement ${businessMovement} - personal spending ${personalSpending} = closing net asset ${personalClosingNetAsset}`;
 }
 
 function buildBalanceSheetNetPositionLabel(
@@ -1258,24 +1487,24 @@ function buildBalanceSheetNetPositionLabel(
   if (scopeId === "personal") {
     if (locale === "zh-CN") {
       return netPositionCents >= 0
-        ? "所选期间结束时，在扣除当年个人支出后的期末个人资产。这仍然是一个推导出的个人视图，并非完整的资产负债表。"
-        : "所选期间结束时，在扣除当年个人支出后的个人净头寸为负。这仍然是一个推导出的个人视图，并非完整的资产负债表。";
+        ? "所选期间结束时，在扣除当年个人支出后的期末净资产。这仍然是一个推导出的个人视图，并非完整的资产负债表。"
+        : "所选期间结束时，在扣除当年个人支出后的期末净资产为负。这仍然是一个推导出的个人视图，并非完整的资产负债表。";
     }
 
     return netPositionCents >= 0
-      ? "Closing personal asset as of the selected period end after current-year personal-spending deductions. This remains a limited derived personal view rather than a full asset and debt statement."
-      : "Negative closing personal position as of the selected period end after current-year personal-spending deductions. This remains a limited derived personal view rather than a full asset and debt statement.";
+      ? "Closing net asset as of the selected period end after current-year personal-spending deductions. This remains a limited derived personal view rather than a full asset and debt statement."
+      : "Negative closing net asset as of the selected period end after current-year personal-spending deductions. This remains a limited derived personal view rather than a full asset and debt statement.";
   }
 
   if (locale === "zh-CN") {
     return netPositionCents >= 0
-      ? "所选期间结束时，在扣除当年个人支出前的期末经营资产。"
-      : "所选期间结束时，在扣除当年个人支出前的经营净头寸为负。";
+      ? "所选期间结束时，在扣除当年个人支出前的期末净资产。"
+      : "所选期间结束时，在扣除当年个人支出前的期末净资产为负。";
   }
 
   return netPositionCents >= 0
-    ? "Closing business asset as of the selected period end before current-year personal-spending deductions."
-    : "Negative closing business position as of the selected period end before current-year personal-spending deductions.";
+    ? "Closing net asset as of the selected period end before current-year personal-spending deductions."
+    : "Negative closing net asset as of the selected period end before current-year personal-spending deductions.";
 }
 
 function normalizeLedgerRows(
@@ -1371,23 +1600,32 @@ function buildBalanceSheetCarryForwardRows(
   },
   selectedYear: number,
   scopeId: LedgerScopeId,
+  locale: ResolvedLocale,
 ): LedgerSectionRow[] {
   const openingBalanceRow: LedgerSectionRow = {
     amount: formatCurrencyFromCents(normalizeSignedZeroCents(summary.openingBalanceCents)),
     id: "opening-balance",
-    label: "Opening balance (carried forward)",
+    label:
+      locale === "zh-CN" ? "期初余额（结转）" : "Opening balance (carried forward)",
     note:
       summary.hasPriorYearActivity
-        ? `Derived from the ${selectedYear - 1} closing personal asset carried into both balance-sheet scopes.`
-        : "No prior-year closing personal asset is available, so the opening balance starts at zero.",
+        ? locale === "zh-CN"
+          ? `由 ${selectedYear - 1} 年期末净资产结转到两个资产负债页签。`
+          : `Derived from the ${selectedYear - 1} closing net asset carried into both balance-sheet tabs.`
+        : locale === "zh-CN"
+          ? "没有可结转的上年期末净资产，因此期初余额从零开始。"
+          : "No prior-year closing net asset is available, so the opening balance starts at zero.",
   };
   const businessProfitRow: LedgerSectionRow = {
     amount: formatCurrencyFromCents(
       normalizeSignedZeroCents(summary.currentYearBusinessProfitCents),
     ),
     id: "current-year-business-profit",
-    label: "Business profit YTD",
-    note: "Year-to-date business revenue minus business expense from January 1 through the selected period end.",
+    label: locale === "zh-CN" ? "经营变动年初至今" : "Business movement YTD",
+    note:
+      locale === "zh-CN"
+        ? "从 1 月 1 日到所选期间结束日的经营收入减经营支出。"
+        : "Year-to-date business revenue minus business expense from January 1 through the selected period end.",
   };
 
   if (scopeId === "business") {
@@ -1399,8 +1637,11 @@ function buildBalanceSheetCarryForwardRows(
           normalizeSignedZeroCents(summary.businessClosingAssetCents),
         ),
         id: "closing-business-asset",
-        label: "Closing business asset",
-        note: "Opening balance plus year-to-date business profit. Current-year personal spending does not reduce this business closing value.",
+        label: locale === "zh-CN" ? "期末净资产" : "Closing net asset",
+        note:
+          locale === "zh-CN"
+            ? "期初余额加上年初至今经营变动。当年个人支出不会减少经营页签的期末净资产。"
+            : "Opening balance plus year-to-date business movement. Current-year personal spending does not reduce the business-tab closing net asset.",
       },
     ];
   }
@@ -1413,16 +1654,25 @@ function buildBalanceSheetCarryForwardRows(
         normalizeSignedZeroCents(summary.currentYearPersonalSpendingCents * -1),
       ),
       id: "current-year-personal-spending",
-      label: "Personal spending deduction YTD",
-      note: "Current-year cumulative personal spending through the selected period end reduces the business asset basis here and in the next carry-forward.",
+      label:
+        locale === "zh-CN"
+          ? "个人支出扣减年初至今"
+          : "Personal spending deduction YTD",
+      note:
+        locale === "zh-CN"
+          ? "到所选期间结束日为止的当年累计个人支出，会在这里以及下一次结转中减少经营净资产基数。"
+          : "Current-year cumulative personal spending through the selected period end reduces the business net-asset basis here and in the next carry-forward.",
     },
     {
       amount: formatCurrencyFromCents(
         normalizeSignedZeroCents(summary.personalClosingAssetCents),
       ),
       id: "closing-personal-asset",
-      label: "Closing personal asset",
-      note: "Business asset basis after current-year personal-spending deductions, shown in a limited derived personal view.",
+      label: locale === "zh-CN" ? "期末净资产" : "Closing net asset",
+      note:
+        locale === "zh-CN"
+          ? "扣除当年个人支出后的经营净资产基数，以有限的推导个人视图呈现。"
+          : "Business net-asset basis after current-year personal-spending deductions, shown in a limited derived personal view.",
     },
   ];
 }
@@ -1436,6 +1686,15 @@ function createEmptyBalanceSheetSnapshot(
   return {
     assetRows: [],
     carryForwardRows: [],
+    equation: {
+      label: getNetAssetLabel(locale),
+      rows: [],
+      summary:
+        scopeId === "personal"
+          ? runtimeCopy.balance.deficitPosition
+          : runtimeCopy.balance.positivePosition,
+    },
+    equationLabel: getNetAssetLabel(locale),
     equationSummary: "",
     equityAmount: formatCurrencyFromCents(0),
     equityRows: [],
@@ -1459,6 +1718,45 @@ function createEmptyBalanceSheetSnapshot(
         ? runtimeCopy.balance.deficitPosition
         : runtimeCopy.balance.positivePosition,
   };
+}
+
+function getOwnerBalanceLabel(locale: ResolvedLocale): string {
+  return locale === "zh-CN" ? "所有者余额" : "Owner balance";
+}
+
+function getNetAssetLabel(locale: ResolvedLocale): string {
+  return locale === "zh-CN" ? "净资产" : "Net asset";
+}
+
+function buildOwnerBalanceResultLabel(
+  ownerBalanceMovementCents: number,
+  locale: ResolvedLocale,
+): string {
+  if (locale === "zh-CN") {
+    if (ownerBalanceMovementCents > 0) {
+      return "所有者余额增加";
+    }
+
+    if (ownerBalanceMovementCents < 0) {
+      return "所有者余额减少";
+    }
+
+    return "所有者余额持平";
+  }
+
+  if (ownerBalanceMovementCents > 0) {
+    return "Owner balance increase";
+  }
+
+  if (ownerBalanceMovementCents < 0) {
+    return "Owner balance decrease";
+  }
+
+  return "Owner balance unchanged";
+}
+
+function buildLeftOwnerBalanceLabel(locale: ResolvedLocale): string {
+  return locale === "zh-CN" ? "剩余所有者余额" : "Left owner balance";
 }
 
 function buildRevenueAccountName(
