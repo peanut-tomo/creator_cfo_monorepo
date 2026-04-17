@@ -92,7 +92,7 @@ describe("creator ledger demo seed", () => {
       "Sponsorship payout: TechDaily",
     ]);
 
-    expect(businessLedgerSnapshot.generalLedger.recordCountLabel).toBe("7 records");
+    expect(businessLedgerSnapshot.generalLedger.recordCountLabel).toBe("8 entries");
     expect(businessLedgerSnapshot.profitAndLoss.metricCards.map((card) => card.value)).toEqual([
       "$5,230.00",
       "$735.00",
@@ -110,12 +110,12 @@ describe("creator ledger demo seed", () => {
       "Notion",
     ]);
 
-    expect(personalLedgerSnapshot.generalLedger.recordCountLabel).toBe("1 record");
-    expect(personalLedgerSnapshot.generalLedger.entries[0]?.title).toBe("Coffee and meals during shoot day");
-    expect(personalLedgerSnapshot.generalLedger.entries[0]?.amount).toBe("$86.00");
+    expect(personalLedgerSnapshot.generalLedger.recordCountLabel).toBe("2 entries");
+    expect(personalLedgerSnapshot.generalLedger.entries[0]?.title).toBe("Cafe Luna");
+    expect(personalLedgerSnapshot.generalLedger.entries[0]?.amount).toBe("-$86.00");
 
     expect(zhLedgerSnapshot.selectedPeriod.label).toBe("2026年4月");
-    expect(zhLedgerSnapshot.generalLedger.recordCountLabel).toBe("5 条记录");
+    expect(zhLedgerSnapshot.generalLedger.recordCountLabel).toBe("6 条分录");
     expect(zhLedgerSnapshot.profitAndLoss.metricCards.map((card) => card.label)).toEqual([
       "总收入",
       "总支出",

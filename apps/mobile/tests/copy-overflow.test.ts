@@ -8,6 +8,7 @@ describe("copy overflow guards", () => {
 
     expect(zh.homeScreen.monthlyProfit.length).toBeLessThanOrEqual(8);
     expect(zh.homeScreen.recentActivityTitle.length).toBeLessThanOrEqual(8);
+    expect(zh.ledgerScreen.journalList.title.length).toBeLessThanOrEqual(4);
     expect(zh.ledgerScreen.sections.viewJournal.length).toBeLessThanOrEqual(4);
     expect(zh.ledgerScreen.sections.viewBalance.length).toBeLessThanOrEqual(6);
     expect(zh.ledgerScreen.sections.viewPnl.length).toBeLessThanOrEqual(4);

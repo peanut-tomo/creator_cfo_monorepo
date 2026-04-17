@@ -60,7 +60,7 @@ export interface LedgerTaxHelperCopy {
   exportErrorFallback: string;
   exportNoFiles: string;
   exportNoRecords: string;
-  exportSaved: (count: number, archiveRelativePath: string) => string;
+  exportSaved: (count: number, destinationPath: string) => string;
   exportTrigger: string;
   fieldInfoText: string;
   launcherEyebrow: string;
@@ -92,11 +92,12 @@ const taxHelperCopyByLocale: Record<ResolvedLocale, LedgerTaxHelperCopy> = {
       "Export the linked evidence binaries for the records behind the currently derived rows. The archive includes a manifest for traceability.",
     evidenceArchiveTitle: "Evidence archive",
     exportBuilding: "Building archive...",
-    exportErrorFallback: "Unable to export the evidence archive.",
+    exportErrorFallback:
+      "Unable to export the evidence archive to the selected folder.",
     exportNoFiles: "No linked evidence files were found for the currently derived tax rows.",
     exportNoRecords: "No linked supporting records are available for export in this tax year yet.",
-    exportSaved: (count, archiveRelativePath) =>
-      `Saved ${count} linked evidence file${count === 1 ? "" : "s"} to ${archiveRelativePath}.`,
+    exportSaved: (count, destinationPath) =>
+      `Saved ${count} linked evidence file${count === 1 ? "" : "s"} to ${destinationPath}.`,
     exportTrigger: "Export evidence archive",
     fieldInfoText:
       "Form 1040 remains manual in this helper unless a future local carry-through implementation makes individual rows authoritative.",
@@ -123,11 +124,11 @@ const taxHelperCopyByLocale: Record<ResolvedLocale, LedgerTaxHelperCopy> = {
       "导出当前推导税务行背后关联记录的凭证文件。压缩包会包含一份用于追溯的 manifest。",
     evidenceArchiveTitle: "凭证归档",
     exportBuilding: "正在生成归档...",
-    exportErrorFallback: "无法导出凭证归档。",
+    exportErrorFallback: "无法把凭证归档导出到所选文件夹。",
     exportNoFiles: "当前推导出的税务行还没有找到关联的凭证文件。",
     exportNoRecords: "当前税年还没有可导出的关联支撑记录。",
-    exportSaved: (count, archiveRelativePath) =>
-      `已将 ${count} 个关联凭证文件保存到 ${archiveRelativePath}。`,
+    exportSaved: (count, destinationPath) =>
+      `已将 ${count} 个关联凭证文件保存到 ${destinationPath}。`,
     exportTrigger: "导出凭证归档",
     fieldInfoText: "除非后续本地贯通逻辑让单独字段具备权威性，否则 Form 1040 在这里仍保持手动填写。",
     launcherEyebrow: "税务辅助",
@@ -146,6 +147,13 @@ const taxHelperCopyByLocale: Record<ResolvedLocale, LedgerTaxHelperCopy> = {
 
 export function getLedgerTaxHelperCopy(locale: ResolvedLocale): LedgerTaxHelperCopy {
   return taxHelperCopyByLocale[locale];
+}
+
+export function buildLedgerTaxHelperArchiveFileName(
+  taxYear: number,
+  exportedAt: string,
+): string {
+  return `ledger-tax-helper-${taxYear}-${buildArchiveTimestamp(exportedAt)}.zip`;
 }
 
 export function groupTaxHelperFields(

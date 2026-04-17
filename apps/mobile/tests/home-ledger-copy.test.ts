@@ -28,11 +28,17 @@ describe("home and ledger copy", () => {
     expect(Object.keys(english.ledgerScreen.footer).sort()).toEqual(
       Object.keys(chinese.ledgerScreen.footer).sort(),
     );
+    expect(Object.keys(english.ledgerScreen.journalList).sort()).toEqual(
+      Object.keys(chinese.ledgerScreen.journalList).sort(),
+    );
     expect(Object.keys(english.ledgerScreen.modal).sort()).toEqual(
       Object.keys(chinese.ledgerScreen.modal).sort(),
     );
     expect(Object.keys(english.ledgerScreen.range).sort()).toEqual(
       Object.keys(chinese.ledgerScreen.range).sort(),
+    );
+    expect(Object.keys(english.ledgerScreen.recordCard).sort()).toEqual(
+      Object.keys(chinese.ledgerScreen.recordCard).sort(),
     );
     expect(Object.keys(english.ledgerScreen.scopes).sort()).toEqual(
       Object.keys(chinese.ledgerScreen.scopes).sort(),

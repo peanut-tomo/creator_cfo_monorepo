@@ -6,8 +6,9 @@ Import one of these databases by choosing the package folder in the app:
 
 - `package-a-clean/creator-cfo-vault/`
 - `package-b-mixed/creator-cfo-vault/`
+- `package-c-grouped-ledger/creator-cfo-vault/`
 
-You can also choose the parent sample folder, such as `package-a-clean/`, as long as it contains `creator-cfo-vault/creator-cfo-local.db`.
+You can also choose the parent sample folder, as long as it contains `creator-cfo-vault/creator-cfo-local.db`.
 
 The sibling `evidence-objects/` and `evidence-manifests/` directories are part of each portable package and are required by the current integrity checks.
 
@@ -19,6 +20,7 @@ On iOS, use the in-app folder picker and choose the package folder instead of th
 2. In Finder, open one of these fixture directories:
    - `creator_cfo_monorepo/tests/fixtures/sample-database-packages/package-a-clean/`
    - `creator_cfo_monorepo/tests/fixtures/sample-database-packages/package-b-mixed/`
+   - `creator_cfo_monorepo/tests/fixtures/sample-database-packages/package-c-grouped-ledger/`
 3. Drag either the full sample folder, such as `package-a-clean/`, or the inner `creator-cfo-vault/` folder into the simulator `Files` app, for example under `On My iPhone` or `Downloads`.
 4. In Creator CFO, open the Settings/Profile import action.
 5. In the iOS folder picker, choose either:

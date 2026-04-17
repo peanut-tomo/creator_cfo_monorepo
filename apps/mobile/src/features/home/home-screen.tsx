@@ -316,7 +316,7 @@ export function HomeScreen() {
               </View>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push("/journal")}
+                onPress={() => router.push("/ledger/journals")}
               >
                 <Text style={styles.seeAllLink}>{screenCopy.seeAll}</Text>
               </Pressable>

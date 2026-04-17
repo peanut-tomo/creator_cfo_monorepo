@@ -14,6 +14,10 @@ import {
   type StorageSqlValue,
 } from "@creator-cfo/storage";
 
+import {
+  buildLedgerPeriodId,
+  loadLedgerSnapshot,
+} from "../src/features/ledger/ledger-reporting";
 import { initializeLocalDatabase } from "../src/storage/database";
 import { validateDatabasePackageOrThrow } from "../src/storage/storage-package-integrity";
 
@@ -23,6 +27,7 @@ const fixturesRoot = join(
 );
 const packageARoot = join(fixturesRoot, "package-a-clean", "creator-cfo-vault");
 const packageBRoot = join(fixturesRoot, "package-b-mixed", "creator-cfo-vault");
+const packageCRoot = join(fixturesRoot, "package-c-grouped-ledger", "creator-cfo-vault");
 
 function createReadableDatabase(database: DatabaseSync) {
   return createReadableStorageDatabase({
@@ -54,8 +59,8 @@ async function loadCounts(database: DatabaseSync) {
 }
 
 describe("sample database packages", () => {
-  it("keeps both portable packages valid as supported legacy inputs", async () => {
-    for (const packageRoot of [packageARoot, packageBRoot]) {
+  it("keeps the portable packages valid as supported legacy inputs", async () => {
+    for (const packageRoot of [packageARoot, packageBRoot, packageCRoot]) {
       const database = openDatabase(packageRoot);
 
       try {
@@ -67,17 +72,12 @@ describe("sample database packages", () => {
         });
         const counts = await loadCounts(database);
 
-        expect(validation).toEqual({
-          checkedPathCount: 24,
-          requiredTableCount: structuredStoreContract.tables.length,
-          tableCompatibility: "legacy",
-        });
-        expect(counts).toEqual({
-          evidenceFileCount: 24,
-          evidenceLinkCount: 24,
-          evidenceCount: 24,
-          recordCount: 24,
-        });
+        expect(validation.checkedPathCount).toBe(counts.evidenceFileCount);
+        expect(validation.requiredTableCount).toBe(structuredStoreContract.tables.length);
+        expect(validation.tableCompatibility).toBe("legacy");
+        expect(counts.evidenceFileCount).toBe(counts.recordCount);
+        expect(counts.evidenceCount).toBe(counts.recordCount);
+        expect(counts.evidenceLinkCount).toBe(counts.recordCount);
       } finally {
         if (typeof database.close === "function") {
           database.close();
@@ -181,6 +181,89 @@ describe("sample database packages", () => {
       expect(preview.netProfitCents).toBeNull();
       expect(preview.sourceNote).toContain("Current mapped Schedule C lines still need review");
       expect(preview.sourceNote).toContain("Office expense");
+    } finally {
+      if (typeof database.close === "function") {
+        database.close();
+      }
+    }
+  });
+
+  it("ships a grouped-ledger sample package with evidence-linked repeated counterparties", async () => {
+    const database = openDatabase(packageCRoot);
+
+    try {
+      const snapshot = await loadLedgerSnapshot(createReadableDatabase(database), {
+        entityId: "entity-main",
+        preferredPeriodId: buildLedgerPeriodId(2026, "m04"),
+      });
+      const evidenceLinks = database.prepare(
+        `SELECT COUNT(*) AS count
+         FROM record_evidence_links rel
+         INNER JOIN evidences ev
+           ON ev.evidence_id = rel.evidence_id
+         INNER JOIN evidence_files ef
+           ON ef.evidence_id = rel.evidence_id;`,
+      ).get() as { count: number };
+
+      expect(snapshot.generalLedger.recordCountLabel).toBe("3 entries");
+      expect(
+        snapshot.generalLedger.entries.slice(0, 3).map((entry) => ({
+          amount: entry.amount,
+          kind: entry.kind,
+          side: entry.side,
+          title: entry.title,
+        })),
+      ).toEqual([
+        {
+          amount: "$1,880.00",
+          kind: "income",
+          side: "mixed",
+          title: "TechDaily",
+        },
+        {
+          amount: "$1,480.00",
+          kind: "income",
+          side: "mixed",
+          title: "Cash & Bank",
+        },
+        {
+          amount: "-$400.00",
+          kind: "expense",
+          side: "debit",
+          title: "Adobe",
+        },
+      ]);
+      expect(
+        snapshot.generalLedger.entries.reduce(
+          (total, entry) => total + entry.signedAmountCents,
+          0,
+        ),
+      ).toBe(0);
+      expect(
+        snapshot.generalLedger.entries[2]?.lines.map((line) => ({
+          accountName: line.accountName,
+          amount: line.amount,
+          detail: line.detail,
+          recordId: line.record.recordId,
+          side: line.side,
+        })),
+      ).toEqual([
+        {
+          accountName: "Adobe",
+          amount: "$250.00",
+          detail: "Adobe Creative Cloud annual renewal",
+          recordId: "pkg-c-record-02",
+          side: "debit",
+        },
+        {
+          accountName: "Adobe",
+          amount: "$150.00",
+          detail: "Adobe Stock add-on seats",
+          recordId: "pkg-c-record-04",
+          side: "debit",
+        },
+      ]);
+      expect(evidenceLinks.count).toBe(7);
     } finally {
       if (typeof database.close === "function") {
         database.close();

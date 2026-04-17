@@ -286,6 +286,16 @@ export interface AppCopy {
       personalRange: string;
       reportingRange: string;
     };
+    journalList: {
+      back: string;
+      emptySummary: string;
+      emptyTitle: string;
+      eyebrow: string;
+      loadingSummary: string;
+      loadingTitle: string;
+      summary: string;
+      title: string;
+    };
     modal: {
       chooseRange: string;
       month: string;
@@ -315,6 +325,25 @@ export interface AppCopy {
       yearsAvailablePlural: string;
       yearsAvailableSingular: string;
     };
+    recordCard: {
+      amount: string;
+      close: string;
+      date: string;
+      description: string;
+      equationResult: string;
+      equationTitle: string;
+      emptyValue: string;
+      memo: string;
+      negative: string;
+      nonOwnerRule: string;
+      positive: string;
+      recordId: string;
+      side: string;
+      source: string;
+      target: string;
+      title: string;
+      ownerRule: string;
+    };
     scopes: {
       business: string;
       businessA11y: string;
@@ -330,6 +359,11 @@ export interface AppCopy {
       equity: string;
       equation: string;
       expenses: string;
+      generalLedgerEquationNet: string;
+      generalLedgerEquationOtherRule: string;
+      generalLedgerEquationOtherTotal: string;
+      generalLedgerEquationOwnerRule: string;
+      generalLedgerEquationTitle: string;
       journalPersonal: string;
       journalRecent: string;
       liabilities: string;
@@ -821,6 +855,19 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         personalRange: "Personal range",
         reportingRange: "Reporting range",
       },
+      journalList: {
+        back: "Back",
+        emptySummary:
+          "Add posted or reconciled records to populate the full journal list.",
+        emptyTitle: "No journal records yet",
+        eyebrow: "Full Journal",
+        loadingSummary:
+          "Loading the newest journal records from local storage.",
+        loadingTitle: "Preparing journal list",
+        summary:
+          "Review every journal record from newest to oldest without switching into the General Ledger view.",
+        title: "All Journals",
+      },
       modal: {
         chooseRange: "Choose range",
         month: "Month",
@@ -850,6 +897,27 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         yearsAvailablePlural: "years available",
         yearsAvailableSingular: "year available",
       },
+      recordCard: {
+        amount: "Amount",
+        close: "Close",
+        date: "Date",
+        description: "Detail",
+        equationResult: "Displayed amount",
+        equationTitle: "Balance Equation",
+        emptyValue: "Not available",
+        memo: "Memo",
+        negative: "Negative",
+        nonOwnerRule:
+          "Other groups use credit as positive and debit as negative.",
+        positive: "Positive",
+        recordId: "Record ID",
+        side: "Posting side",
+        source: "Source",
+        target: "Target",
+        title: "Journal record",
+        ownerRule:
+          "Cash & Bank uses debit as positive and credit as negative.",
+      },
       scopes: {
         business: "Business",
         businessA11y: "Business scope",
@@ -866,8 +934,15 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         equity: "Equity",
         equation: "Equation",
         expenses: "Expenses",
+        generalLedgerEquationNet: "Net grouped balance",
+        generalLedgerEquationOtherRule:
+          "Other groups use credit minus debit for the displayed amount.",
+        generalLedgerEquationOtherTotal: "Other groups total",
+        generalLedgerEquationOwnerRule:
+          "Cash & Bank uses debit minus credit for the displayed amount.",
+        generalLedgerEquationTitle: "Balance Equation",
         journalPersonal: "Recent personal entries",
-        journalRecent: "Recent journal entries",
+        journalRecent: "General ledger entries",
         liabilities: "Liabilities",
         netIncome: "Net income",
         netIncomeSummary: "Revenue minus expenses for the selected range.",
@@ -886,7 +961,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         revenue: "Revenue",
         unavailableTitle: "Ledger data unavailable",
         viewBalance: "Balance",
-        viewJournal: "Journal",
+        viewJournal: "General Ledger",
         viewPnl: "P&L",
       },
     },
@@ -1351,6 +1426,16 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         personalRange: "个人范围",
         reportingRange: "报表范围",
       },
+      journalList: {
+        back: "返回",
+        emptySummary: "新增已入账或已核对的记录后，这里会显示完整的分录列表。",
+        emptyTitle: "还没有分录记录",
+        eyebrow: "完整分录",
+        loadingSummary: "正在从本地存储加载最新分录记录。",
+        loadingTitle: "正在准备分录列表",
+        summary: "按从新到旧查看全部分录记录，不会和总账视图混在一起。",
+        title: "全部分录",
+      },
       modal: {
         chooseRange: "选择范围",
         month: "月份",
@@ -1380,6 +1465,25 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         yearsAvailablePlural: "个可选年份",
         yearsAvailableSingular: "个可选年份",
       },
+      recordCard: {
+        amount: "金额",
+        close: "关闭",
+        date: "日期",
+        description: "明细",
+        equationResult: "展示金额",
+        equationTitle: "平衡公式",
+        emptyValue: "暂无",
+        memo: "备注",
+        negative: "负向",
+        nonOwnerRule: "其他分组按贷方为正、借方为负。",
+        positive: "正向",
+        recordId: "记录编号",
+        side: "分录方向",
+        source: "来源",
+        target: "去向",
+        title: "分录记录",
+        ownerRule: "现金与银行按借方为正、贷方为负。",
+      },
       scopes: {
         business: "经营",
         businessA11y: "经营范围",
@@ -1395,8 +1499,15 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         equity: "权益",
         equation: "会计等式",
         expenses: "支出",
+        generalLedgerEquationNet: "分组净平衡",
+        generalLedgerEquationOtherRule:
+          "其他分组的展示金额按贷方减借方计算。",
+        generalLedgerEquationOtherTotal: "其他分组总额",
+        generalLedgerEquationOwnerRule:
+          "现金与银行的展示金额按借方减贷方计算。",
+        generalLedgerEquationTitle: "平衡公式",
         journalPersonal: "最近个人记录",
-        journalRecent: "最近分录",
+        journalRecent: "总账分录",
         liabilities: "负债",
         netIncome: "净收益",
         netIncomeSummary: "所选范围内的收入减支出。",
@@ -1413,7 +1524,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         revenue: "收入",
         unavailableTitle: "记账数据暂不可用",
         viewBalance: "资产负债",
-        viewJournal: "明细",
+        viewJournal: "总账",
         viewPnl: "损益",
       },
     },

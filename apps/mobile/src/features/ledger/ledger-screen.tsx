@@ -1,9 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,8 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CfoAvatar } from "../../components/cfo-avatar";
-import { useResponsive } from "../../hooks/use-responsive";
 import { useAppShell } from "../app-shell/provider";
+import { formatCurrencyFromCents } from "./ledger-domain";
 import type {
   GeneralLedgerEntry,
   GeneralLedgerPostingLine,
@@ -25,6 +23,7 @@ import type {
   LedgerSectionRow,
   LedgerViewId,
 } from "./ledger-reporting";
+import { getLedgerRuntimeCopy } from "./ledger-localization";
 import { LedgerTaxHelper } from "./ledger-tax-helper";
 import { useLedgerScreen } from "./use-ledger-screen";
 import {
@@ -35,13 +34,16 @@ import {
 } from "./ledger-screen-state";
 
 export function LedgerScreen() {
-  const router = useRouter();
   const { copy, palette } = useAppShell();
-  const { isExpanded } = useResponsive();
   const screenCopy = copy.ledgerScreen;
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [pickerStep, setPickerStep] = useState<"month" | "quarter" | "year">("year");
-  const [draftQuarterId, setDraftQuarterId] = useState<LedgerQuarterSegmentId | null>(null);
+  const [selectedEntry, setSelectedEntry] =
+    useState<GeneralLedgerEntry | null>(null);
+  const [pickerStep, setPickerStep] = useState<"month" | "quarter" | "year">(
+    "year",
+  );
+  const [draftQuarterId, setDraftQuarterId] =
+    useState<LedgerQuarterSegmentId | null>(null);
   const [draftYearId, setDraftYearId] = useState<string>("");
   const {
     error,
@@ -83,11 +85,6 @@ export function LedgerScreen() {
       label: screenCopy.scopes.personal,
     },
   ];
-  const rangeHint = hasSelectablePeriods
-    ? formatYearAvailability(snapshot.yearOptions.length, screenCopy)
-    : selectedScope === "personal"
-      ? screenCopy.range.noPersonal
-      : screenCopy.range.noBusiness;
   const selectedQuarterId = useMemo(
     () => getQuarterIdForSegment(selectedPeriod.segmentId),
     [selectedPeriod.segmentId],
@@ -96,7 +93,10 @@ export function LedgerScreen() {
     () =>
       draftQuarterId
         ? snapshot.periodOptions.filter(
-            (option) => option.year === Number(draftYearId) && option.segmentId.startsWith("m") && getQuarterIdForSegment(option.segmentId) === draftQuarterId,
+            (option) =>
+              option.year === Number(draftYearId) &&
+              option.segmentId.startsWith("m") &&
+              getQuarterIdForSegment(option.segmentId) === draftQuarterId,
           )
         : [],
     [draftQuarterId, draftYearId, snapshot.periodOptions],
@@ -137,7 +137,10 @@ export function LedgerScreen() {
   };
 
   const handleWholeYearChoice = (yearId: string) => {
-    const nextPeriodId = buildLedgerPeriodIdForYearAndSegment(yearId, "full-year");
+    const nextPeriodId = buildLedgerPeriodIdForYearAndSegment(
+      yearId,
+      "full-year",
+    );
 
     if (!nextPeriodId) {
       return;
@@ -153,7 +156,10 @@ export function LedgerScreen() {
   };
 
   const handleWholeQuarterChoice = (quarterId: LedgerQuarterSegmentId) => {
-    const nextPeriodId = buildLedgerPeriodIdForYearAndSegment(draftYearId, quarterId);
+    const nextPeriodId = buildLedgerPeriodIdForYearAndSegment(
+      draftYearId,
+      quarterId,
+    );
 
     if (!nextPeriodId) {
       return;
@@ -176,7 +182,9 @@ export function LedgerScreen() {
     >
       <ScrollView
         contentContainerStyle={styles.container}
-        refreshControl={Platform.OS !== "web" ? <RefreshControl onRefresh={refresh} refreshing={isRefreshing} /> : undefined}
+        refreshControl={
+          <RefreshControl onRefresh={refresh} refreshing={isRefreshing} />
+        }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topRow}>
@@ -186,57 +194,44 @@ export function LedgerScreen() {
               {copy.common.appName}
             </Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            {Platform.OS === "web" ? (
-              <Pressable
-                accessibilityLabel="Refresh"
-                accessibilityRole="button"
-                onPress={refresh}
-                style={({ pressed }) => [
-                  styles.headerBadge,
-                  { opacity: isRefreshing ? 0.5 : 1, backgroundColor: pressed ? "#ECECE8" : "#F4F4F2" },
-                ]}
-              >
-                <Ionicons color="#002045" name="refresh-outline" size={16} />
-              </Pressable>
-            ) : null}
-          </View>
         </View>
 
-        <View style={styles.periodHeader}>
-          <View style={styles.periodCopy}>
-            <Text style={styles.periodEyebrow}>{screenCopy.range.reportingRange}</Text>
-            <Text style={styles.periodTitle}>{selectedPeriod.label}</Text>
-            <Text style={styles.periodSummary}>{selectedPeriod.summary}</Text>
-          </View>
-
-          <View style={styles.utilityPanel}>
-            <View style={styles.utilityActions}>
+        <View style={styles.topControls}>
+          <View style={styles.topControlsMainColumn}>
+            <View style={styles.periodHeader}>
               <Pressable
                 accessibilityRole="button"
                 disabled={!hasSelectablePeriods}
                 onPress={hasSelectablePeriods ? openSelector : undefined}
                 style={({ pressed }) => [
-                  styles.utilityButton,
-                  !hasSelectablePeriods ? styles.utilityButtonDisabled : null,
-                  pressed && hasSelectablePeriods ? styles.utilityButtonPressed : null,
+                  styles.periodCard,
+                  !hasSelectablePeriods ? styles.periodCardDisabled : null,
+                  pressed && hasSelectablePeriods
+                    ? styles.periodCardPressed
+                    : null,
                 ]}
                 testID="ledger-period-picker-button"
               >
-                <Ionicons color="#002045" name="calendar-outline" size={18} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push("/ledger/upload")}
-                style={({ pressed }) => [
-                  styles.utilityButton,
-                  pressed ? styles.utilityButtonPressed : null,
-                ]}
-                testID="ledger-upload-button"
-              >
-                <Ionicons color="#002045" name="cloud-upload-outline" size={18} />
+                <View style={styles.periodCopy}>
+                  <Text style={styles.periodEyebrow}>
+                    {screenCopy.range.reportingRange}
+                  </Text>
+                  <Text
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    numberOfLines={1}
+                    style={styles.periodTitle}
+                  >
+                    {selectedPeriod.label}
+                  </Text>
+                  <Text style={styles.periodSummary}>
+                    {selectedPeriod.summary}
+                  </Text>
+                </View>
+                <Ionicons color="#002045" name="chevron-forward" size={18} />
               </Pressable>
             </View>
+
             <View style={styles.scopeSwitch} testID="ledger-scope-switch">
               {ledgerScopes.map((scope) => {
                 const isActive = scope.id === selectedScope;
@@ -271,53 +266,33 @@ export function LedgerScreen() {
               })}
             </View>
           </View>
-        </View>
 
-        <Pressable
-          accessibilityRole="button"
-          disabled={!hasSelectablePeriods}
-          onPress={hasSelectablePeriods ? openSelector : undefined}
-          style={({ pressed }) => [
-            styles.periodSummaryCard,
-            !hasSelectablePeriods ? styles.periodSummaryCardDisabled : null,
-            pressed && hasSelectablePeriods ? styles.periodSummaryCardPressed : null,
-          ]}
-        >
-          <View style={styles.periodSummaryCardCopy}>
-            <Text style={styles.periodSummaryCardLabel}>{screenCopy.range.selectedRange}</Text>
-            <Text style={styles.periodSummaryCardValue}>
-              {formatPopupSelection(selectedPeriod, screenCopy)}
-            </Text>
-            <Text style={styles.periodSummaryCardDetail}>{rangeHint}</Text>
-          </View>
-          <Ionicons color="#002045" name="chevron-forward" size={18} />
-        </Pressable>
+          <View style={styles.segmentedControl}>
+            {ledgerViews.map((tab) => {
+              const isActive = tab.id === selectedView;
 
-        <View style={styles.segmentedControl}>
-          {ledgerViews.map((tab) => {
-            const isActive = tab.id === selectedView;
-
-            return (
-              <Pressable
-                key={tab.id}
-                accessibilityRole="button"
-                onPress={() => selectView(tab.id)}
-                style={[
-                  styles.segmentedItem,
-                  isActive ? styles.segmentedItemActive : null,
-                ]}
-              >
-                <Text
+              return (
+                <Pressable
+                  key={tab.id}
+                  accessibilityRole="button"
+                  onPress={() => selectView(tab.id)}
                   style={[
-                    styles.segmentedLabel,
-                    isActive ? styles.segmentedLabelActive : null,
+                    styles.segmentedItem,
+                    isActive ? styles.segmentedItemActive : null,
                   ]}
                 >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+                  <Text
+                    style={[
+                      styles.segmentedLabel,
+                      isActive ? styles.segmentedLabelActive : null,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         {!isLoaded ? (
@@ -327,7 +302,11 @@ export function LedgerScreen() {
           />
         ) : error ? (
           <StatusCard
-            actionLabel={isRefreshing ? screenCopy.sections.retrying : screenCopy.sections.retry}
+            actionLabel={
+              isRefreshing
+                ? screenCopy.sections.retrying
+                : screenCopy.sections.retry
+            }
             body={error}
             disabled={isRefreshing}
             onPress={() => {
@@ -365,9 +344,18 @@ export function LedgerScreen() {
                 </View>
                 <View style={styles.sectionStack}>
                   {snapshot.generalLedger.entries.map((entry) => (
-                    <GeneralLedgerCard entry={entry} key={entry.id} />
+                    <GeneralLedgerCard
+                      entry={entry}
+                      key={entry.id}
+                      onSelectEntry={setSelectedEntry}
+                    />
                   ))}
                 </View>
+                {selectedScope === "business" ? (
+                  <GeneralLedgerEquationCard
+                    entries={snapshot.generalLedger.entries}
+                  />
+                ) : null}
               </>
             ) : null}
 
@@ -380,8 +368,22 @@ export function LedgerScreen() {
               ) : (
                 <>
                   <MetricGrid cards={snapshot.balanceSheet.metricCards} />
+                  <SectionCard
+                    rows={snapshot.balanceSheet.assetRows}
+                    title={screenCopy.sections.assets}
+                  />
+                  <SectionCard
+                    rows={snapshot.balanceSheet.liabilityRows}
+                    title={screenCopy.sections.liabilities}
+                  />
+                  <SectionCard
+                    rows={snapshot.balanceSheet.equityRows}
+                    title={screenCopy.sections.equity}
+                  />
                   <View style={styles.equationCard}>
-                    <Text style={styles.equationEyebrow}>{screenCopy.sections.equation}</Text>
+                    <Text style={styles.equationEyebrow}>
+                      {screenCopy.sections.equation}
+                    </Text>
                     <Text style={styles.equationTitle}>
                       {snapshot.balanceSheet.equationSummary}
                     </Text>
@@ -389,24 +391,6 @@ export function LedgerScreen() {
                       {snapshot.balanceSheet.netPositionLabel}
                     </Text>
                   </View>
-                  <View style={isExpanded ? styles.wideColumns : styles.sectionGap}>
-                    <View style={isExpanded ? styles.wideColumnChild : undefined}>
-                      <SectionCard
-                        rows={snapshot.balanceSheet.assetRows}
-                        title={screenCopy.sections.assets}
-                      />
-                    </View>
-                    <View style={isExpanded ? styles.wideColumnChild : undefined}>
-                      <SectionCard
-                        rows={snapshot.balanceSheet.liabilityRows}
-                        title={screenCopy.sections.liabilities}
-                      />
-                    </View>
-                  </View>
-                  <SectionCard
-                    rows={snapshot.balanceSheet.equityRows}
-                    title={screenCopy.sections.equity}
-                  />
                 </>
               )
             ) : null}
@@ -423,28 +407,29 @@ export function LedgerScreen() {
               ) : (
                 <>
                   <MetricGrid cards={snapshot.profitAndLoss.metricCards} />
+                  <SectionCard
+                    rows={snapshot.profitAndLoss.revenueRows}
+                    title={screenCopy.sections.revenue}
+                  />
+                  <SectionCard
+                    rows={snapshot.profitAndLoss.expenseRows}
+                    title={screenCopy.sections.expenses}
+                  />
                   <View style={styles.equationCard}>
-                    <Text style={styles.equationEyebrow}>{screenCopy.sections.netIncome}</Text>
-                    <Text style={styles.netIncomeValue}>
+                    <Text style={styles.equationEyebrow}>
+                      {screenCopy.sections.netIncome}
+                    </Text>
+                    <Text
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                      numberOfLines={1}
+                      style={styles.netIncomeValue}
+                    >
                       {snapshot.profitAndLoss.netIncomeLabel}
                     </Text>
                     <Text style={styles.equationSummary}>
                       {screenCopy.sections.netIncomeSummary}
                     </Text>
-                  </View>
-                  <View style={isExpanded ? styles.wideColumns : styles.sectionGap}>
-                    <View style={isExpanded ? styles.wideColumnChild : undefined}>
-                      <SectionCard
-                        rows={snapshot.profitAndLoss.revenueRows}
-                        title={screenCopy.sections.revenue}
-                      />
-                    </View>
-                    <View style={isExpanded ? styles.wideColumnChild : undefined}>
-                      <SectionCard
-                        rows={snapshot.profitAndLoss.expenseRows}
-                        title={screenCopy.sections.expenses}
-                      />
-                    </View>
                   </View>
                 </>
               )
@@ -485,6 +470,10 @@ export function LedgerScreen() {
         quarterOptions={quarterOptions}
         screenCopy={screenCopy}
         yearOptions={snapshot.yearOptions}
+      />
+      <GroupedEntryDetailModal
+        entry={selectedEntry}
+        onClose={() => setSelectedEntry(null)}
       />
     </SafeAreaView>
   );
@@ -536,8 +525,12 @@ function LedgerPeriodPickerModal({
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderCopy}>
-              <Text style={styles.modalEyebrow}>{screenCopy.modal.pickerEyebrow}</Text>
-              <Text style={styles.modalTitle}>{screenCopy.modal.chooseRange}</Text>
+              <Text style={styles.modalEyebrow}>
+                {screenCopy.modal.pickerEyebrow}
+              </Text>
+              <Text style={styles.modalTitle}>
+                {screenCopy.modal.chooseRange}
+              </Text>
               <Text style={styles.modalSummary}>
                 {currentPeriod.label} · {currentPeriod.summary}
               </Text>
@@ -555,14 +548,25 @@ function LedgerPeriodPickerModal({
           </View>
 
           <View style={styles.modalStepRail}>
-            <StepPill active={pickerStep === "year"} label={screenCopy.modal.stepYear} />
-            <StepPill active={pickerStep === "quarter"} label={screenCopy.modal.stepQuarter} />
-            <StepPill active={pickerStep === "month"} label={screenCopy.modal.stepMonth} />
+            <StepPill
+              active={pickerStep === "year"}
+              label={screenCopy.modal.stepYear}
+            />
+            <StepPill
+              active={pickerStep === "quarter"}
+              label={screenCopy.modal.stepQuarter}
+            />
+            <StepPill
+              active={pickerStep === "month"}
+              label={screenCopy.modal.stepMonth}
+            />
           </View>
 
           {pickerStep === "year" ? (
             <>
-              <Text style={styles.modalSectionTitle}>{screenCopy.modal.yearTitle}</Text>
+              <Text style={styles.modalSectionTitle}>
+                {screenCopy.modal.yearTitle}
+              </Text>
               <View style={styles.modalGrid}>
                 {yearOptions.map((option) => (
                   <View key={option.id} style={styles.modalGridCell}>
@@ -571,14 +575,18 @@ function LedgerPeriodPickerModal({
                       onPress={() => onYearChoice(option.id)}
                       style={({ pressed }) => [
                         styles.modalBlock,
-                        option.id === String(currentPeriod.year) ? styles.modalBlockActive : null,
+                        option.id === String(currentPeriod.year)
+                          ? styles.modalBlockActive
+                          : null,
                         pressed ? styles.modalBlockPressed : null,
                       ]}
                     >
                       <Text
                         style={[
                           styles.modalBlockTitle,
-                          option.id === String(currentPeriod.year) ? styles.modalBlockTitleActive : null,
+                          option.id === String(currentPeriod.year)
+                            ? styles.modalBlockTitleActive
+                            : null,
                         ]}
                       >
                         {option.label}
@@ -586,7 +594,9 @@ function LedgerPeriodPickerModal({
                       <Text
                         style={[
                           styles.modalBlockNote,
-                          option.id === String(currentPeriod.year) ? styles.modalBlockNoteActive : null,
+                          option.id === String(currentPeriod.year)
+                            ? styles.modalBlockNoteActive
+                            : null,
                         ]}
                       >
                         {screenCopy.modal.openQuarters}
@@ -612,7 +622,9 @@ function LedgerPeriodPickerModal({
 
           {pickerStep === "quarter" ? (
             <>
-              <Text style={styles.modalSectionTitle}>{screenCopy.modal.quarterTitle}</Text>
+              <Text style={styles.modalSectionTitle}>
+                {screenCopy.modal.quarterTitle}
+              </Text>
               <Text style={styles.modalSectionSummary}>
                 {screenCopy.modal.quarterHint}
               </Text>
@@ -627,7 +639,9 @@ function LedgerPeriodPickerModal({
                 <Text style={styles.modalDefaultChoiceTitle}>
                   {draftYearId} · {screenCopy.range.fullYear}
                 </Text>
-                <Text style={styles.modalDefaultChoiceNote}>{screenCopy.modal.reviewFullYear}</Text>
+                <Text style={styles.modalDefaultChoiceNote}>
+                  {screenCopy.modal.reviewFullYear}
+                </Text>
               </Pressable>
               <View style={styles.modalGrid}>
                 {quarterOptions.map((quarterOption) => (
@@ -637,14 +651,18 @@ function LedgerPeriodPickerModal({
                       onPress={() => onQuarterChoice(quarterOption.id)}
                       style={({ pressed }) => [
                         styles.modalBlock,
-                        quarterOption.id === draftQuarterId ? styles.modalBlockActive : null,
+                        quarterOption.id === draftQuarterId
+                          ? styles.modalBlockActive
+                          : null,
                         pressed ? styles.modalBlockPressed : null,
                       ]}
                     >
                       <Text
                         style={[
                           styles.modalBlockTitle,
-                          quarterOption.id === draftQuarterId ? styles.modalBlockTitleActive : null,
+                          quarterOption.id === draftQuarterId
+                            ? styles.modalBlockTitleActive
+                            : null,
                         ]}
                       >
                         {quarterOption.label}
@@ -652,7 +670,9 @@ function LedgerPeriodPickerModal({
                       <Text
                         style={[
                           styles.modalBlockNote,
-                          quarterOption.id === draftQuarterId ? styles.modalBlockNoteActive : null,
+                          quarterOption.id === draftQuarterId
+                            ? styles.modalBlockNoteActive
+                            : null,
                         ]}
                       >
                         {screenCopy.modal.openMonths}
@@ -678,7 +698,9 @@ function LedgerPeriodPickerModal({
 
           {pickerStep === "month" ? (
             <>
-              <Text style={styles.modalSectionTitle}>{screenCopy.modal.monthTitle}</Text>
+              <Text style={styles.modalSectionTitle}>
+                {screenCopy.modal.monthTitle}
+              </Text>
               <Text style={styles.modalSectionSummary}>
                 {screenCopy.modal.monthHint}
               </Text>
@@ -692,7 +714,8 @@ function LedgerPeriodPickerModal({
                   ]}
                 >
                   <Text style={styles.modalDefaultChoiceTitle}>
-                    {draftQuarterId.toUpperCase()} {draftYearId} · {screenCopy.range.fullQuarter}
+                    {draftQuarterId.toUpperCase()} {draftYearId} ·{" "}
+                    {screenCopy.range.fullQuarter}
                   </Text>
                   <Text style={styles.modalDefaultChoiceNote}>
                     {screenCopy.modal.reviewFullQuarter}
@@ -707,7 +730,9 @@ function LedgerPeriodPickerModal({
                     onPress={() => onMonthChoice(period)}
                     style={({ pressed }) => [
                       styles.modalBlock,
-                      period.id === currentPeriod.id ? styles.modalBlockActive : null,
+                      period.id === currentPeriod.id
+                        ? styles.modalBlockActive
+                        : null,
                       styles.modalMonthBlock,
                       pressed ? styles.modalBlockPressed : null,
                     ]}
@@ -715,7 +740,9 @@ function LedgerPeriodPickerModal({
                     <Text
                       style={[
                         styles.modalBlockTitle,
-                        period.id === currentPeriod.id ? styles.modalBlockTitleActive : null,
+                        period.id === currentPeriod.id
+                          ? styles.modalBlockTitleActive
+                          : null,
                       ]}
                     >
                       {period.label}
@@ -723,7 +750,9 @@ function LedgerPeriodPickerModal({
                     <Text
                       style={[
                         styles.modalBlockNote,
-                        period.id === currentPeriod.id ? styles.modalBlockNoteActive : null,
+                        period.id === currentPeriod.id
+                          ? styles.modalBlockNoteActive
+                          : null,
                       ]}
                     >
                       {period.summary}
@@ -741,8 +770,15 @@ function LedgerPeriodPickerModal({
 
 function StepPill({ active, label }: { active: boolean; label: string }) {
   return (
-    <View style={[styles.modalStepPill, active ? styles.modalStepPillActive : null]}>
-      <Text style={[styles.modalStepLabel, active ? styles.modalStepLabelActive : null]}>
+    <View
+      style={[styles.modalStepPill, active ? styles.modalStepPillActive : null]}
+    >
+      <Text
+        style={[
+          styles.modalStepLabel,
+          active ? styles.modalStepLabelActive : null,
+        ]}
+      >
         {label}
       </Text>
     </View>
@@ -752,52 +788,43 @@ function StepPill({ active, label }: { active: boolean; label: string }) {
 function getQuarterIdForSegment(
   segmentId: LedgerPeriodOption["segmentId"],
 ): LedgerQuarterSegmentId | null {
-  if (segmentId === "q1" || segmentId === "m01" || segmentId === "m02" || segmentId === "m03") {
+  if (
+    segmentId === "q1" ||
+    segmentId === "m01" ||
+    segmentId === "m02" ||
+    segmentId === "m03"
+  ) {
     return "q1";
   }
 
-  if (segmentId === "q2" || segmentId === "m04" || segmentId === "m05" || segmentId === "m06") {
+  if (
+    segmentId === "q2" ||
+    segmentId === "m04" ||
+    segmentId === "m05" ||
+    segmentId === "m06"
+  ) {
     return "q2";
   }
 
-  if (segmentId === "q3" || segmentId === "m07" || segmentId === "m08" || segmentId === "m09") {
+  if (
+    segmentId === "q3" ||
+    segmentId === "m07" ||
+    segmentId === "m08" ||
+    segmentId === "m09"
+  ) {
     return "q3";
   }
 
-  if (segmentId === "q4" || segmentId === "m10" || segmentId === "m11" || segmentId === "m12") {
+  if (
+    segmentId === "q4" ||
+    segmentId === "m10" ||
+    segmentId === "m11" ||
+    segmentId === "m12"
+  ) {
     return "q4";
   }
 
   return null;
-}
-
-function formatYearAvailability(
-  yearCount: number,
-  screenCopy: ReturnType<typeof useAppShell>["copy"]["ledgerScreen"],
-): string {
-  return `${yearCount} ${
-    yearCount === 1 ? screenCopy.range.yearsAvailableSingular : screenCopy.range.yearsAvailablePlural
-  }`;
-}
-
-function formatPopupSelection(
-  period: LedgerPeriodOption,
-  screenCopy: ReturnType<typeof useAppShell>["copy"]["ledgerScreen"],
-): string {
-  if (period.year < 1) {
-    return period.label;
-  }
-
-  if (period.segmentId === "full-year") {
-    return `${period.year} · ${screenCopy.range.fullYear}`;
-  }
-
-  if (period.segmentId.startsWith("q")) {
-    return period.label;
-  }
-
-  const quarterId = getQuarterIdForSegment(period.segmentId);
-  return quarterId ? `${period.label} ${period.year} · ${quarterId.toUpperCase()}` : period.label;
 }
 
 function MetricGrid({ cards }: { cards: readonly LedgerMetricCard[] }) {
@@ -805,8 +832,17 @@ function MetricGrid({ cards }: { cards: readonly LedgerMetricCard[] }) {
     <View style={styles.metricGrid}>
       {cards.map((card) => (
         <View key={card.id} style={styles.metricCard}>
-          <Text style={styles.metricLabel}>{card.label}</Text>
-          <Text style={styles.metricValue}>{card.value}</Text>
+          <Text numberOfLines={2} style={styles.metricLabel}>
+            {card.label}
+          </Text>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.62}
+            numberOfLines={1}
+            style={styles.metricValue}
+          >
+            {card.value}
+          </Text>
           <View
             style={[
               styles.metricAccentBar,
@@ -823,9 +859,28 @@ function MetricGrid({ cards }: { cards: readonly LedgerMetricCard[] }) {
   );
 }
 
-function GeneralLedgerCard({ entry }: { entry: GeneralLedgerEntry }) {
+function GeneralLedgerCard({
+  entry,
+  onSelectEntry,
+}: {
+  entry: GeneralLedgerEntry;
+  onSelectEntry: (entry: GeneralLedgerEntry) => void;
+}) {
+  const cardToneStyle =
+    entry.kind === "income"
+      ? styles.transactionCardIncome
+      : entry.kind === "personal"
+        ? styles.transactionCardPersonal
+        : styles.transactionCardExpense;
+  const amountToneStyle =
+    entry.kind === "income"
+      ? styles.transactionAmountIncome
+      : entry.kind === "personal"
+        ? styles.transactionAmountPersonal
+        : styles.transactionAmountExpense;
+
   return (
-    <View style={styles.transactionCard}>
+    <View style={[styles.transactionCard, cardToneStyle]}>
       <View style={styles.transactionHeader}>
         <View style={styles.transactionLeft}>
           <View
@@ -840,24 +895,46 @@ function GeneralLedgerCard({ entry }: { entry: GeneralLedgerEntry }) {
           >
             <Ionicons
               color={entry.kind === "income" ? "#45664A" : "#BA1A1A"}
-              name={entry.kind === "income" ? "arrow-down-outline" : "arrow-up-outline"}
+              name={
+                entry.kind === "income"
+                  ? "arrow-down-outline"
+                  : "arrow-up-outline"
+              }
               size={18}
             />
           </View>
           <View style={styles.transactionCopy}>
-            <Text style={styles.transactionTitle}>{entry.title}</Text>
-            <Text style={styles.transactionMeta}>{entry.subtitle}</Text>
+            <Text numberOfLines={2} style={styles.transactionTitle}>
+              {entry.title}
+            </Text>
+            <Text numberOfLines={2} style={styles.transactionMeta}>
+              {entry.subtitle}
+            </Text>
           </View>
         </View>
         <View style={styles.transactionRight}>
-          <Text style={styles.transactionAmount}>{entry.amount}</Text>
-          <Text style={styles.transactionSource}>{entry.dateLabel}</Text>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            numberOfLines={1}
+            style={[styles.transactionAmount, amountToneStyle]}
+          >
+            {entry.amount}
+          </Text>
+          {entry.dateLabel ? (
+            <Text style={styles.transactionSource}>{entry.dateLabel}</Text>
+          ) : null}
         </View>
       </View>
 
       <View style={styles.postingLineStack}>
         {entry.lines.map((line, index) => (
-          <PostingLine isFirst={index === 0} key={line.id} line={line} />
+          <PostingLine
+            isFirst={index === 0}
+            key={line.id}
+            line={line}
+            onPress={() => onSelectEntry(entry)}
+          />
         ))}
       </View>
     </View>
@@ -867,24 +944,276 @@ function GeneralLedgerCard({ entry }: { entry: GeneralLedgerEntry }) {
 function PostingLine({
   isFirst,
   line,
+  onPress,
 }: {
   isFirst: boolean;
   line: GeneralLedgerPostingLine;
+  onPress: () => void;
 }) {
-  const { copy } = useAppShell();
+  const { copy, resolvedLocale } = useAppShell();
   const isDebit = line.side === "debit";
+  const positive = isPositivePostingLine(line, resolvedLocale);
 
   return (
-    <View style={[styles.postingLineRow, !isFirst ? styles.postingLineRowBorder : null]}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.postingLineRow,
+        !isFirst ? styles.listRowSplit : null,
+        pressed ? styles.postingLineRowPressed : null,
+      ]}
+      testID={`ledger-posting-line-${line.id}`}
+    >
       <View style={styles.postingLineCopy}>
-        <Text style={styles.postingLineTitle}>
-          {isDebit ? copy.ledgerScreen.sections.debit : copy.ledgerScreen.sections.credit} · {line.accountName}
+        <Text numberOfLines={1} style={styles.postingLineTitle}>
+          {isDebit
+            ? copy.ledgerScreen.sections.debit
+            : copy.ledgerScreen.sections.credit}{" "}
+          · {line.accountName}
         </Text>
-        <Text style={styles.postingLineDetail}>{line.detail}</Text>
+        <Text numberOfLines={2} style={styles.postingLineDetail}>
+          {line.detail}
+        </Text>
       </View>
-      <Text style={styles.postingLineAmount}>{line.amount}</Text>
+      <View style={styles.postingLineRight}>
+        <Text style={styles.postingLineDate}>{line.record.dateLabel}</Text>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.postingLineAmount,
+            positive
+              ? styles.postingLineAmountPositive
+              : styles.postingLineAmountNegative,
+          ]}
+        >
+          {formatSignedCurrencyLabel(line.amount, positive)}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function GroupedEntryDetailModal({
+  entry,
+  onClose,
+}: {
+  entry: GeneralLedgerEntry | null;
+  onClose: () => void;
+}) {
+  const { copy, resolvedLocale } = useAppShell();
+  const recordCopy = copy.ledgerScreen.recordCard;
+  const runtimeCopy = getLedgerRuntimeCopy(resolvedLocale);
+
+  if (!entry) {
+    return null;
+  }
+
+  const isOwnerGroup = entry.title === runtimeCopy.journal.cashAndBank;
+  const debitTotalCents = entry.lines.reduce(
+    (total, line) =>
+      total + (line.side === "debit" ? parseCurrencyLabelToCents(line.amount) : 0),
+    0,
+  );
+  const creditTotalCents = entry.lines.reduce(
+    (total, line) =>
+      total + (line.side === "credit" ? parseCurrencyLabelToCents(line.amount) : 0),
+    0,
+  );
+  const displayAmountCents = isOwnerGroup
+    ? debitTotalCents - creditTotalCents
+    : creditTotalCents - debitTotalCents;
+
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      transparent
+      visible
+    >
+      <View style={styles.modalBackdrop}>
+        <Pressable onPress={onClose} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.recordModalCard}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderCopy}>
+              <Text style={styles.modalEyebrow}>{recordCopy.title}</Text>
+              <Text style={styles.modalTitle}>{entry.title}</Text>
+              <Text style={styles.modalSummary}>
+                {entry.amount} · {entry.subtitle}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.modalCloseButton,
+                pressed ? styles.utilityButtonPressed : null,
+              ]}
+            >
+              <Ionicons color="#002045" name="close" size={18} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.recordFieldStack}
+            showsVerticalScrollIndicator={false}
+          >
+            {entry.lines.map((line) => {
+              const fields = [
+                { label: copy.ledger.parse.fieldDate, value: line.record.dateLabel },
+                { label: recordCopy.recordId, value: line.record.recordId },
+                { label: copy.ledger.parse.fieldDescription, value: line.record.description },
+                { label: copy.ledger.parse.fieldAmount, value: line.record.amount },
+                {
+                  label: recordCopy.side,
+                  value:
+                    line.side === "debit"
+                      ? copy.ledgerScreen.sections.debit
+                      : copy.ledgerScreen.sections.credit,
+                },
+                { label: copy.ledger.parse.fieldSource, value: line.record.sourceLabel },
+                { label: copy.ledger.parse.fieldTarget, value: line.record.targetLabel },
+              ];
+
+              if (line.record.memo) {
+                fields.push({ label: recordCopy.memo, value: line.record.memo });
+              }
+
+              return (
+                <View key={line.id} style={styles.groupedRecordCard}>
+                  <Text style={styles.groupedRecordTitle}>{line.detail}</Text>
+                  <View style={styles.groupedRecordMetaRow}>
+                    <View style={styles.groupedRecordMetaCopy}>
+                      <Text style={styles.groupedRecordSummary}>
+                        {line.record.dateLabel} ·{" "}
+                        {line.side === "debit"
+                          ? copy.ledgerScreen.sections.debit
+                          : copy.ledgerScreen.sections.credit}{" "}
+                        · {line.accountName}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.groupedRecordAmount,
+                        isPositiveSignal(line, isOwnerGroup)
+                          ? styles.groupedRecordAmountPositive
+                          : styles.groupedRecordAmountNegative,
+                      ]}
+                    >
+                      {formatSignedCurrencyLabel(
+                        line.amount,
+                        isPositiveSignal(line, isOwnerGroup),
+                      )}
+                    </Text>
+                  </View>
+                  {fields.map((field) => (
+                    <View key={`${line.id}-${field.label}`} style={styles.recordFieldRow}>
+                      <Text style={styles.recordFieldLabel}>{field.label}</Text>
+                      <Text style={styles.recordFieldValue}>
+                        {field.value || recordCopy.emptyValue}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+
+            <View style={styles.equationDetailCard}>
+              <Text style={styles.equationDetailTitle}>
+                {recordCopy.equationTitle}
+              </Text>
+              <Text style={styles.equationDetailBody}>
+                {isOwnerGroup ? recordCopy.ownerRule : recordCopy.nonOwnerRule}
+              </Text>
+              <Text style={styles.equationDetailFormula}>
+                {isOwnerGroup
+                  ? `${copy.ledgerScreen.sections.debit} ${formatCurrencyFromCents(debitTotalCents)} - ${copy.ledgerScreen.sections.credit} ${formatCurrencyFromCents(creditTotalCents)} = ${recordCopy.equationResult} ${formatCurrencyFromCents(displayAmountCents)}`
+                  : `${copy.ledgerScreen.sections.credit} ${formatCurrencyFromCents(creditTotalCents)} - ${copy.ledgerScreen.sections.debit} ${formatCurrencyFromCents(debitTotalCents)} = ${recordCopy.equationResult} ${formatCurrencyFromCents(displayAmountCents)}`}
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function GeneralLedgerEquationCard({
+  entries,
+}: {
+  entries: readonly GeneralLedgerEntry[];
+}) {
+  const { copy, resolvedLocale } = useAppShell();
+  const runtimeCopy = getLedgerRuntimeCopy(resolvedLocale);
+  const ownerTitle = runtimeCopy.journal.cashAndBank;
+  const ownerBalanceCents = entries
+    .filter((entry) => entry.title === ownerTitle)
+    .reduce((total, entry) => total + entry.signedAmountCents, 0);
+  const otherBalanceCents = entries
+    .filter((entry) => entry.title !== ownerTitle)
+    .reduce((total, entry) => total + entry.signedAmountCents, 0);
+  const netBalanceCents = entries.reduce(
+    (total, entry) => total + entry.signedAmountCents,
+    0,
+  );
+
+  return (
+    <View style={styles.equationDetailCard}>
+      <Text style={styles.equationDetailTitle}>
+        {copy.ledgerScreen.sections.generalLedgerEquationTitle}
+      </Text>
+      <Text style={styles.equationDetailBody}>
+        {copy.ledgerScreen.sections.generalLedgerEquationOwnerRule}
+      </Text>
+      <Text style={styles.equationDetailBody}>
+        {copy.ledgerScreen.sections.generalLedgerEquationOtherRule}
+      </Text>
+      <Text style={styles.equationDetailFormula}>
+        {ownerTitle}: {formatCurrencyFromCents(ownerBalanceCents)}
+      </Text>
+      <Text style={styles.equationDetailFormula}>
+        {copy.ledgerScreen.sections.generalLedgerEquationOtherTotal}:{" "}
+        {formatCurrencyFromCents(otherBalanceCents)}
+      </Text>
+      <Text style={styles.equationDetailFormula}>
+        {copy.ledgerScreen.sections.generalLedgerEquationNet}:{" "}
+        {formatCurrencyFromCents(netBalanceCents)}
+      </Text>
     </View>
   );
+}
+
+function isPositiveSignal(
+  line: GeneralLedgerPostingLine,
+  isOwnerGroup: boolean,
+): boolean {
+  return isOwnerGroup ? line.side === "debit" : line.side === "credit";
+}
+
+function isPositivePostingLine(
+  line: GeneralLedgerPostingLine,
+  locale: ReturnType<typeof useAppShell>["resolvedLocale"],
+): boolean {
+  return isPositiveSignal(
+    line,
+    line.accountName === getLedgerRuntimeCopy(locale).journal.cashAndBank,
+  );
+}
+
+function formatSignedCurrencyLabel(amount: string, positive: boolean): string {
+  return `${positive ? "+" : "-"}${amount}`;
+}
+
+function parseCurrencyLabelToCents(value: string): number {
+  const normalized = value.replace(/[^0-9.-]/g, "");
+  const parsed = Number.parseFloat(normalized);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.round(parsed * 100);
 }
 
 function SectionCard({
@@ -901,12 +1230,26 @@ function SectionCard({
       </View>
       <View style={styles.sheetRowStack}>
         {rows.map((row, index) => (
-          <View key={row.id} style={[styles.sheetRow, index > 0 ? styles.sheetRowBorder : null]}>
+          <View
+            key={row.id}
+            style={[styles.sheetRow, index > 0 ? styles.listRowSplit : null]}
+          >
             <View style={styles.sheetCopy}>
-              <Text style={styles.sheetLabel}>{row.label}</Text>
-              <Text style={styles.sheetNote}>{row.note}</Text>
+              <Text numberOfLines={2} style={styles.sheetLabel}>
+                {row.label}
+              </Text>
+              <Text numberOfLines={3} style={styles.sheetNote}>
+                {row.note}
+              </Text>
             </View>
-            <Text style={styles.sheetAmount}>{row.amount}</Text>
+            <Text
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+              numberOfLines={1}
+              style={styles.sheetAmount}
+            >
+              {row.amount}
+            </Text>
           </View>
         ))}
       </View>
@@ -960,11 +1303,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   container: {
-    backgroundColor: "#F5F6F8",
+    backgroundColor: "#F9F9F7",
     gap: 14,
-    paddingBottom: 120,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingBottom: 32,
+    paddingHorizontal: 24,
+    paddingTop: 14,
   },
   endCap: {
     alignItems: "center",
@@ -987,9 +1330,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   equationCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFFDF8",
     borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     gap: 8,
     padding: 18,
@@ -1008,28 +1351,15 @@ const styles = StyleSheet.create({
   },
   equationTitle: {
     color: "#002045",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
-    lineHeight: 30,
-  },
-  headerBadge: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  headerBadgeLabel: {
-    color: "#002045",
-    fontSize: 12,
-    fontWeight: "700",
+    lineHeight: 28,
   },
   metricAccentBar: {
     borderBottomRightRadius: 999,
     borderTopRightRadius: 999,
     bottom: 18,
-    height: 34,
+    height: 40,
     left: 0,
     position: "absolute",
     width: 4,
@@ -1046,34 +1376,38 @@ const styles = StyleSheet.create({
   metricCard: {
     backgroundColor: "#FFFFFF",
     borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     flex: 1,
     gap: 6,
-    minHeight: 108,
+    minHeight: 114,
+    minWidth: 0,
     overflow: "hidden",
     paddingHorizontal: 18,
     paddingVertical: 18,
   },
   metricGrid: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
   },
   metricLabel: {
     color: "rgba(0, 32, 69, 0.55)",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
     letterSpacing: 0.3,
   },
   metricValue: {
     color: "#002045",
-    fontSize: 22,
+    flexShrink: 1,
+    fontVariant: ["tabular-nums"],
+    fontSize: 24,
     fontWeight: "800",
-    lineHeight: 29,
+    lineHeight: 30,
   },
   netIncomeValue: {
     color: "#002045",
-    fontSize: 24,
+    fontVariant: ["tabular-nums"],
+    fontSize: 28,
     fontWeight: "800",
   },
   modalBackdrop: {
@@ -1116,13 +1450,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   modalCard: {
-    backgroundColor: "#F5F6F8",
-    borderRadius: 24,
+    backgroundColor: "#F9F9F7",
+    borderRadius: 28,
     gap: 16,
     maxHeight: "84%",
-    maxWidth: 520,
     padding: 20,
-    width: "100%",
   },
   modalCloseButton: {
     alignItems: "center",
@@ -1279,68 +1611,39 @@ const styles = StyleSheet.create({
   },
   periodCopy: {
     flex: 1,
-    gap: 3,
+    gap: 4,
   },
   periodEyebrow: {
     color: "rgba(0, 32, 69, 0.5)",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   periodHeader: {
-    alignItems: "flex-start",
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 22,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-    padding: 18,
+    alignItems: "stretch",
   },
-  periodSelectorContent: {
-    paddingRight: 14,
-  },
-  periodSummaryCard: {
+  periodCard: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFFDF8",
     borderColor: "rgba(0, 32, 69, 0.08)",
     borderRadius: 18,
     borderWidth: 1,
+    flex: 1,
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
     justifyContent: "space-between",
+    minHeight: 92,
     padding: 14,
   },
-  periodSummaryCardDisabled: {
+  periodCardDisabled: {
     opacity: 0.72,
   },
-  periodSummaryCardCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  periodSummaryCardDetail: {
-    color: "rgba(0, 32, 69, 0.55)",
-    fontSize: 11,
-    lineHeight: 16,
-    textTransform: "none",
-  },
-  periodSummaryCardLabel: {
-    color: "rgba(0, 32, 69, 0.5)",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  periodSummaryCardPressed: {
+  periodCardPressed: {
     opacity: 0.92,
   },
-  periodSummaryCardValue: {
-    color: "#002045",
-    fontSize: 16,
-    fontWeight: "800",
-    lineHeight: 22,
+  periodSelectorContent: {
+    paddingRight: 14,
   },
   yearChip: {
     backgroundColor: "#FFFFFF",
@@ -1369,58 +1672,187 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 30,
   },
-  postingLineAmount: {
+  signalChip: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  signalChipLabel: {
     color: "#002045",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  signalChipNegative: {
+    backgroundColor: "rgba(186, 26, 26, 0.12)",
+  },
+  signalChipPositive: {
+    backgroundColor: "rgba(69, 102, 74, 0.12)",
+  },
+  groupedRecordCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  groupedRecordAmount: {
+    fontVariant: ["tabular-nums"],
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  groupedRecordAmountNegative: {
+    color: "#BA1A1A",
+  },
+  groupedRecordAmountPositive: {
+    color: "#45664A",
+  },
+  groupedRecordMetaCopy: {
+    flex: 1,
+    gap: 8,
+    minWidth: 0,
+  },
+  groupedRecordMetaRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  groupedRecordSummary: {
+    color: "rgba(0, 32, 69, 0.58)",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  groupedRecordTitle: {
+    color: "#002045",
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  equationDetailBody: {
+    color: "rgba(0, 32, 69, 0.62)",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  equationDetailCard: {
+    backgroundColor: "#F4F9FF",
+    borderColor: "rgba(0, 32, 69, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  equationDetailFormula: {
+    color: "#002045",
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 21,
+  },
+  equationDetailTitle: {
+    color: "#002045",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  recordFieldLabel: {
+    color: "rgba(0, 32, 69, 0.55)",
     fontSize: 12,
     fontWeight: "700",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  recordFieldRow: {
+    gap: 4,
+  },
+  recordFieldStack: {
+    gap: 14,
+  },
+  recordFieldValue: {
+    color: "#002045",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  recordModalCard: {
+    backgroundColor: "#F9F9F7",
+    borderRadius: 28,
+    gap: 18,
+    maxHeight: "80%",
+    padding: 20,
+  },
+  postingLineAmount: {
+    color: "#002045",
+    flexShrink: 0,
+    fontVariant: ["tabular-nums"],
+    fontSize: 11,
+    fontWeight: "800",
+    width: "100%",
+    textAlign: "right",
+  },
+  postingLineAmountNegative: {
+    color: "#BA1A1A",
+  },
+  postingLineAmountPositive: {
+    color: "#45664A",
+  },
+  postingLineDate: {
+    color: "rgba(0, 32, 69, 0.5)",
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "right",
   },
   postingLineCopy: {
     flex: 1,
     gap: 2,
+    minWidth: 0,
   },
   postingLineDetail: {
     color: "rgba(0, 32, 69, 0.55)",
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  listRowSplit: {
+    borderTopColor: "rgba(0, 32, 69, 0.08)",
+    borderTopWidth: 1,
   },
   postingLineRow: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
-    minHeight: 54,
     paddingVertical: 10,
   },
-  postingLineRowBorder: {
-    borderTopColor: "rgba(0, 32, 69, 0.08)",
-    borderTopWidth: StyleSheet.hairlineWidth,
+  postingLineRowPressed: {
+    backgroundColor: "rgba(0, 32, 69, 0.03)",
+  },
+  postingLineRight: {
+    alignItems: "flex-end",
+    gap: 2,
+    maxWidth: "52%",
   },
   postingLineStack: {
-    backgroundColor: "#FCFCFD",
-    borderColor: "rgba(0, 32, 69, 0.06)",
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 0,
-    overflow: "hidden",
+    borderTopColor: "rgba(0, 32, 69, 0.08)",
+    borderTopWidth: 1,
   },
   postingLineTitle: {
     color: "#002045",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
   },
   safeArea: {
-    backgroundColor: "#F5F6F8",
+    backgroundColor: "#F9F9F7",
     flex: 1,
   },
   sectionHeader: {
-    alignItems: "center",
+    alignItems: "flex-end",
     flexDirection: "row",
     justifyContent: "space-between",
   },
   sectionMeta: {
     color: "rgba(0, 32, 69, 0.5)",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
   },
   sectionStack: {
@@ -1436,19 +1868,19 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0, 32, 69, 0.08)",
     borderRadius: 18,
     borderWidth: 1,
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 4,
     padding: 4,
+    width: 132,
   },
   segmentedItem: {
-    borderRadius: 12,
-    flex: 1,
-    minHeight: 42,
+    borderRadius: 14,
+    minHeight: 54,
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
   segmentedItemActive: {
-    backgroundColor: "#F2F5F8",
+    backgroundColor: "#002045",
   },
   segmentedLabel: {
     color: "rgba(0, 32, 69, 0.5)",
@@ -1457,64 +1889,65 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   segmentedLabelActive: {
-    color: "#002045",
+    color: "#FFFFFF",
   },
   sheetAmount: {
     color: "#002045",
+    flexShrink: 0,
+    fontVariant: ["tabular-nums"],
     fontSize: 15,
     fontWeight: "800",
+    maxWidth: "36%",
+    textAlign: "right",
   },
   sheetCard: {
     backgroundColor: "#FFFFFF",
     borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    gap: 12,
-    padding: 18,
-  },
-  sheetHeader: {
-    borderBottomColor: "rgba(0, 32, 69, 0.08)",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 10,
+    overflow: "hidden",
   },
   sheetCopy: {
     flex: 1,
     gap: 4,
+    minWidth: 0,
+  },
+  sheetHeader: {
+    borderBottomColor: "rgba(0, 32, 69, 0.08)",
+    borderBottomWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
   },
   sheetLabel: {
     color: "#002045",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   sheetNote: {
     color: "rgba(0, 32, 69, 0.56)",
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 18,
   },
   sheetRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
-    minHeight: 52,
-    paddingVertical: 10,
-  },
-  sheetRowBorder: {
-    borderTopColor: "rgba(0, 32, 69, 0.08)",
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
   sheetRowStack: {
     gap: 0,
   },
   sheetTitle: {
     color: "#002045",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "800",
   },
   statusBody: {
     color: "rgba(0, 32, 69, 0.62)",
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 14,
+    lineHeight: 20,
   },
   statusButton: {
     alignSelf: "flex-start",
@@ -1537,47 +1970,70 @@ const styles = StyleSheet.create({
   statusCard: {
     backgroundColor: "#FFFFFF",
     borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    gap: 8,
+    gap: 10,
     padding: 18,
   },
   statusTitle: {
     color: "#002045",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "800",
   },
   topRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 2,
   },
   transactionAmount: {
     color: "#002045",
+    fontVariant: ["tabular-nums"],
     fontSize: 16,
     fontWeight: "800",
+    textAlign: "right",
+  },
+  transactionAmountExpense: {
+    color: "#002045",
+  },
+  transactionAmountIncome: {
+    color: "#45664A",
+  },
+  transactionAmountPersonal: {
+    color: "#8A4B14",
   },
   transactionCard: {
     backgroundColor: "#FFFFFF",
     borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    gap: 12,
-    padding: 16,
+    overflow: "hidden",
+  },
+  transactionCardExpense: {
+    borderLeftColor: "rgba(186, 26, 26, 0.18)",
+    borderLeftWidth: 4,
+  },
+  transactionCardIncome: {
+    borderLeftColor: "rgba(69, 102, 74, 0.24)",
+    borderLeftWidth: 4,
+  },
+  transactionCardPersonal: {
+    borderLeftColor: "rgba(138, 75, 20, 0.22)",
+    borderLeftWidth: 4,
   },
   transactionCopy: {
     flex: 1,
     gap: 4,
+    minWidth: 0,
   },
   transactionHeader: {
     alignItems: "flex-start",
     borderBottomColor: "rgba(0, 32, 69, 0.08)",
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     flexDirection: "row",
-    gap: 14,
+    gap: 12,
     justifyContent: "space-between",
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   transactionIconExpense: {
     backgroundColor: "rgba(255, 218, 214, 0.28)",
@@ -1590,24 +2046,27 @@ const styles = StyleSheet.create({
   },
   transactionIconWrap: {
     alignItems: "center",
-    borderRadius: 14,
-    height: 36,
+    borderRadius: 16,
+    height: 40,
     justifyContent: "center",
-    width: 36,
+    width: 40,
   },
   transactionLeft: {
     flex: 1,
     flexDirection: "row",
     gap: 12,
+    minWidth: 0,
   },
   transactionMeta: {
     color: "rgba(0, 32, 69, 0.55)",
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 18,
   },
   transactionRight: {
     alignItems: "flex-end",
     gap: 4,
+    maxWidth: "34%",
+    minWidth: 92,
   },
   transactionSource: {
     color: "rgba(0, 32, 69, 0.45)",
@@ -1620,24 +2079,25 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 19,
   },
-  utilityActions: {
-    alignItems: "center",
+  topControls: {
+    alignItems: "stretch",
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
   },
-  utilityPanel: {
-    alignItems: "flex-end",
-    gap: 8,
+  topControlsMainColumn: {
+    flex: 1,
+    gap: 10,
   },
   scopePill: {
     alignItems: "center",
     borderRadius: 12,
+    flex: 1,
     flexDirection: "row",
     gap: 6,
     justifyContent: "center",
-    minHeight: 32,
+    minHeight: 34,
     minWidth: 0,
-    paddingHorizontal: 9,
+    paddingHorizontal: 10,
     paddingVertical: 7,
   },
   scopePillActive: {
@@ -1645,7 +2105,7 @@ const styles = StyleSheet.create({
   },
   scopePillLabel: {
     color: "rgba(0, 32, 69, 0.6)",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
   },
   scopePillLabelActive: {
@@ -1661,33 +2121,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     gap: 4,
-    minHeight: 42,
-    padding: 4,
-  },
-  utilityButton: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 14,
-    borderWidth: 1,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
-  },
-  utilityButtonDisabled: {
-    opacity: 0.55,
+    minHeight: 44,
+    padding: 5,
   },
   utilityButtonPressed: {
     backgroundColor: "#F0F4F8",
-  },
-  sectionGap: {
-    gap: 12,
-  },
-  wideColumnChild: {
-    flex: 1,
-  },
-  wideColumns: {
-    flexDirection: "row",
-    gap: 12,
   },
 });

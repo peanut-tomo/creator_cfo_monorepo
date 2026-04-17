@@ -32,8 +32,8 @@ import {
   homeRecentPageSize,
   type HomeRecentRecord,
 } from "./ledger-domain";
-import type { HomeSnapshot } from "../home/home-data";
-import { loadHomeSnapshot } from "../home/home-data";
+import type { HomeSnapshot, JournalListSnapshot } from "../home/home-data";
+import { loadHomeSnapshot, loadJournalListSnapshot } from "../home/home-data";
 import { getActiveWebDatabase, openWebSqliteDatabase } from "../../storage/web-sqlite";
 import { initializeLocalDatabase } from "../../storage/database";
 import { writeVaultFile } from "../../storage/web-file-vault";
@@ -194,6 +194,29 @@ export async function loadHomeScreenSnapshot(
   });
 
   return loadHomeSnapshot(readableDb, input);
+}
+
+export async function loadJournalListScreenSnapshot(
+  input: {
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<JournalListSnapshot> {
+  let db = getActiveWebDatabase();
+
+  if (!db) {
+    db = await openWebSqliteDatabase();
+    await initializeLocalDatabase(db);
+  }
+
+  const readableDb = createReadableStorageDatabase({
+    getAllAsync: <Row>(source: string, ...params: unknown[]) =>
+      db.getAllAsync<Row>(source, ...(params as [])),
+    getFirstAsync: <Row>(source: string, ...params: unknown[]) =>
+      db.getFirstAsync<Row>(source, ...(params as [])),
+  });
+
+  return loadJournalListSnapshot(readableDb, input);
 }
 
 export async function runPlanner(input: {
