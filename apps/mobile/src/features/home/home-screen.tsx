@@ -22,6 +22,7 @@ import {
 } from "../ledger/ledger-domain";
 import { useHomeScreenData } from "./use-home-screen-data";
 import { useAppShell } from "../app-shell/provider";
+import { getButtonColors, withAlpha } from "../app-shell/theme-utils";
 
 function ActivityIcon({ color, icon }: { color: string; icon: string }) {
   if (icon === "cash-plus") {
@@ -51,6 +52,7 @@ export function HomeScreen() {
     snapshot,
   } = useHomeScreenData();
   const screenCopy = copy.homeScreen;
+  const primaryButton = getButtonColors(palette, "primary");
   const [selectedTrendDate, setSelectedTrendDate] = useState<string | null>(
     null,
   );
@@ -99,9 +101,9 @@ export function HomeScreen() {
   }, [defaultTrendDate, selectedTrendDate, snapshot.trend]);
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: palette.shell }]}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { backgroundColor: palette.shell }]}
         refreshControl={
           Platform.OS !== "web" ? <RefreshControl onRefresh={refresh} refreshing={isRefreshing} /> : undefined
         }
@@ -122,10 +124,10 @@ export function HomeScreen() {
                 onPress={refresh}
                 style={({ pressed }) => [
                   styles.notificationButton,
-                  { backgroundColor: pressed ? "#ECECE8" : "#F4F4F2", opacity: isRefreshing ? 0.5 : 1 },
+                  { backgroundColor: pressed ? palette.shellMuted : palette.shell, opacity: isRefreshing ? 0.5 : 1 },
                 ]}
               >
-                <Ionicons color="#002045" name="refresh-outline" size={18} />
+                <Ionicons color={palette.ink} name="refresh-outline" size={18} />
               </Pressable>
             ) : null}
           </View>
@@ -134,15 +136,15 @@ export function HomeScreen() {
         {/* ---------- Two-column body on expanded, single-column on compact ---------- */}
         <View style={isExpanded ? styles.wideBody : undefined}>
           <View style={isExpanded ? styles.wideLeft : undefined}>
-            <View style={styles.heroBlock}>
+            <View style={[styles.heroBlock, { backgroundColor: palette.shellElevated, borderColor: palette.divider }]}>
               <View style={styles.heroHeader}>
                 <View style={styles.heroHeaderCopy}>
                   <Text
-                    style={[styles.heroTitle, { color: "rgba(0, 32, 69, 0.6)" }]}
+                    style={[styles.heroTitle, { color: palette.inkMuted }]}
                   >
                     {screenCopy.monthlyProfit}
                   </Text>
-                  <Text style={[styles.heroAmount, { color: "#002045" }]}>
+                  <Text style={[styles.heroAmount, { color: palette.ink }]}>
                     {netLabel}
                   </Text>
                 </View>
@@ -153,13 +155,15 @@ export function HomeScreen() {
                   style={({ pressed }) => [
                     styles.heroAction,
                     {
-                      backgroundColor: pressed ? "#173761" : "#002045",
+                      backgroundColor: pressed
+                        ? primaryButton.pressedBackground
+                        : primaryButton.background,
                     },
                   ]}
                 >
                   <View style={styles.heroActionContent}>
-                    <AppIcon color="#FFFFFF" name="add" size={11} />
-                    <Text style={styles.heroActionLabel}>
+                    <AppIcon color={primaryButton.text} name="add" size={11} />
+                    <Text style={[styles.heroActionLabel, { color: primaryButton.text }]}>
                       {screenCopy.newRecords}
                     </Text>
                   </View>
@@ -167,22 +171,22 @@ export function HomeScreen() {
               </View>
 
               <View style={styles.metricStrip}>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>{screenCopy.income}</Text>
-                  <Text style={styles.metricValue}>{incomeLabel}</Text>
+                <View style={[styles.metricItem, { backgroundColor: palette.shell }]}>
+                  <Text style={[styles.metricLabel, { color: palette.inkMuted }]}>{screenCopy.income}</Text>
+                  <Text style={[styles.metricValue, { color: palette.ink }]}>{incomeLabel}</Text>
                 </View>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>{screenCopy.outflow}</Text>
-                  <Text style={styles.metricValue}>{outflowLabel}</Text>
+                <View style={[styles.metricItem, { backgroundColor: palette.shell }]}>
+                  <Text style={[styles.metricLabel, { color: palette.inkMuted }]}>{screenCopy.outflow}</Text>
+                  <Text style={[styles.metricValue, { color: palette.ink }]}>{outflowLabel}</Text>
                 </View>
               </View>
             </View>
 
-            <View style={[styles.profitCard, isExpanded ? styles.wideGapTop : null]}>
+            <View style={[styles.profitCard, isExpanded ? styles.wideGapTop : null, { backgroundColor: palette.shellElevated, borderColor: palette.divider }]}>
               <View style={styles.profitHeader}>
                 <View>
-                  <Text style={styles.profitTitle}>{screenCopy.trendTitle}</Text>
-                  <Text style={styles.profitSubtitle}>
+                  <Text style={[styles.profitTitle, { color: palette.ink }]}>{screenCopy.trendTitle}</Text>
+                  <Text style={[styles.profitSubtitle, { color: palette.inkMuted }]}>
                     {screenCopy.trendSubtitle}
                   </Text>
                 </View>
@@ -190,9 +194,9 @@ export function HomeScreen() {
 
               <View style={styles.trendPanel}>
                   {selectedTrendPoint ? (
-                    <View style={styles.trendTooltip}>
+                    <View style={[styles.trendTooltip, { backgroundColor: palette.shell, borderColor: palette.divider }]}>
                       <View style={styles.trendTooltipHeader}>
-                        <Text style={styles.trendTooltipDate}>
+                        <Text style={[styles.trendTooltipDate, { color: palette.ink }]}>
                           {formatDisplayDate(
                             selectedTrendPoint.date,
                             resolvedLocale,
@@ -201,7 +205,7 @@ export function HomeScreen() {
                         <Text
                           style={[
                             styles.trendTooltipNet,
-                            styles.trendTooltipNetPositive,
+                            { color: palette.success },
                           ]}
                         >
                           {screenCopy.net}:{" "}
@@ -211,14 +215,14 @@ export function HomeScreen() {
                         </Text>
                       </View>
                       <View style={styles.trendTooltipMetrics}>
-                        <View style={styles.trendTooltipMetric}>
-                          <Text style={styles.trendTooltipMetricLabel}>
+                        <View style={[styles.trendTooltipMetric, { backgroundColor: palette.shellElevated }]}>
+                          <Text style={[styles.trendTooltipMetricLabel, { color: palette.inkMuted }]}>
                             {screenCopy.income}
                           </Text>
                           <Text
                             style={[
                               styles.trendTooltipMetricValue,
-                              styles.trendTooltipMetricIncome,
+                              { color: palette.success },
                             ]}
                           >
                             {formatCurrencyFromCents(
@@ -226,14 +230,14 @@ export function HomeScreen() {
                             )}
                           </Text>
                         </View>
-                        <View style={styles.trendTooltipMetric}>
-                          <Text style={styles.trendTooltipMetricLabel}>
+                        <View style={[styles.trendTooltipMetric, { backgroundColor: palette.shellElevated }]}>
+                          <Text style={[styles.trendTooltipMetricLabel, { color: palette.inkMuted }]}>
                             {screenCopy.outflow}
                           </Text>
                           <Text
                             style={[
                               styles.trendTooltipMetricValue,
-                              styles.trendTooltipMetricExpense,
+                              { color: palette.destructive },
                             ]}
                           >
                             {formatCurrencyFromCents(0)}
@@ -245,13 +249,13 @@ export function HomeScreen() {
 
                   <View style={styles.chartShell}>
                     <View style={styles.chartAxis}>
-                      <Text style={styles.axisLabel}>
+                      <Text style={[styles.axisLabel, { color: palette.inkMuted }]}>
                         {formatCompactCurrency(chartPeak)}
                       </Text>
-                      <Text style={styles.axisLabel}>
+                      <Text style={[styles.axisLabel, { color: palette.inkMuted }]}>
                         {formatCompactCurrency(Math.round(chartPeak / 2))}
                       </Text>
-                      <Text style={styles.axisLabel}>$0</Text>
+                      <Text style={[styles.axisLabel, { color: palette.inkMuted }]}>$0</Text>
                     </View>
                     {Platform.OS === "web" ? (
                       <View
@@ -271,6 +275,7 @@ export function HomeScreen() {
                               }
                               isSelected={bar.date === selectedTrendPoint?.date}
                               onPress={() => setSelectedTrendDate(bar.date)}
+                              palette={palette}
                               peak={chartPeak}
                             />
                           ))}
@@ -293,6 +298,7 @@ export function HomeScreen() {
                               }
                               isSelected={bar.date === selectedTrendPoint?.date}
                               onPress={() => setSelectedTrendDate(bar.date)}
+                              palette={palette}
                               peak={chartPeak}
                             />
                           ))}
@@ -307,10 +313,10 @@ export function HomeScreen() {
           <View style={[styles.activitySection, isExpanded ? styles.wideRight : null]}>
             <View style={styles.activityHeader}>
               <View style={styles.activityHeaderCopy}>
-                <Text style={styles.activityTitle}>
+                <Text style={[styles.activityTitle, { color: palette.ink }]}>
                   {screenCopy.recentActivityTitle}
                 </Text>
-                <Text style={styles.activitySubtitle}>
+                <Text style={[styles.activitySubtitle, { color: palette.inkMuted }]}>
                   {screenCopy.recentActivitySubtitle}
                 </Text>
               </View>
@@ -318,17 +324,17 @@ export function HomeScreen() {
                 accessibilityRole="button"
                 onPress={() => router.push("/ledger/journals")}
               >
-                <Text style={styles.seeAllLink}>{screenCopy.seeAll}</Text>
+                <Text style={[styles.seeAllLink, { color: palette.accent }]}>{screenCopy.seeAll}</Text>
               </Pressable>
             </View>
 
-            <View style={styles.activityCard}>
+            <View style={[styles.activityCard, { backgroundColor: palette.shellElevated, borderColor: palette.divider }]}>
               {snapshot.recentRecords.length === 0 ? (
                 <View style={styles.emptyCardState}>
-                  <Text style={styles.emptyCardTitle}>
+                  <Text style={[styles.emptyCardTitle, { color: palette.ink }]}>
                     {isLoaded ? screenCopy.emptyTitle : screenCopy.loadingTitle}
                   </Text>
-                  <Text style={styles.emptyCardSummary}>
+                  <Text style={[styles.emptyCardSummary, { color: palette.inkMuted }]}>
                     {screenCopy.emptySummary}
                   </Text>
                   {isLoaded ? (
@@ -337,10 +343,10 @@ export function HomeScreen() {
                       onPress={() => router.push("/ledger/upload")}
                       style={({ pressed }) => [
                         styles.secondaryActionButton,
-                        pressed ? styles.secondaryActionButtonPressed : null,
+                        { backgroundColor: pressed ? palette.shellMuted : palette.shell },
                       ]}
                     >
-                      <Text style={styles.secondaryActionLabel}>
+                      <Text style={[styles.secondaryActionLabel, { color: palette.ink }]}>
                         {screenCopy.newRecords}
                       </Text>
                     </Pressable>
@@ -349,7 +355,7 @@ export function HomeScreen() {
               ) : (
                 snapshot.recentRecords.map((item, index) => {
                   const income = item.recordKind === "income";
-                  const accent = income ? "#45664A" : "#BA1A1A";
+                  const accent = income ? palette.success : palette.destructive;
                   const icon = income
                     ? "cash-plus"
                     : item.recordKind === "expense"
@@ -361,7 +367,7 @@ export function HomeScreen() {
                       key={item.recordId}
                       style={[
                         styles.activityRow,
-                        index > 0 ? styles.activityRowBorder : null,
+                        index > 0 ? [styles.activityRowBorder, { borderTopColor: palette.divider }] : null,
                       ]}
                     >
                       <View style={styles.activityLeft}>
@@ -370,8 +376,8 @@ export function HomeScreen() {
                             styles.activityIconWrap,
                             {
                               backgroundColor: income
-                                ? "#C3E9C5"
-                                : "rgba(255, 218, 214, 0.3)",
+                                ? palette.accentSoft
+                                : `${palette.destructive}20`,
                             },
                           ]}
                         >
@@ -380,7 +386,7 @@ export function HomeScreen() {
                         <View style={styles.activityCopy}>
                           <Text
                             numberOfLines={2}
-                            style={styles.activityItemTitle}
+                            style={[styles.activityItemTitle, { color: palette.ink }]}
                           >
                             {item.description}
                           </Text>
@@ -393,11 +399,11 @@ export function HomeScreen() {
                         </View>
                       </View>
                       <View style={styles.activityRight}>
-                        <Text style={styles.activityAmount}>
+                        <Text style={[styles.activityAmount, { color: palette.ink }]}>
                           {income ? "+" : "-"}
                           {formatCurrencyFromCents(item.amountCents)}
                         </Text>
-                        <Text style={styles.activityDate}>
+                        <Text style={[styles.activityDate, { color: palette.inkMuted }]}>
                           {formatDisplayDate(item.occurredOn, resolvedLocale)}
                         </Text>
                       </View>
@@ -407,7 +413,7 @@ export function HomeScreen() {
               )}
             </View>
 
-            {error ? <Text style={styles.inlineError}>{error}</Text> : null}
+            {error ? <Text style={[styles.inlineError, { color: palette.destructive }]}>{error}</Text> : null}
 
             {snapshot.hasMore ? (
               <Pressable
@@ -415,10 +421,12 @@ export function HomeScreen() {
                 onPress={() => loadMore()}
                 style={({ pressed }) => [
                   styles.loadMoreButton,
-                  { backgroundColor: pressed ? "#ECECE8" : "#F4F4F2" },
+                  {
+                    backgroundColor: pressed ? palette.shellMuted : palette.paperMuted,
+                  },
                 ]}
               >
-                <Text style={styles.loadMoreLabel}>
+                <Text style={[styles.loadMoreLabel, { color: palette.ink }]}>
                   {isLoadingMore ? screenCopy.loadingMore : screenCopy.loadMore}
                 </Text>
               </Pressable>
@@ -436,12 +444,14 @@ function TrendBar({
   isSelected,
   onPress,
   peak,
+  palette,
 }: {
   bar: HomeTrendPoint;
   isAnchor: boolean;
   isSelected: boolean;
   onPress: () => void;
   peak: number;
+  palette: ReturnType<typeof useAppShell>["palette"];
 }) {
   const chartHeight = 148;
   const incomeHeight =
@@ -460,7 +470,9 @@ function TrendBar({
       onPress={onPress}
       style={({ pressed }) => [
         styles.barColumn,
-        isSelected ? styles.barColumnSelected : null,
+        isSelected
+          ? { backgroundColor: withAlpha(palette.ink, palette.name === "dark" ? 0.12 : 0.05) }
+          : null,
         pressed ? styles.barColumnPressed : null,
       ]}
     >
@@ -469,21 +481,23 @@ function TrendBar({
           <View style={styles.barGroup}>
             {hasIncome ? (
               <View
-                style={[styles.bar, styles.barIncome, { height: incomeHeight }]}
+                style={[
+                  styles.bar,
+                  { backgroundColor: palette.success, height: incomeHeight },
+                ]}
               />
             ) : null}
             {hasExpense ? (
               <View
                 style={[
                   styles.bar,
-                  styles.barExpense,
-                  { height: expenseHeight },
+                  { backgroundColor: palette.destructive, height: expenseHeight },
                 ]}
               />
             ) : null}
           </View>
         ) : (
-          <View style={styles.barZeroLine} />
+          <View style={[styles.barZeroLine, { backgroundColor: withAlpha(palette.inkMuted, 0.3) }]} />
         )}
       </View>
       <Text
@@ -629,21 +643,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     width: 28,
   },
-  barColumnSelected: {
-    backgroundColor: "rgba(0, 32, 69, 0.05)",
-  },
-  barExpense: {
-    backgroundColor: "#C94B4B",
-  },
   barGroup: {
     alignItems: "flex-end",
     flexDirection: "row",
     gap: 4,
     justifyContent: "center",
     width: "100%",
-  },
-  barIncome: {
-    backgroundColor: "#3F7A4D",
   },
   barLabel: {
     color: "#74777F",
@@ -667,7 +672,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   barZeroLine: {
-    backgroundColor: "#D6DBE3",
     borderRadius: 999,
     height: 3,
     width: 14,
@@ -779,7 +783,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   loadMoreLabel: {
-    color: "#002045",
     fontSize: 14,
     fontWeight: "700",
   },

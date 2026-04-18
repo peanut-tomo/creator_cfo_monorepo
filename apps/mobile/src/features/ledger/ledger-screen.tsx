@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { useAppShell } from "../app-shell/provider";
+import { getButtonColors, withAlpha } from "../app-shell/theme-utils";
 import { formatCurrencyFromCents } from "./ledger-domain";
 import type {
   GeneralLedgerEntry,
@@ -37,6 +38,7 @@ import {
 export function LedgerScreen() {
   const { copy, palette } = useAppShell();
   const screenCopy = copy.ledgerScreen;
+  const primaryButton = getButtonColors(palette, "primary");
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] =
     useState<GeneralLedgerEntry | null>(null);
@@ -178,11 +180,11 @@ export function LedgerScreen() {
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={styles.safeArea}
+      style={[styles.safeArea, { backgroundColor: palette.shell }]}
       testID="ledger-screen"
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { backgroundColor: palette.shell }]}
         refreshControl={
           <RefreshControl onRefresh={refresh} refreshing={isRefreshing} />
         }
@@ -206,6 +208,10 @@ export function LedgerScreen() {
                 onPress={hasSelectablePeriods ? openSelector : undefined}
                 style={({ pressed }) => [
                   styles.periodCard,
+                  {
+                    backgroundColor: palette.paper,
+                    borderColor: palette.border,
+                  },
                   !hasSelectablePeriods ? styles.periodCardDisabled : null,
                   pressed && hasSelectablePeriods
                     ? styles.periodCardPressed
@@ -214,26 +220,32 @@ export function LedgerScreen() {
                 testID="ledger-period-picker-button"
               >
                 <View style={styles.periodCopy}>
-                  <Text style={styles.periodEyebrow}>
+                  <Text style={[styles.periodEyebrow, { color: palette.inkMuted }]}>
                     {screenCopy.range.reportingRange}
                   </Text>
                   <Text
                     adjustsFontSizeToFit
                     minimumFontScale={0.8}
                     numberOfLines={1}
-                    style={styles.periodTitle}
+                    style={[styles.periodTitle, { color: palette.ink }]}
                   >
                     {selectedPeriod.label}
                   </Text>
-                  <Text style={styles.periodSummary}>
+                  <Text style={[styles.periodSummary, { color: palette.inkMuted }]}>
                     {selectedPeriod.summary}
                   </Text>
                 </View>
-                <Ionicons color="#002045" name="chevron-forward" size={18} />
+                <Ionicons color={palette.ink} name="chevron-forward" size={18} />
               </Pressable>
             </View>
 
-            <View style={styles.scopeSwitch} testID="ledger-scope-switch">
+            <View
+              style={[
+                styles.scopeSwitch,
+                { backgroundColor: palette.paper, borderColor: palette.border },
+              ]}
+              testID="ledger-scope-switch"
+            >
               {ledgerScopes.map((scope) => {
                 const isActive = scope.id === selectedScope;
 
@@ -245,18 +257,24 @@ export function LedgerScreen() {
                     onPress={() => selectScope(scope.id)}
                     style={({ pressed }) => [
                       styles.scopePill,
-                      isActive ? styles.scopePillActive : null,
+                      isActive
+                        ? [
+                            styles.scopePillActive,
+                            { backgroundColor: primaryButton.background },
+                          ]
+                        : null,
                       pressed ? styles.scopePillPressed : null,
                     ]}
                   >
                     <Ionicons
-                      color={isActive ? "#FFFFFF" : "rgba(0, 32, 69, 0.6)"}
+                      color={isActive ? primaryButton.text : palette.inkMuted}
                       name={scope.icon}
                       size={15}
                     />
                     <Text
                       style={[
                         styles.scopePillLabel,
+                        { color: isActive ? primaryButton.text : palette.inkMuted },
                         isActive ? styles.scopePillLabelActive : null,
                       ]}
                     >
@@ -268,7 +286,12 @@ export function LedgerScreen() {
             </View>
           </View>
 
-          <View style={styles.segmentedControl}>
+          <View
+            style={[
+              styles.segmentedControl,
+              { backgroundColor: palette.paper, borderColor: palette.border },
+            ]}
+          >
             {ledgerViews.map((tab) => {
               const isActive = tab.id === selectedView;
 
@@ -279,12 +302,18 @@ export function LedgerScreen() {
                   onPress={() => selectView(tab.id)}
                   style={[
                     styles.segmentedItem,
-                    isActive ? styles.segmentedItemActive : null,
+                    isActive
+                      ? [
+                          styles.segmentedItemActive,
+                          { backgroundColor: primaryButton.background },
+                        ]
+                      : null,
                   ]}
                 >
                   <Text
                     style={[
                       styles.segmentedLabel,
+                      { color: isActive ? primaryButton.text : palette.inkMuted },
                       isActive ? styles.segmentedLabelActive : null,
                     ]}
                   >
@@ -334,12 +363,12 @@ export function LedgerScreen() {
               <>
                 <MetricGrid cards={snapshot.generalLedger.metricCards} />
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>
+                  <Text style={[styles.sectionTitle, { color: palette.ink }]}>
                     {selectedScope === "personal"
                       ? screenCopy.sections.journalPersonal
                       : screenCopy.sections.journalRecent}
                   </Text>
-                  <Text style={styles.sectionMeta}>
+                  <Text style={[styles.sectionMeta, { color: palette.inkMuted }]}>
                     {snapshot.generalLedger.recordCountLabel}
                   </Text>
                 </View>
@@ -753,13 +782,32 @@ function LedgerPeriodPickerModal({
 }
 
 function StepPill({ active, label }: { active: boolean; label: string }) {
+  const { palette } = useAppShell();
+  const primaryButton = getButtonColors(palette, "primary");
+
   return (
     <View
-      style={[styles.modalStepPill, active ? styles.modalStepPillActive : null]}
+      style={[
+        styles.modalStepPill,
+        {
+          backgroundColor: palette.paper,
+          borderColor: palette.border,
+        },
+        active
+          ? [
+              styles.modalStepPillActive,
+              {
+                backgroundColor: primaryButton.background,
+                borderColor: primaryButton.border,
+              },
+            ]
+          : null,
+      ]}
     >
       <Text
         style={[
           styles.modalStepLabel,
+          { color: active ? primaryButton.text : palette.inkMuted },
           active ? styles.modalStepLabelActive : null,
         ]}
       >
@@ -812,18 +860,26 @@ function getQuarterIdForSegment(
 }
 
 function MetricGrid({ cards }: { cards: readonly LedgerMetricCard[] }) {
+  const { palette } = useAppShell();
+
   return (
     <View style={styles.metricGrid}>
       {cards.map((card) => (
-        <View key={card.id} style={styles.metricCard}>
-          <Text numberOfLines={2} style={styles.metricLabel}>
+        <View
+          key={card.id}
+          style={[
+            styles.metricCard,
+            { backgroundColor: palette.paper, borderColor: palette.border },
+          ]}
+        >
+          <Text numberOfLines={2} style={[styles.metricLabel, { color: palette.inkMuted }]}>
             {card.label}
           </Text>
           <Text
             adjustsFontSizeToFit
             minimumFontScale={0.62}
             numberOfLines={1}
-            style={styles.metricValue}
+            style={[styles.metricValue, { color: palette.ink }]}
           >
             {card.value}
           </Text>
@@ -850,6 +906,7 @@ function GeneralLedgerCard({
   entry: GeneralLedgerEntry;
   onSelectEntry: (entry: GeneralLedgerEntry) => void;
 }) {
+  const { palette } = useAppShell();
   const cardToneStyle =
     entry.kind === "income"
       ? styles.transactionCardIncome
@@ -864,21 +921,36 @@ function GeneralLedgerCard({
         : styles.transactionAmountExpense;
 
   return (
-    <View style={[styles.transactionCard, cardToneStyle]}>
-      <View style={styles.transactionHeader}>
+    <View
+      style={[
+        styles.transactionCard,
+        cardToneStyle,
+        { backgroundColor: palette.paper, borderColor: palette.border },
+      ]}
+    >
+      <View style={[styles.transactionHeader, { borderBottomColor: palette.divider }]}>
         <View style={styles.transactionLeft}>
           <View
             style={[
               styles.transactionIconWrap,
-              entry.kind === "income"
-                ? styles.transactionIconIncome
-                : entry.kind === "personal"
-                  ? styles.transactionIconPersonal
-                  : styles.transactionIconExpense,
+              {
+                backgroundColor:
+                  entry.kind === "income"
+                    ? withAlpha(palette.success, palette.name === "dark" ? 0.22 : 0.16)
+                    : entry.kind === "personal"
+                      ? withAlpha(palette.accent, palette.name === "dark" ? 0.2 : 0.14)
+                      : withAlpha(palette.destructive, palette.name === "dark" ? 0.22 : 0.14),
+              },
             ]}
           >
             <Ionicons
-              color={entry.kind === "income" ? "#45664A" : "#BA1A1A"}
+              color={
+                entry.kind === "income"
+                  ? palette.success
+                  : entry.kind === "personal"
+                    ? palette.accent
+                    : palette.destructive
+              }
               name={
                 entry.kind === "income"
                   ? "arrow-down-outline"
@@ -888,10 +960,10 @@ function GeneralLedgerCard({
             />
           </View>
           <View style={styles.transactionCopy}>
-            <Text numberOfLines={2} style={styles.transactionTitle}>
+            <Text numberOfLines={2} style={[styles.transactionTitle, { color: palette.ink }]}>
               {entry.title}
             </Text>
-            <Text numberOfLines={2} style={styles.transactionMeta}>
+            <Text numberOfLines={2} style={[styles.transactionMeta, { color: palette.inkMuted }]}>
               {entry.subtitle}
             </Text>
           </View>
@@ -901,17 +973,28 @@ function GeneralLedgerCard({
             adjustsFontSizeToFit
             minimumFontScale={0.72}
             numberOfLines={1}
-            style={[styles.transactionAmount, amountToneStyle]}
+            style={[
+              styles.transactionAmount,
+              amountToneStyle,
+              {
+                color:
+                  entry.kind === "income"
+                    ? palette.success
+                    : entry.kind === "personal"
+                      ? palette.accent
+                      : palette.destructive,
+              },
+            ]}
           >
             {entry.amount}
           </Text>
           {entry.dateLabel ? (
-            <Text style={styles.transactionSource}>{entry.dateLabel}</Text>
+            <Text style={[styles.transactionSource, { color: palette.inkMuted }]}>{entry.dateLabel}</Text>
           ) : null}
         </View>
       </View>
 
-      <View style={styles.postingLineStack}>
+      <View style={[styles.postingLineStack, { borderTopColor: palette.divider }]}>
         {entry.lines.map((line, index) => (
           <PostingLine
             isFirst={index === 0}
@@ -934,7 +1017,7 @@ function PostingLine({
   line: GeneralLedgerPostingLine;
   onPress: () => void;
 }) {
-  const { copy, resolvedLocale } = useAppShell();
+  const { copy, palette, resolvedLocale } = useAppShell();
   const isDebit = line.side === "debit";
   const positive = isPositivePostingLine(line, resolvedLocale);
 
@@ -944,24 +1027,29 @@ function PostingLine({
       onPress={onPress}
       style={({ pressed }) => [
         styles.postingLineRow,
-        !isFirst ? styles.listRowSplit : null,
-        pressed ? styles.postingLineRowPressed : null,
+        !isFirst ? [styles.listRowSplit, { borderTopColor: palette.divider }] : null,
+        pressed
+          ? [
+              styles.postingLineRowPressed,
+              { backgroundColor: withAlpha(palette.ink, palette.name === "dark" ? 0.08 : 0.03) },
+            ]
+          : null,
       ]}
       testID={`ledger-posting-line-${line.id}`}
     >
       <View style={styles.postingLineCopy}>
-        <Text numberOfLines={1} style={styles.postingLineTitle}>
+        <Text numberOfLines={1} style={[styles.postingLineTitle, { color: palette.ink }]}>
           {isDebit
             ? copy.ledgerScreen.sections.debit
             : copy.ledgerScreen.sections.credit}{" "}
           · {line.accountName}
         </Text>
-        <Text numberOfLines={2} style={styles.postingLineDetail}>
+        <Text numberOfLines={2} style={[styles.postingLineDetail, { color: palette.inkMuted }]}>
           {line.detail}
         </Text>
       </View>
       <View style={styles.postingLineRight}>
-        <Text style={styles.postingLineDate}>{line.record.dateLabel}</Text>
+        <Text style={[styles.postingLineDate, { color: palette.inkMuted }]}>{line.record.dateLabel}</Text>
         <Text
           numberOfLines={1}
           style={[
@@ -985,7 +1073,7 @@ function GroupedEntryDetailModal({
   entry: GeneralLedgerEntry | null;
   onClose: () => void;
 }) {
-  const { copy, resolvedLocale } = useAppShell();
+  const { copy, palette, resolvedLocale } = useAppShell();
   const recordCopy = copy.ledgerScreen.recordCard;
   const runtimeCopy = getLedgerRuntimeCopy(resolvedLocale);
 
@@ -1018,12 +1106,12 @@ function GroupedEntryDetailModal({
     >
       <View style={styles.modalBackdrop}>
         <Pressable onPress={onClose} style={StyleSheet.absoluteFillObject} />
-        <View style={styles.recordModalCard}>
+        <View style={[styles.recordModalCard, { backgroundColor: palette.shellMuted }]}>
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderCopy}>
-              <Text style={styles.modalEyebrow}>{recordCopy.title}</Text>
-              <Text style={styles.modalTitle}>{entry.title}</Text>
-              <Text style={styles.modalSummary}>
+              <Text style={[styles.modalEyebrow, { color: palette.inkMuted }]}>{recordCopy.title}</Text>
+              <Text style={[styles.modalTitle, { color: palette.ink }]}>{entry.title}</Text>
+              <Text style={[styles.modalSummary, { color: palette.inkMuted }]}>
                 {entry.amount} · {entry.subtitle}
               </Text>
             </View>
@@ -1032,10 +1120,11 @@ function GroupedEntryDetailModal({
               onPress={onClose}
               style={({ pressed }) => [
                 styles.modalCloseButton,
+                { backgroundColor: palette.paper, borderColor: palette.border },
                 pressed ? styles.utilityButtonPressed : null,
               ]}
             >
-              <Ionicons color="#002045" name="close" size={18} />
+              <Ionicons color={palette.ink} name="close" size={18} />
             </Pressable>
           </View>
 
@@ -1065,11 +1154,17 @@ function GroupedEntryDetailModal({
               }
 
               return (
-                <View key={line.id} style={styles.groupedRecordCard}>
-                  <Text style={styles.groupedRecordTitle}>{line.detail}</Text>
+                <View
+                  key={line.id}
+                  style={[
+                    styles.groupedRecordCard,
+                    { backgroundColor: palette.paper, borderColor: palette.border },
+                  ]}
+                >
+                  <Text style={[styles.groupedRecordTitle, { color: palette.ink }]}>{line.detail}</Text>
                   <View style={styles.groupedRecordMetaRow}>
                     <View style={styles.groupedRecordMetaCopy}>
-                      <Text style={styles.groupedRecordSummary}>
+                      <Text style={[styles.groupedRecordSummary, { color: palette.inkMuted }]}>
                         {line.record.dateLabel} ·{" "}
                         {line.side === "debit"
                           ? copy.ledgerScreen.sections.debit
@@ -1093,8 +1188,8 @@ function GroupedEntryDetailModal({
                   </View>
                   {fields.map((field) => (
                     <View key={`${line.id}-${field.label}`} style={styles.recordFieldRow}>
-                      <Text style={styles.recordFieldLabel}>{field.label}</Text>
-                      <Text style={styles.recordFieldValue}>
+                      <Text style={[styles.recordFieldLabel, { color: palette.inkMuted }]}>{field.label}</Text>
+                      <Text style={[styles.recordFieldValue, { color: palette.ink }]}>
                         {field.value || recordCopy.emptyValue}
                       </Text>
                     </View>
@@ -1103,14 +1198,14 @@ function GroupedEntryDetailModal({
               );
             })}
 
-            <View style={styles.equationDetailCard}>
-              <Text style={styles.equationDetailTitle}>
+            <View style={[styles.equationDetailCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+              <Text style={[styles.equationDetailTitle, { color: palette.ink }]}>
                 {recordCopy.equationTitle}
               </Text>
-              <Text style={styles.equationDetailBody}>
+              <Text style={[styles.equationDetailBody, { color: palette.inkMuted }]}>
                 {isOwnerGroup ? recordCopy.ownerRule : recordCopy.nonOwnerRule}
               </Text>
-              <Text style={styles.equationDetailFormula}>
+              <Text style={[styles.equationDetailFormula, { color: palette.ink }]}>
                 {isOwnerGroup
                   ? `${copy.ledgerScreen.sections.debit} ${formatCurrencyFromCents(debitTotalCents)} - ${copy.ledgerScreen.sections.credit} ${formatCurrencyFromCents(creditTotalCents)} = ${recordCopy.equationResult} ${formatCurrencyFromCents(displayAmountCents)}`
                   : `${copy.ledgerScreen.sections.credit} ${formatCurrencyFromCents(creditTotalCents)} - ${copy.ledgerScreen.sections.debit} ${formatCurrencyFromCents(debitTotalCents)} = ${recordCopy.equationResult} ${formatCurrencyFromCents(displayAmountCents)}`}
@@ -1128,23 +1223,33 @@ function GeneralLedgerEquationCard({
 }: {
   equation: LedgerEquationSnapshot;
 }) {
+  const { palette } = useAppShell();
+
   return (
-    <View style={styles.equationDetailCard}>
-      <Text style={styles.equationDetailTitle}>{equation.label}</Text>
-      <Text style={styles.equationDetailBody}>{equation.summary}</Text>
+    <View style={[styles.equationDetailCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+      <Text style={[styles.equationDetailTitle, { color: palette.ink }]}>{equation.label}</Text>
+      <Text style={[styles.equationDetailBody, { color: palette.inkMuted }]}>{equation.summary}</Text>
       <View style={styles.equationBreakdownStack}>
         {equation.rows.map((row, index) => (
           <View
             key={row.id}
             style={[
               styles.equationBreakdownRow,
-              index > 0 ? styles.listRowSplit : null,
+              index > 0 ? [styles.listRowSplit, { borderTopColor: palette.divider }] : null,
             ]}
           >
-            <Text style={styles.equationBreakdownLabel}>{row.label}</Text>
+            <Text style={[styles.equationBreakdownLabel, { color: palette.ink }]}>{row.label}</Text>
             <Text
               style={[
                 styles.equationBreakdownAmount,
+                {
+                  color:
+                    row.accent === "danger"
+                      ? palette.destructive
+                      : row.accent === "success"
+                        ? palette.success
+                        : palette.ink,
+                },
                 row.accent === "danger"
                   ? styles.equationBreakdownAmountDanger
                   : row.accent === "success"
@@ -1200,22 +1305,24 @@ function SectionCard({
   rows: readonly LedgerSectionRow[];
   title: string;
 }) {
+  const { palette } = useAppShell();
+
   return (
-    <View style={styles.sheetCard}>
-      <View style={styles.sheetHeader}>
-        <Text style={styles.sheetTitle}>{title}</Text>
+    <View style={[styles.sheetCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+      <View style={[styles.sheetHeader, { borderBottomColor: palette.divider }]}>
+        <Text style={[styles.sheetTitle, { color: palette.ink }]}>{title}</Text>
       </View>
       <View style={styles.sheetRowStack}>
         {rows.map((row, index) => (
           <View
             key={row.id}
-            style={[styles.sheetRow, index > 0 ? styles.listRowSplit : null]}
+            style={[styles.sheetRow, index > 0 ? [styles.listRowSplit, { borderTopColor: palette.divider }] : null]}
           >
             <View style={styles.sheetCopy}>
-              <Text numberOfLines={2} style={styles.sheetLabel}>
+              <Text numberOfLines={2} style={[styles.sheetLabel, { color: palette.ink }]}>
                 {row.label}
               </Text>
-              <Text numberOfLines={3} style={styles.sheetNote}>
+              <Text numberOfLines={3} style={[styles.sheetNote, { color: palette.inkMuted }]}>
                 {row.note}
               </Text>
             </View>
@@ -1223,7 +1330,7 @@ function SectionCard({
               adjustsFontSizeToFit
               minimumFontScale={0.72}
               numberOfLines={1}
-              style={styles.sheetAmount}
+              style={[styles.sheetAmount, { color: palette.ink }]}
             >
               {row.amount}
             </Text>
@@ -1247,10 +1354,13 @@ function StatusCard({
   onPress?: () => void;
   title: string;
 }) {
+  const { palette } = useAppShell();
+  const primaryButton = getButtonColors(palette, "primary");
+
   return (
-    <View style={styles.statusCard}>
-      <Text style={styles.statusTitle}>{title}</Text>
-      <Text style={styles.statusBody}>{body}</Text>
+    <View style={[styles.statusCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+      <Text style={[styles.statusTitle, { color: palette.ink }]}>{title}</Text>
+      <Text style={[styles.statusBody, { color: palette.inkMuted }]}>{body}</Text>
       {actionLabel && onPress ? (
         <Pressable
           accessibilityRole="button"
@@ -1258,11 +1368,25 @@ function StatusCard({
           onPress={onPress}
           style={({ pressed }) => [
             styles.statusButton,
+            {
+              backgroundColor: disabled
+                ? primaryButton.disabledBackground
+                : pressed
+                  ? primaryButton.pressedBackground
+                  : primaryButton.background,
+            },
             pressed ? styles.statusButtonPressed : null,
             disabled ? styles.statusButtonDisabled : null,
           ]}
         >
-          <Text style={styles.statusButtonLabel}>{actionLabel}</Text>
+          <Text
+            style={[
+              styles.statusButtonLabel,
+              { color: disabled ? primaryButton.disabledText : primaryButton.text },
+            ]}
+          >
+            {actionLabel}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -1280,7 +1404,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   container: {
-    backgroundColor: "#F9F9F7",
     gap: 14,
     paddingBottom: 32,
     paddingHorizontal: 24,
@@ -1849,7 +1972,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   safeArea: {
-    backgroundColor: "#F9F9F7",
     flex: 1,
   },
   sectionHeader: {
