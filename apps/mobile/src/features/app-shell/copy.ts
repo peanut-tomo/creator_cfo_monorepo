@@ -194,6 +194,11 @@ export interface AppCopy {
       approve: string;
       backToLedger: string;
       backToUpload: string;
+      categoryBusinessIncome: string;
+      categoryExpense: string;
+      categoryLabel: string;
+      categoryNonBusinessIncome: string;
+      categoryPersonalSpending: string;
       descriptionField: string;
       detectedDocsTitle: string;
       editRecordTitle: string;
@@ -215,6 +220,8 @@ export interface AppCopy {
       parsedJsonTitle: string;
       plannerErrorTitle: string;
       plannerFailed: string;
+      preparingReviewSummary: string;
+      preparingReviewTitle: string;
       plannerSummaryTitle: string;
       progressTitle: string;
       proposalStateApproved: string;
@@ -257,14 +264,18 @@ export interface AppCopy {
     summary: string;
     title: string;
     upload: {
+      backAction: string;
       cameraPermissionDenied: string;
       continue: string;
       emptySelection: string;
       eyebrow: string;
       errorFallback: string;
       hint: string;
+      parseAction: string;
       parsing: string;
       parsingStatusPrefix: string;
+      previewSummary: string;
+      previewTitle: string;
       selectFiles: string;
       selectPhotos: string;
       sourceTitle: string;
@@ -755,6 +766,11 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         approve: "Approve",
         backToLedger: "Back to Ledger",
         backToUpload: "Back to Upload",
+        categoryBusinessIncome: "Business Income",
+        categoryExpense: "Expense",
+        categoryLabel: "Category",
+        categoryNonBusinessIncome: "Non-Business Income",
+        categoryPersonalSpending: "Personal Spending",
         descriptionField: "Description",
         detectedDocsTitle: "Detected documents",
         editRecordTitle: "Edit Record",
@@ -777,6 +793,9 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         parsedJsonTitle: "Parsed JSON",
         plannerErrorTitle: "Planner Error",
         plannerFailed: "Planner failed.",
+        preparingReviewSummary:
+          "Parsing and review preparation are running. You will not need to map this record again manually.",
+        preparingReviewTitle: "Preparing review",
         plannerSummaryTitle: "Planner Summary",
         progressTitle: "Parser timeline",
         proposalStateApproved: "Approved",
@@ -794,7 +813,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         recordSavedTitle: "Record Saved",
         reject: "Reject",
         rejectionFailed: "Rejection failed.",
-        retry: "Re-run parser mock",
+        retry: "Retry",
         reviewStateApproved: "Approved",
         reviewStateCandidate: "Candidate",
         reviewStateDuplicate: "Duplicate",
@@ -823,6 +842,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
       title:
         "The accounting shell is ready for the first local-first workflows.",
       upload: {
+        backAction: "Back",
         cameraPermissionDenied:
           "Camera access is required to take a photo. Please enable it in Settings.",
         continue: "Continue to parser",
@@ -830,8 +850,11 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         eyebrow: "Upload center",
         errorFallback: "Upload import failed.",
         hint: "No real files are uploaded in this phase. Source cards are UI-only placeholders.",
+        parseAction: "Parse",
         parsing: "Parsing...",
         parsingStatusPrefix: "Parsing",
+        previewSummary: "Confirm the selected file before starting parse and review.",
+        previewTitle: "Selected file",
         selectFiles: "Select Files",
         selectPhotos: "Select Photos",
         sourceTitle: "Upload source",
@@ -1330,6 +1353,11 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         approve: "批准",
         backToLedger: "返回记账页",
         backToUpload: "返回上传页",
+        categoryBusinessIncome: "经营收入",
+        categoryExpense: "支出",
+        categoryLabel: "分类",
+        categoryNonBusinessIncome: "非经营收入",
+        categoryPersonalSpending: "个人支出",
         descriptionField: "摘要",
         detectedDocsTitle: "识别到的文档",
         editRecordTitle: "编辑记录",
@@ -1351,6 +1379,9 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         parsedJsonTitle: "解析 JSON",
         plannerErrorTitle: "规划器错误",
         plannerFailed: "规划器执行失败。",
+        preparingReviewSummary:
+          "正在执行解析和复核准备，用户不需要再额外点击映射到记录。",
+        preparingReviewTitle: "正在准备复核",
         plannerSummaryTitle: "规划摘要",
         progressTitle: "解析流程",
         proposalStateApproved: "已批准",
@@ -1367,7 +1398,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         recordSavedTitle: "记录已保存",
         reject: "拒绝",
         rejectionFailed: "拒绝失败。",
-        retry: "重新演示解析",
+        retry: "重试",
         reviewStateApproved: "已批准",
         reviewStateCandidate: "候选",
         reviewStateDuplicate: "重复",
@@ -1394,6 +1425,7 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         "这个页面先验证导航、视觉节奏和模块边界，后续再接入更深的表单与数据流。",
       title: "记账壳层已经为首批本地流程预留好位置。",
       upload: {
+        backAction: "返回",
         cameraPermissionDenied:
           "需要开启相机权限后才能拍照，请前往系统设置开启。",
         continue: "继续到解析页",
@@ -1401,8 +1433,11 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         eyebrow: "上传中心",
         errorFallback: "上传导入失败。",
         hint: "本阶段不会上传真实文件，来源卡片仅用于 UI 与导航验证。",
+        parseAction: "解析",
         parsing: "解析中...",
         parsingStatusPrefix: "正在解析",
+        previewSummary: "确认当前文件后再开始解析和复核准备。",
+        previewTitle: "已选文件",
         selectFiles: "选择文件",
         selectPhotos: "选择照片",
         sourceTitle: "上传来源",

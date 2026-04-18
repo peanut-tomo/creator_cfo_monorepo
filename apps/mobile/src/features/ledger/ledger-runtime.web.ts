@@ -426,6 +426,8 @@ export async function approveWriteProposal(
       const userClassification =
         finalReview.category === "income"
           ? ("income" as const)
+          : finalReview.category === "non_business_income"
+            ? ("non_business_income" as const)
           : finalReview.category === "spending"
             ? ("personal_spending" as const)
             : ("expense" as const);

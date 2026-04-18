@@ -821,6 +821,8 @@ export async function finalizeEvidenceReview(
         userClassification:
           normalizedReview.category === "income"
             ? "income"
+            : normalizedReview.category === "non_business_income"
+              ? "non_business_income"
             : normalizedReview.category === "spending"
               ? "personal_spending"
               : "expense",
@@ -1633,6 +1635,8 @@ async function executePersistCandidateProposal(
       userClassification:
         review.category === "income"
           ? "income"
+          : review.category === "non_business_income"
+            ? "non_business_income"
           : review.category === "spending"
             ? "personal_spending"
             : "expense",

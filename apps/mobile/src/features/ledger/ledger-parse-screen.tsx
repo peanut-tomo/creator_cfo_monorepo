@@ -1,6 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +22,7 @@ import {
   formatLedgerParseProposalType,
   formatLedgerParseWorkflowState,
 } from "./ledger-parse-localization";
+import type { LedgerCategory } from "./ledger-domain";
 import { usePlannerWorkflow } from "./use-planner-workflow";
 
 export function LedgerParseScreen() {
@@ -47,7 +50,7 @@ export function LedgerParseScreen() {
   const rawText = params.rawText ?? "";
   const model = params.model ?? "";
   const parseError = params.parseError ?? "";
-  const mimeType = params.mimeType ?? null;
+  const mimeType = params.mimeType?.trim() || null;
   const parserKind = params.parserKind || undefined;
 
   const hasData = rawJson || rawText;
@@ -79,7 +82,34 @@ export function LedgerParseScreen() {
 
   const canStartPlanner =
     hasData && !parseError && parsedRawJson !== null && !plannerResult;
+  const isPreparingReview = canStartPlanner || (isPlanning && !plannerResult);
+  const canRetryPlanner =
+    !plannerResult &&
+    !isPlanning &&
+    !parseError &&
+    parsedRawJson !== null &&
+    Boolean(plannerError);
   const allApproved = plannerResult?.batchState === "approved";
+  const categoryOptions: Array<{
+    label: string;
+    value: LedgerCategory;
+  }> = [
+    { label: parseCopy.categoryBusinessIncome, value: "income" },
+    {
+      label: parseCopy.categoryNonBusinessIncome,
+      value: "non_business_income",
+    },
+    { label: parseCopy.categoryExpense, value: "expense" },
+    { label: parseCopy.categoryPersonalSpending, value: "spending" },
+  ];
+
+  useEffect(() => {
+    if (!canStartPlanner || isPlanning || plannerError) {
+      return;
+    }
+
+    void startPlanner();
+  }, [canStartPlanner, isPlanning, plannerError, startPlanner]);
 
   return (
     <SafeAreaView
@@ -218,33 +248,27 @@ export function LedgerParseScreen() {
 
           {/* Right column: planner actions + edit + proposals */}
           <View style={[isExpanded ? styles.columnRight : undefined, { gap: 14 }]}>
-            {canStartPlanner ? (
-              <Pressable
-                accessibilityRole="button"
-                disabled={isPlanning}
-                onPress={startPlanner}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  {
-                    backgroundColor: isPlanning
-                      ? primaryButton.disabledBackground
-                      : pressed
-                        ? primaryButton.pressedBackground
-                        : primaryButton.background,
-                    opacity: isPlanning ? 0.7 : 1,
-                  },
+            {isPreparingReview ? (
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: palette.paper, borderColor: palette.border },
                 ]}
-                testID="planner-start-button"
+                testID="planner-preparing-card"
               >
-                <Text
-                  style={[
-                    styles.primaryButtonLabel,
-                    { color: isPlanning ? primaryButton.disabledText : primaryButton.text },
-                  ]}
-                >
-                  {isPlanning ? parseCopy.mapping : parseCopy.mapToRecords}
+                <View style={styles.loadingHeader}>
+                  <ActivityIndicator color={palette.accent} size="small" />
+                  <Text style={[styles.sectionTitle, { color: palette.ink }]}>
+                    {parseCopy.preparingReviewTitle}
+                  </Text>
+                </View>
+                <Text style={[styles.summaryText, { color: palette.inkMuted }]}>
+                  {parseCopy.preparingReviewSummary}
                 </Text>
-              </Pressable>
+                <Text style={[styles.loadingCaption, { color: palette.inkMuted }]}>
+                  {parseCopy.mapping}
+                </Text>
+              </View>
             ) : null}
 
             {plannerError ? (
@@ -263,6 +287,22 @@ export function LedgerParseScreen() {
                 <Text selectable style={[styles.errorText, { color: errorColors.text }]}>
                   {plannerError}
                 </Text>
+                {canRetryPlanner ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={startPlanner}
+                    style={({ pressed }) => [
+                      styles.retryButton,
+                      {
+                        backgroundColor: pressed
+                          ? withAlpha(palette.destructive, 0.82)
+                          : palette.destructive,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.actionButtonLabel}>{parseCopy.retry}</Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null}
 
@@ -342,6 +382,13 @@ export function LedgerParseScreen() {
                     </View>
                   </View>
                 ) : null}
+                <CategorySelector
+                  label={parseCopy.categoryLabel}
+                  options={categoryOptions}
+                  palette={palette}
+                  selectedValue={review.category}
+                  onSelect={(value) => updateField("category", value)}
+                />
                 <EditField
                   fieldId="amount"
                   label={parseCopy.fieldAmount}
@@ -559,6 +606,58 @@ function EditField(props: {
   );
 }
 
+function CategorySelector(props: {
+  label: string;
+  onSelect: (value: LedgerCategory) => void;
+  options: Array<{ label: string; value: LedgerCategory }>;
+  palette: Record<string, string>;
+  selectedValue: LedgerCategory;
+}) {
+  return (
+    <View style={styles.editFieldContainer}>
+      <Text style={[styles.editFieldLabel, { color: props.palette.inkMuted }]}>
+        {props.label}
+      </Text>
+      <View style={styles.categoryList}>
+        {props.options.map((option) => {
+          const selected = option.value === props.selectedValue;
+
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="button"
+              onPress={() => props.onSelect(option.value)}
+              style={[
+                styles.categoryChip,
+                {
+                  backgroundColor: selected
+                    ? props.palette.accentSoft
+                    : props.palette.shellElevated,
+                  borderColor: selected
+                    ? props.palette.accent
+                    : props.palette.border,
+                },
+              ]}
+              testID={`category-${option.value}`}
+            >
+              <Text
+                style={[
+                  styles.categoryChipLabel,
+                  {
+                    color: selected ? props.palette.accent : props.palette.ink,
+                  },
+                ]}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function StatPill(props: {
   label: string;
   palette: Record<string, string>;
@@ -687,6 +786,24 @@ const styles = StyleSheet.create({
   columnRight: {
     flex: 1,
   },
+  categoryChip: {
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  categoryChipLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  categoryList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   editFieldContainer: {
     gap: 4,
   },
@@ -763,6 +880,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  loadingCaption: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  loadingHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
   meta: {
     fontSize: 13,
     lineHeight: 18,
@@ -823,6 +949,15 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     justifyContent: "center",
+  },
+  retryButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 12,
+    height: 38,
+    justifyContent: "center",
+    marginTop: 4,
+    paddingHorizontal: 14,
   },
   safeArea: {
     flex: 1,
