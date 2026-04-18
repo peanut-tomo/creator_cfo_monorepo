@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -16,13 +16,19 @@ import { BackHeaderBar } from "../../components/back-header-bar";
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { useResponsive } from "../../hooks/use-responsive";
 import { useAppShell } from "../app-shell/provider";
+import type { ResolvedLocale } from "../app-shell/types";
 import { getButtonColors, getFeedbackColors, withAlpha } from "../app-shell/theme-utils";
 import {
   formatLedgerParseCandidateState,
   formatLedgerParseProposalType,
   formatLedgerParseWorkflowState,
 } from "./ledger-parse-localization";
-import type { LedgerCategory } from "./ledger-domain";
+import type {
+  DuplicateMatchedRecordSummary,
+  DuplicateMergeKeepMode,
+  LedgerCategory,
+  WorkflowWriteProposalItem,
+} from "./ledger-domain";
 import { usePlannerWorkflow } from "./use-planner-workflow";
 
 export function LedgerParseScreen() {
@@ -90,6 +96,9 @@ export function LedgerParseScreen() {
     parsedRawJson !== null &&
     Boolean(plannerError);
   const allApproved = plannerResult?.batchState === "approved";
+  const [duplicateKeepModes, setDuplicateKeepModes] = useState<
+    Record<string, DuplicateMergeKeepMode>
+  >({});
   const categoryOptions: Array<{
     label: string;
     value: LedgerCategory;
@@ -110,6 +119,14 @@ export function LedgerParseScreen() {
 
     void startPlanner();
   }, [canStartPlanner, isPlanning, plannerError, startPlanner]);
+
+  useEffect(() => {
+    if (!allApproved) {
+      return;
+    }
+
+    router.replace("/(tabs)");
+  }, [allApproved, router]);
 
   return (
     <SafeAreaView
@@ -439,90 +456,66 @@ export function LedgerParseScreen() {
                 >
                   {parseCopy.writeProposalsTitle}
                 </Text>
-                {plannerResult.writeProposals.map((proposal) => (
-                  <View
-                    key={proposal.writeProposalId}
-                    style={[
-                      styles.proposalCard,
-                      {
-                        backgroundColor: palette.paper,
-                        borderColor: palette.border,
-                      },
-                    ]}
-                  >
-                    <View style={styles.proposalHeader}>
-                      <Text style={[styles.proposalType, { color: palette.ink }]}>
-                        {formatLedgerParseProposalType(
-                          proposal.proposalType,
-                          resolvedLocale,
-                        )}
-                      </Text>
-                      <View
-                        style={[
-                          styles.statePill,
-                          { backgroundColor: proposalStateColor(proposal.state) },
-                        ]}
-                      >
-                        <Text style={styles.statePillText}>
-                          {formatLedgerParseWorkflowState(
-                            proposal.state,
-                            resolvedLocale,
-                          )}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text
-                      style={[
-                        styles.proposalRationale,
-                        { color: palette.inkMuted },
-                      ]}
-                    >
-                      {proposal.rationale}
-                    </Text>
-                    {proposal.state === "pending_approval" ? (
-                      <View style={styles.proposalActions}>
-                        <Pressable
-                          accessibilityRole="button"
-                          disabled={isApproving}
-                          onPress={() => approveProposal(proposal.writeProposalId)}
-                          style={({ pressed }) => [
-                            styles.approveButton,
-                            {
-                              backgroundColor: pressed
-                                ? withAlpha(palette.success, 0.82)
-                                : palette.success,
-                              opacity: isApproving ? 0.7 : 1,
-                            },
-                          ]}
-                          testID={`approve-${proposal.writeProposalId}`}
-                        >
-                          <Text style={styles.actionButtonLabel}>
-                            {parseCopy.approve}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          disabled={isApproving}
-                          onPress={() => rejectProposal(proposal.writeProposalId)}
-                          style={({ pressed }) => [
-                            styles.rejectButton,
-                            {
-                              backgroundColor: pressed
-                                ? withAlpha(palette.destructive, 0.82)
-                                : palette.destructive,
-                              opacity: isApproving ? 0.7 : 1,
-                            },
-                          ]}
-                          testID={`reject-${proposal.writeProposalId}`}
-                        >
-                          <Text style={styles.actionButtonLabel}>
-                            {parseCopy.reject}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    ) : null}
-                  </View>
-                ))}
+                {plannerResult.writeProposals.map((proposal) => {
+                  if (proposal.proposalType === "resolve_duplicate_receipt") {
+                    const keepMode =
+                      duplicateKeepModes[proposal.writeProposalId] ?? "keep_existing";
+
+                    return (
+                      <DuplicateReceiptProposalCard
+                        key={proposal.writeProposalId}
+                        isApproving={isApproving}
+                        keepMode={keepMode}
+                        onApprove={() =>
+                          approveProposal(proposal.writeProposalId, {
+                            duplicateResolution: { keepMode },
+                          })
+                        }
+                        onKeepModeChange={(nextMode) =>
+                          setDuplicateKeepModes((current) => ({
+                            ...current,
+                            [proposal.writeProposalId]: nextMode,
+                          }))
+                        }
+                        onReject={() => rejectProposal(proposal.writeProposalId)}
+                        palette={palette}
+                        parseCopy={parseCopy}
+                        proposal={proposal}
+                        resolvedLocale={resolvedLocale}
+                        review={review}
+                      />
+                    );
+                  }
+
+                  if (proposal.proposalType === "merge_counterparty") {
+                    return (
+                      <CounterpartyMergeProposalCard
+                        key={proposal.writeProposalId}
+                        isApproving={isApproving}
+                        onApprove={() => approveProposal(proposal.writeProposalId)}
+                        onReject={() => rejectProposal(proposal.writeProposalId)}
+                        palette={palette}
+                        parseCopy={parseCopy}
+                        proposal={proposal}
+                        resolvedLocale={resolvedLocale}
+                        review={review}
+                      />
+                    );
+                  }
+
+                  return (
+                    <GenericProposalCard
+                      key={proposal.writeProposalId}
+                      isApproving={isApproving}
+                      onApprove={() => approveProposal(proposal.writeProposalId)}
+                      onReject={() => rejectProposal(proposal.writeProposalId)}
+                      palette={palette}
+                      parseCopy={parseCopy}
+                      proposal={proposal}
+                      resolvedLocale={resolvedLocale}
+                    />
+                  );
+                })}
               </View>
             ) : null}
 
@@ -656,6 +649,498 @@ function CategorySelector(props: {
       </View>
     </View>
   );
+}
+
+function GenericProposalCard(props: {
+  isApproving: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  palette: Record<string, string>;
+  parseCopy: Record<string, string>;
+  proposal: WorkflowWriteProposalItem;
+  resolvedLocale: ResolvedLocale;
+}) {
+  return (
+    <View
+      style={[
+        styles.proposalCard,
+        {
+          backgroundColor: props.palette.paper,
+          borderColor: props.palette.border,
+        },
+      ]}
+    >
+      <ProposalHeader
+        palette={props.palette}
+        proposal={props.proposal}
+        resolvedLocale={props.resolvedLocale}
+      />
+      <Text style={[styles.proposalRationale, { color: props.palette.inkMuted }]}>
+        {props.proposal.rationale}
+      </Text>
+      <ProposalActions
+        approveLabel={props.parseCopy.approve}
+        isApproving={props.isApproving}
+        onApprove={props.onApprove}
+        onReject={props.onReject}
+        palette={props.palette}
+        proposal={props.proposal}
+        rejectLabel={props.parseCopy.reject}
+      />
+    </View>
+  );
+}
+
+function CounterpartyMergeProposalCard(props: {
+  isApproving: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  palette: Record<string, string>;
+  parseCopy: Record<string, string>;
+  proposal: WorkflowWriteProposalItem;
+  resolvedLocale: ResolvedLocale;
+  review: {
+    amount: string;
+    date: string;
+    description: string;
+    source: string;
+    target: string;
+  };
+}) {
+  const role = readProposalString(props.proposal.payload.role) === "source" ? "source" : "target";
+  const relevantFieldLabel =
+    role === "source" ? props.parseCopy.fieldSource : props.parseCopy.fieldTarget;
+  const existingDisplayName =
+    readProposalString(
+      props.proposal.payload.existingDisplayName,
+      props.proposal.payload.displayName,
+    ) ?? "";
+
+  return (
+    <View
+      style={[
+        styles.proposalCard,
+        {
+          backgroundColor: props.palette.paper,
+          borderColor: props.palette.border,
+        },
+      ]}
+    >
+      <ProposalHeader
+        palette={props.palette}
+        proposal={props.proposal}
+        resolvedLocale={props.resolvedLocale}
+      />
+      <Text style={[styles.proposalRationale, { color: props.palette.inkMuted }]}>
+        {props.proposal.rationale}
+      </Text>
+      <RecordSummaryCard
+        amount={props.review.amount}
+        date={props.review.date}
+        description={props.review.description}
+        palette={props.palette}
+        parseCopy={props.parseCopy}
+        source={props.review.source}
+        target={props.review.target}
+        title={props.parseCopy.mergeCurrentCandidateTitle}
+      />
+      <View
+        style={[
+          styles.mergeInfoCard,
+          {
+            backgroundColor: props.palette.shellElevated,
+            borderColor: props.palette.border,
+          },
+        ]}
+      >
+        <Text style={[styles.mergeInfoTitle, { color: props.palette.ink }]}>
+          {props.parseCopy.mergeExistingTargetTitle}
+        </Text>
+        <DetailRow
+          label={relevantFieldLabel}
+          palette={props.palette}
+          value={existingDisplayName}
+        />
+      </View>
+      <ProposalActions
+        approveLabel={props.parseCopy.approve}
+        isApproving={props.isApproving}
+        onApprove={props.onApprove}
+        onReject={props.onReject}
+        palette={props.palette}
+        proposal={props.proposal}
+        rejectLabel={props.parseCopy.reject}
+      />
+    </View>
+  );
+}
+
+function DuplicateReceiptProposalCard(props: {
+  isApproving: boolean;
+  keepMode: DuplicateMergeKeepMode;
+  onApprove: () => void;
+  onKeepModeChange: (nextMode: DuplicateMergeKeepMode) => void;
+  onReject: () => void;
+  palette: Record<string, string>;
+  parseCopy: Record<string, string>;
+  proposal: WorkflowWriteProposalItem;
+  resolvedLocale: ResolvedLocale;
+  review: {
+    amount: string;
+    date: string;
+    description: string;
+    source: string;
+    target: string;
+  };
+}) {
+  const matchedReceiptLabel =
+    readProposalString(
+      props.proposal.payload.duplicateReceiptLabel,
+      props.proposal.payload.relatedEvidenceFileName,
+    ) ?? "";
+  const overlapEntryCount = readProposalNumber(
+    props.proposal.payload.overlapEntryCount,
+    props.proposal.payload.duplicateEntryCount,
+    props.proposal.payload.overlappingEntryCount,
+  );
+  const matchedRecords = readMatchedRecordSummaries(props.proposal.payload);
+
+  return (
+    <View
+      style={[
+        styles.proposalCard,
+        {
+          backgroundColor: props.palette.paper,
+          borderColor: props.palette.border,
+        },
+      ]}
+    >
+      <ProposalHeader
+        palette={props.palette}
+        proposal={props.proposal}
+        resolvedLocale={props.resolvedLocale}
+      />
+      <Text style={[styles.proposalRationale, { color: props.palette.inkMuted }]}>
+        {props.proposal.rationale}
+      </Text>
+      <View style={styles.proposalDetailList}>
+        <DetailRow
+          label={props.parseCopy.mergeMatchedReceiptLabel}
+          palette={props.palette}
+          value={matchedReceiptLabel}
+        />
+        {overlapEntryCount !== null ? (
+          <DetailRow
+            label={props.parseCopy.mergeOverlapEntriesLabel}
+            palette={props.palette}
+            value={String(overlapEntryCount)}
+          />
+        ) : null}
+      </View>
+      <RecordSummaryCard
+        amount={props.review.amount}
+        date={props.review.date}
+        description={props.review.description}
+        palette={props.palette}
+        parseCopy={props.parseCopy}
+        source={props.review.source}
+        target={props.review.target}
+        title={props.parseCopy.mergeCurrentCandidateTitle}
+      />
+      {matchedRecords.length > 0 ? (
+        <View style={styles.matchedRecordsSection}>
+          <Text style={[styles.mergeInfoTitle, { color: props.palette.ink }]}>
+            {props.parseCopy.mergeMatchedRecordsTitle}
+          </Text>
+          {matchedRecords.map((record) => (
+            <RecordSummaryCard
+              key={record.recordId}
+              amount={formatAmountCents(record.amountCents)}
+              date={record.date}
+              description={record.description}
+              palette={props.palette}
+              parseCopy={props.parseCopy}
+              source={record.sourceLabel}
+              target={record.targetLabel}
+              title={record.recordId}
+            />
+          ))}
+        </View>
+      ) : null}
+      {props.proposal.state === "pending_approval" ? (
+        <View style={styles.keepChoiceSection}>
+          <Text style={[styles.editFieldLabel, { color: props.palette.inkMuted }]}>
+            {props.parseCopy.mergeKeepChoiceLabel}
+          </Text>
+          <View style={styles.keepChoiceRow}>
+            {([
+              ["keep_existing", props.parseCopy.mergeKeepExisting],
+              ["keep_new", props.parseCopy.mergeKeepNew],
+            ] as const).map(([value, label]) => {
+              const selected = props.keepMode === value;
+
+              return (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  onPress={() => props.onKeepModeChange(value)}
+                  style={[
+                    styles.keepChoiceChip,
+                    {
+                      backgroundColor: selected
+                        ? props.palette.accentSoft
+                        : props.palette.shellElevated,
+                      borderColor: selected
+                        ? props.palette.accent
+                        : props.palette.border,
+                    },
+                  ]}
+                  testID={`${props.proposal.writeProposalId}-${value}`}
+                >
+                  <Text
+                    style={[
+                      styles.keepChoiceText,
+                      {
+                        color: selected
+                          ? props.palette.ink
+                          : props.palette.inkMuted,
+                      },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+      <ProposalActions
+        approveLabel={props.parseCopy.approve}
+        isApproving={props.isApproving}
+        onApprove={props.onApprove}
+        onReject={props.onReject}
+        palette={props.palette}
+        proposal={props.proposal}
+        rejectLabel={props.parseCopy.reject}
+      />
+    </View>
+  );
+}
+
+function ProposalHeader(props: {
+  palette: Record<string, string>;
+  proposal: WorkflowWriteProposalItem;
+  resolvedLocale: ResolvedLocale;
+}) {
+  return (
+    <View style={styles.proposalHeader}>
+      <Text style={[styles.proposalType, { color: props.palette.ink }]}>
+        {formatLedgerParseProposalType(
+          props.proposal.proposalType,
+          props.resolvedLocale,
+        )}
+      </Text>
+      <View
+        style={[
+          styles.statePill,
+          { backgroundColor: proposalStateColor(props.proposal.state) },
+        ]}
+      >
+        <Text style={styles.statePillText}>
+          {formatLedgerParseWorkflowState(props.proposal.state, props.resolvedLocale)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function ProposalActions(props: {
+  approveLabel: string;
+  isApproving: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  palette: Record<string, string>;
+  proposal: WorkflowWriteProposalItem;
+  rejectLabel: string;
+}) {
+  if (props.proposal.state !== "pending_approval") {
+    return null;
+  }
+
+  return (
+    <View style={styles.proposalActions}>
+      <Pressable
+        accessibilityRole="button"
+        disabled={props.isApproving}
+        onPress={props.onApprove}
+        style={({ pressed }) => [
+          styles.approveButton,
+          {
+            backgroundColor: pressed
+              ? withAlpha(props.palette.success, 0.82)
+              : props.palette.success,
+            opacity: props.isApproving ? 0.7 : 1,
+          },
+        ]}
+        testID={`approve-${props.proposal.writeProposalId}`}
+      >
+        <Text style={styles.actionButtonLabel}>{props.approveLabel}</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        disabled={props.isApproving}
+        onPress={props.onReject}
+        style={({ pressed }) => [
+          styles.rejectButton,
+          {
+            backgroundColor: pressed
+              ? withAlpha(props.palette.destructive, 0.82)
+              : props.palette.destructive,
+            opacity: props.isApproving ? 0.7 : 1,
+          },
+        ]}
+        testID={`reject-${props.proposal.writeProposalId}`}
+      >
+        <Text style={styles.actionButtonLabel}>{props.rejectLabel}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function RecordSummaryCard(props: {
+  amount: string;
+  date: string;
+  description: string;
+  palette: Record<string, string>;
+  parseCopy: Record<string, string>;
+  source: string;
+  target: string;
+  title: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.mergeInfoCard,
+        {
+          backgroundColor: props.palette.shellElevated,
+          borderColor: props.palette.border,
+        },
+      ]}
+    >
+      <Text style={[styles.mergeInfoTitle, { color: props.palette.ink }]}>
+        {props.title}
+      </Text>
+      <DetailRow
+        label={props.parseCopy.fieldAmount}
+        palette={props.palette}
+        value={props.amount}
+      />
+      <DetailRow
+        label={props.parseCopy.fieldDate}
+        palette={props.palette}
+        value={props.date}
+      />
+      <DetailRow
+        label={props.parseCopy.fieldDescription}
+        palette={props.palette}
+        value={props.description}
+      />
+      <DetailRow
+        label={props.parseCopy.fieldSource}
+        palette={props.palette}
+        value={props.source}
+      />
+      <DetailRow
+        label={props.parseCopy.fieldTarget}
+        palette={props.palette}
+        value={props.target}
+      />
+    </View>
+  );
+}
+
+function DetailRow(props: {
+  label: string;
+  palette: Record<string, string>;
+  value: string | null;
+}) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={[styles.detailLabel, { color: props.palette.inkMuted }]}>
+        {props.label}
+      </Text>
+      <Text style={[styles.detailValue, { color: props.palette.ink }]}>
+        {props.value?.trim() || "—"}
+      </Text>
+    </View>
+  );
+}
+
+function readProposalString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function readProposalNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return Math.round(value);
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+
+      if (Number.isFinite(parsed)) {
+        return Math.round(parsed);
+      }
+    }
+  }
+
+  return null;
+}
+
+function readMatchedRecordSummaries(
+  payload: WorkflowWriteProposalItem["payload"],
+): DuplicateMatchedRecordSummary[] {
+  const value = payload.matchedRecords;
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+
+    const record = item as Record<string, unknown>;
+    const recordId = readProposalString(record.recordId);
+
+    if (!recordId) {
+      return [];
+    }
+
+    return [
+      {
+        amountCents: readProposalNumber(record.amountCents) ?? 0,
+        date: readProposalString(record.date) ?? "",
+        description: readProposalString(record.description) ?? "",
+        recordId,
+        sourceLabel: readProposalString(record.sourceLabel) ?? "",
+        targetLabel: readProposalString(record.targetLabel) ?? "",
+      },
+    ];
+  });
+}
+
+function formatAmountCents(amountCents: number): string {
+  return Number.isFinite(amountCents) ? (amountCents / 100).toFixed(2) : "";
 }
 
 function StatPill(props: {
@@ -819,6 +1304,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textTransform: "uppercase",
   },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  detailRow: {
+    gap: 2,
+  },
+  detailValue: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
   emptyState: {
     alignItems: "flex-start",
     borderRadius: 18,
@@ -893,6 +1391,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  matchedRecordsSection: {
+    gap: 8,
+  },
+  mergeInfoCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+    padding: 12,
+  },
+  mergeInfoTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
   primaryButton: {
     alignItems: "center",
     borderRadius: 14,
@@ -902,6 +1414,27 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: 15,
     fontWeight: "700",
+  },
+  keepChoiceChip: {
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    minHeight: 42,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  keepChoiceRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  keepChoiceSection: {
+    gap: 8,
+  },
+  keepChoiceText: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
   },
   proposalActions: {
     flexDirection: "row",

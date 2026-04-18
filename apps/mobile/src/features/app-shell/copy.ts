@@ -213,6 +213,14 @@ export interface AppCopy {
       heroEyebrow: string;
       heroTitle: string;
       heroTitleSuffix: string;
+      mergeCurrentCandidateTitle: string;
+      mergeExistingTargetTitle: string;
+      mergeKeepChoiceLabel: string;
+      mergeKeepExisting: string;
+      mergeKeepNew: string;
+      mergeMatchedReceiptLabel: string;
+      mergeMatchedRecordsTitle: string;
+      mergeOverlapEntriesLabel: string;
       mapToRecords: string;
       mapping: string;
       modelLabel: string;
@@ -231,7 +239,9 @@ export interface AppCopy {
       proposalStatePendingApproval: string;
       proposalStateRejected: string;
       proposalTypeCreateCounterparty: string;
+      proposalTypeMergeCounterparty: string;
       proposalTypePersistCandidateRecord: string;
+      proposalTypeResolveDuplicateReceipt: string;
       proposalTypeUpdateCandidateRecord: string;
       proposalTypeUpdateWorkflowState: string;
       recordSavedSummary: string;
@@ -786,6 +796,14 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         heroEyebrow: "Parse result",
         heroTitle: "OpenAI Response",
         heroTitleSuffix: "Response",
+        mergeCurrentCandidateTitle: "Current Candidate",
+        mergeExistingTargetTitle: "Existing Target",
+        mergeKeepChoiceLabel: "When merging, keep",
+        mergeKeepExisting: "Keep Existing",
+        mergeKeepNew: "Keep New",
+        mergeMatchedReceiptLabel: "Matched Receipt",
+        mergeMatchedRecordsTitle: "Existing Records",
+        mergeOverlapEntriesLabel: "Overlapping Entries",
         mapToRecords: "Map to Records",
         mapping: "Mapping...",
         modelLabel: "Model",
@@ -805,7 +823,9 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         proposalStatePendingApproval: "Pending Approval",
         proposalStateRejected: "Rejected",
         proposalTypeCreateCounterparty: "Create Counterparty",
+        proposalTypeMergeCounterparty: "Merge Counterparty",
         proposalTypePersistCandidateRecord: "Persist Candidate Record",
+        proposalTypeResolveDuplicateReceipt: "Resolve Duplicate Receipt",
         proposalTypeUpdateCandidateRecord: "Update Candidate Record",
         proposalTypeUpdateWorkflowState: "Update Workflow State",
         recordSavedSummary:
@@ -1372,6 +1392,14 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         heroEyebrow: "解析结果",
         heroTitle: "OpenAI 返回结果",
         heroTitleSuffix: "返回结果",
+        mergeCurrentCandidateTitle: "当前候选记录",
+        mergeExistingTargetTitle: "现有目标记录",
+        mergeKeepChoiceLabel: "合并时保留",
+        mergeKeepExisting: "保留现有记录",
+        mergeKeepNew: "保留新记录",
+        mergeMatchedReceiptLabel: "匹配票据",
+        mergeMatchedRecordsTitle: "现有记录",
+        mergeOverlapEntriesLabel: "重叠条目数",
         mapToRecords: "映射到记录",
         mapping: "映射中...",
         modelLabel: "模型",
@@ -1391,7 +1419,9 @@ export const appCopy: Record<ResolvedLocale, AppCopy> = {
         proposalStatePendingApproval: "待批准",
         proposalStateRejected: "已拒绝",
         proposalTypeCreateCounterparty: "创建交易对手",
+        proposalTypeMergeCounterparty: "合并交易对手",
         proposalTypePersistCandidateRecord: "写入候选记录",
+        proposalTypeResolveDuplicateReceipt: "处理重复票据",
         proposalTypeUpdateCandidateRecord: "更新候选记录",
         proposalTypeUpdateWorkflowState: "更新流程状态",
         recordSavedSummary: "所有提案都已批准，这条记录已经写入本地存储。",
