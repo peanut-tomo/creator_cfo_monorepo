@@ -3,6 +3,7 @@ import { Platform, Text, View } from "react-native";
 
 import { LaunchScreen } from "../../src/features/app-shell/launch-screen";
 import { AppIcon } from "../../src/components/app-icon";
+import { getNavigationTheme } from "../../src/features/app-shell/theme-utils";
 import { useAppShell } from "../../src/features/app-shell/provider";
 import { resolveProtectedRouteRedirect } from "../../src/features/app-shell/storage-entry";
 import { DesktopSideNav } from "../../src/features/navigation/desktop-side-nav";
@@ -11,10 +12,11 @@ import { buildTabScreenSpecs } from "../../src/features/navigation/tab-config";
 import { useResponsive } from "../../src/hooks/use-responsive";
 
 export default function TabLayout() {
-  const { copy, isHydrated, session, storageGateState } = useAppShell();
+  const { copy, isHydrated, palette, session, storageGateState } = useAppShell();
   const tabScreens = buildTabScreenSpecs(copy);
   const { isExpanded } = useResponsive();
   const showSidebar = Platform.OS === "web" && isExpanded;
+  const navigationTheme = getNavigationTheme(palette);
   const redirectHref = resolveProtectedRouteRedirect({
     isHydrated,
     session: Boolean(session),
@@ -34,10 +36,10 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         sceneStyle: {
-          backgroundColor: "#F5F6F8",
+          backgroundColor: navigationTheme.sceneBackground,
         },
-        tabBarActiveTintColor: "#002045",
-        tabBarInactiveTintColor: "rgba(0, 32, 69, 0.4)",
+        tabBarActiveTintColor: navigationTheme.activeTint,
+        tabBarInactiveTintColor: navigationTheme.inactiveTint,
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 10,
@@ -55,8 +57,8 @@ export default function TabLayout() {
         tabBarStyle: showSidebar
           ? { display: "none" as const }
           : {
-              backgroundColor: "#FFFFFF",
-              borderTopColor: "rgba(0, 32, 69, 0.08)",
+              backgroundColor: navigationTheme.tabBarBackground,
+              borderTopColor: navigationTheme.tabBarBorder,
               borderTopLeftRadius: 18,
               borderTopRightRadius: 18,
               borderTopWidth: 1,

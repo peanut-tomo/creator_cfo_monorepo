@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 
+import { useAppShell } from "../app-shell/provider";
+import { getNavigationTheme } from "../app-shell/theme-utils";
+
 interface AnimatedTabBarButtonProps extends BottomTabBarButtonProps {
   children: ReactNode;
 }
@@ -13,8 +16,10 @@ export function TabBarIcon({
   onLongPress,
   onPress,
 }: AnimatedTabBarButtonProps) {
+  const { palette } = useAppShell();
   const focused = accessibilityState?.selected ?? false;
   const scale = useRef(new Animated.Value(focused ? 1 : 0.98)).current;
+  const navigationTheme = getNavigationTheme(palette);
 
   const runFocusAnimation = () => {
     Animated.sequence([
@@ -67,8 +72,12 @@ export function TabBarIcon({
         style={[
           styles.wrap,
           {
-            backgroundColor: focused ? "rgba(0, 32, 69, 0.06)" : "transparent",
-            borderColor: focused ? "rgba(0, 32, 69, 0.08)" : "transparent",
+            backgroundColor: focused
+              ? navigationTheme.tabIndicatorBackground
+              : "transparent",
+            borderColor: focused
+              ? navigationTheme.tabIndicatorBorder
+              : "transparent",
           },
         ]}
       >

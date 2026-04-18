@@ -14,6 +14,7 @@ import { BackHeaderBar } from "../../components/back-header-bar";
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { useResponsive } from "../../hooks/use-responsive";
 import { useAppShell } from "../app-shell/provider";
+import { getButtonColors, getFeedbackColors, withAlpha } from "../app-shell/theme-utils";
 import {
   formatLedgerParseCandidateState,
   formatLedgerParseProposalType,
@@ -27,6 +28,10 @@ export function LedgerParseScreen() {
   const isWide = isExpanded || isMedium;
   const { copy, palette, profileInfo, resolvedLocale } = useAppShell();
   const parseCopy = copy.ledger.parse;
+  const primaryButton = getButtonColors(palette, "primary");
+  const errorColors = getFeedbackColors(palette, "error");
+  const successColors = getFeedbackColors(palette, "success");
+  const warningColors = getFeedbackColors(palette, "warning");
   const params = useLocalSearchParams<{
     fileName?: string;
     rawJson?: string;
@@ -79,14 +84,14 @@ export function LedgerParseScreen() {
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={[styles.safeArea, { backgroundColor: "#F5F6F8" }]}
+      style={[styles.safeArea, { backgroundColor: palette.shell }]}
       testID="ledger-parse-screen"
     >
       <View
         style={[
           styles.appBar,
           {
-            backgroundColor: "#F5F6F8",
+            backgroundColor: palette.shell,
             borderBottomColor: palette.divider,
           },
         ]}
@@ -107,7 +112,12 @@ export function LedgerParseScreen() {
 
       <ScrollView contentContainerStyle={[styles.container, isWide && styles.containerWide]}>
         {/* ---- Top strip: hero + file info (always full width) ---- */}
-        <View style={styles.heroBlock}>
+        <View
+          style={[
+            styles.heroBlock,
+            { backgroundColor: palette.paper, borderColor: palette.border },
+          ]}
+        >
           <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>
             {parseCopy.heroEyebrow}
           </Text>
@@ -142,13 +152,16 @@ export function LedgerParseScreen() {
           <View
             style={[
               styles.card,
-              { backgroundColor: "#FFF3F0", borderColor: "#BA1A1A" },
+              {
+                backgroundColor: errorColors.background,
+                borderColor: errorColors.border,
+              },
             ]}
           >
-            <Text style={[styles.errorTitle, { color: "#BA1A1A" }]}>
+            <Text style={[styles.errorTitle, { color: errorColors.text }]}>
               {parseCopy.errorTitle}
             </Text>
-            <Text selectable style={[styles.errorText, { color: "#BA1A1A" }]}>
+            <Text selectable style={[styles.errorText, { color: errorColors.text }]}>
               {parseError}
             </Text>
           </View>
@@ -187,7 +200,12 @@ export function LedgerParseScreen() {
                 </View>
               </View>
             ) : !parseError ? (
-              <View style={[styles.emptyState]}>
+              <View
+                style={[
+                  styles.emptyState,
+                  { backgroundColor: palette.paper, borderColor: palette.border },
+                ]}
+              >
                 <Text style={[styles.emptyTitle, { color: palette.ink }]}>
                   {parseCopy.emptyTitle}
                 </Text>
@@ -208,7 +226,11 @@ export function LedgerParseScreen() {
                 style={({ pressed }) => [
                   styles.primaryButton,
                   {
-                    backgroundColor: pressed ? palette.heroEnd : palette.accent,
+                    backgroundColor: isPlanning
+                      ? primaryButton.disabledBackground
+                      : pressed
+                        ? primaryButton.pressedBackground
+                        : primaryButton.background,
                     opacity: isPlanning ? 0.7 : 1,
                   },
                 ]}
@@ -217,7 +239,7 @@ export function LedgerParseScreen() {
                 <Text
                   style={[
                     styles.primaryButtonLabel,
-                    { color: palette.inkOnAccent },
+                    { color: isPlanning ? primaryButton.disabledText : primaryButton.text },
                   ]}
                 >
                   {isPlanning ? parseCopy.mapping : parseCopy.mapToRecords}
@@ -229,13 +251,16 @@ export function LedgerParseScreen() {
               <View
                 style={[
                   styles.card,
-                  { backgroundColor: "#FFF3F0", borderColor: "#BA1A1A" },
+                  {
+                    backgroundColor: errorColors.background,
+                    borderColor: errorColors.border,
+                  },
                 ]}
               >
-                <Text style={[styles.errorTitle, { color: "#BA1A1A" }]}>
+                <Text style={[styles.errorTitle, { color: errorColors.text }]}>
                   {parseCopy.plannerErrorTitle}
                 </Text>
-                <Text selectable style={[styles.errorText, { color: "#BA1A1A" }]}>
+                <Text selectable style={[styles.errorText, { color: errorColors.text }]}>
                   {plannerError}
                 </Text>
               </View>
@@ -259,7 +284,7 @@ export function LedgerParseScreen() {
                     {plannerResult.plannerSummary.warnings.map((warning, index) => (
                       <Text
                         key={index}
-                        style={[styles.warningText, { color: "#BA1A1A" }]}
+                        style={[styles.warningText, { color: warningColors.text }]}
                       >
                         {warning}
                       </Text>
@@ -416,7 +441,9 @@ export function LedgerParseScreen() {
                           style={({ pressed }) => [
                             styles.approveButton,
                             {
-                              backgroundColor: pressed ? "#2E7D32" : "#4CAF50",
+                              backgroundColor: pressed
+                                ? withAlpha(palette.success, 0.82)
+                                : palette.success,
                               opacity: isApproving ? 0.7 : 1,
                             },
                           ]}
@@ -433,7 +460,9 @@ export function LedgerParseScreen() {
                           style={({ pressed }) => [
                             styles.rejectButton,
                             {
-                              backgroundColor: pressed ? "#C62828" : "#EF5350",
+                              backgroundColor: pressed
+                                ? withAlpha(palette.destructive, 0.82)
+                                : palette.destructive,
                               opacity: isApproving ? 0.7 : 1,
                             },
                           ]}
@@ -454,13 +483,16 @@ export function LedgerParseScreen() {
               <View
                 style={[
                   styles.card,
-                  { backgroundColor: "#E8F5E9", borderColor: "#4CAF50" },
+                  {
+                    backgroundColor: successColors.background,
+                    borderColor: successColors.border,
+                  },
                 ]}
               >
-                <Text style={[styles.sectionTitle, { color: "#2E7D32" }]}>
+                <Text style={[styles.sectionTitle, { color: successColors.text }]}>
                   {parseCopy.recordSavedTitle}
                 </Text>
-                <Text style={[styles.summaryText, { color: "#2E7D32" }]}>
+                <Text style={[styles.summaryText, { color: successColors.text }]}>
                   {parseCopy.recordSavedSummary}
                 </Text>
               </View>
@@ -480,11 +512,15 @@ export function LedgerParseScreen() {
           }}
           style={({ pressed }) => [
             styles.backButton,
-            { backgroundColor: pressed ? palette.heroEnd : palette.ink },
+            {
+              backgroundColor: pressed
+                ? primaryButton.pressedBackground
+                : primaryButton.background,
+            },
           ]}
         >
           <Text
-            style={[styles.backButtonLabel, { color: palette.inkOnAccent }]}
+            style={[styles.backButtonLabel, { color: primaryButton.text }]}
           >
             {parseCopy.backToUpload}
           </Text>
@@ -668,8 +704,6 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: "flex-start",
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
     borderRadius: 18,
     borderWidth: 1,
     gap: 8,
@@ -703,8 +737,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   heroBlock: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
     borderRadius: 18,
     borderWidth: 1,
     gap: 8,

@@ -13,6 +13,7 @@ import { BackHeaderBar } from "../../components/back-header-bar";
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { useResponsive } from "../../hooks/use-responsive";
 import { useAppShell } from "../app-shell/provider";
+import { withAlpha } from "../app-shell/theme-utils";
 import type {
   GeneralLedgerEntry,
   GeneralLedgerPostingLine,
@@ -65,13 +66,13 @@ export function JournalScreen() {
                 styles.kindIcon,
                 {
                   backgroundColor: isIncome
-                    ? "rgba(195, 233, 197, 0.5)"
-                    : "rgba(255, 218, 214, 0.3)",
+                    ? withAlpha(palette.success, palette.name === "dark" ? 0.22 : 0.18)
+                    : withAlpha(palette.destructive, palette.name === "dark" ? 0.22 : 0.16),
                 },
               ]}
             >
               <Ionicons
-                color={isIncome ? "#45664A" : "#BA1A1A"}
+                color={isIncome ? palette.success : palette.destructive}
                 name={isIncome ? "arrow-down" : "arrow-up"}
                 size={16}
               />
@@ -106,7 +107,7 @@ export function JournalScreen() {
             ) : null}
           </View>
 
-          <View style={styles.summaryRow}>
+          <View style={[styles.summaryRow, { borderTopColor: withAlpha(palette.ink, palette.name === "dark" ? 0.12 : 0.06) }]}>
             <View style={styles.summaryCol}>
               <Text style={[styles.summaryLabel, { color: palette.inkMuted }]}>
                 {journalCopy.debit}
@@ -135,13 +136,13 @@ export function JournalScreen() {
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={[styles.safeArea, { backgroundColor: "#F5F6F8" }]}
+      style={[styles.safeArea, { backgroundColor: palette.shell }]}
     >
       <View
         style={[
           styles.appBar,
           {
-            backgroundColor: "#F5F6F8",
+            backgroundColor: palette.shell,
             borderBottomColor: palette.divider,
           },
         ]}
@@ -367,7 +368,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   summaryRow: {
-    borderTopColor: "rgba(0, 32, 69, 0.06)",
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     paddingTop: 12,

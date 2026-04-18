@@ -3,8 +3,10 @@ import { useRouter } from "expo-router";
 import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BackHeaderBar } from "../../components/back-header-bar";
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { useAppShell } from "../app-shell/provider";
+import { getButtonColors, withAlpha } from "../app-shell/theme-utils";
 import { formatCurrencyFromCents, formatDisplayDate } from "./ledger-domain";
 import { useJournalListScreen } from "./use-journal-list-screen";
 
@@ -25,6 +27,7 @@ function ActivityIcon({ color, icon }: { color: string; icon: string }) {
 export function JournalListScreen() {
   const router = useRouter();
   const { copy, palette, resolvedLocale } = useAppShell();
+  const primaryButton = getButtonColors(palette, "primary");
   const {
     error,
     isLoaded,
@@ -40,11 +43,28 @@ export function JournalListScreen() {
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={styles.safeArea}
+      style={[styles.safeArea, { backgroundColor: palette.shell }]}
       testID="journal-list-screen"
     >
+      <View
+        style={[
+          styles.appBar,
+          {
+            backgroundColor: palette.shell,
+            borderBottomColor: palette.divider,
+          },
+        ]}
+      >
+        <BackHeaderBar
+          onBack={() => router.back()}
+          palette={palette}
+          rightAccessory={<CfoAvatar />}
+          title={copy.common.appName}
+        />
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { backgroundColor: palette.shell }]}
         refreshControl={
           Platform.OS !== "web" ? (
             <RefreshControl onRefresh={refresh} refreshing={isRefreshing} />
@@ -52,63 +72,45 @@ export function JournalListScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.topRow}>
-          <View style={styles.brandRow}>
-            <CfoAvatar size={32} />
-            <Text style={[styles.brand, { color: palette.ink }]}>
-              {copy.common.appName}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityLabel={journalCopy.back}
-            accessibilityRole="button"
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed ? styles.backButtonPressed : null,
-            ]}
-            testID="journal-list-back-button"
-          >
-            <Ionicons color="#002045" name="chevron-back" size={18} />
-            <Text style={styles.backButtonLabel}>{journalCopy.back}</Text>
-          </Pressable>
+        <View style={[styles.heroCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
+          <Text style={[styles.heroEyebrow, { color: palette.inkMuted }]}>{journalCopy.eyebrow}</Text>
+          <Text style={[styles.heroTitle, { color: palette.ink }]}>{journalCopy.title}</Text>
+          <Text style={[styles.heroSummary, { color: palette.inkMuted }]}>{journalCopy.summary}</Text>
         </View>
 
-        <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>{journalCopy.eyebrow}</Text>
-          <Text style={styles.heroTitle}>{journalCopy.title}</Text>
-          <Text style={styles.heroSummary}>{journalCopy.summary}</Text>
-        </View>
-
-        <View style={styles.listCard}>
+        <View style={[styles.listCard, { backgroundColor: palette.paper, borderColor: palette.border }]}>
           {!isLoaded ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>{journalCopy.loadingTitle}</Text>
-              <Text style={styles.emptySummary}>{journalCopy.loadingSummary}</Text>
+              <Text style={[styles.emptyTitle, { color: palette.ink }]}>{journalCopy.loadingTitle}</Text>
+              <Text style={[styles.emptySummary, { color: palette.inkMuted }]}>{journalCopy.loadingSummary}</Text>
             </View>
           ) : snapshot.records.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>{journalCopy.emptyTitle}</Text>
-              <Text style={styles.emptySummary}>{journalCopy.emptySummary}</Text>
+              <Text style={[styles.emptyTitle, { color: palette.ink }]}>{journalCopy.emptyTitle}</Text>
+              <Text style={[styles.emptySummary, { color: palette.inkMuted }]}>{journalCopy.emptySummary}</Text>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push("/ledger/upload")}
                 style={({ pressed }) => [
                   styles.secondaryActionButton,
-                  pressed ? styles.secondaryActionButtonPressed : null,
+                  {
+                    backgroundColor: pressed
+                      ? primaryButton.pressedBackground
+                      : primaryButton.background,
+                  },
                 ]}
               >
-                <Text style={styles.secondaryActionLabel}>{homeCopy.newRecords}</Text>
+                <Text style={[styles.secondaryActionLabel, { color: primaryButton.text }]}>{homeCopy.newRecords}</Text>
               </Pressable>
             </View>
           ) : (
             snapshot.records.map((item, index) => {
               const income = item.recordKind === "income";
               const accent = income
-                ? "#45664A"
+                ? palette.success
                 : item.recordKind === "personal_spending"
-                  ? "#8A4B14"
-                  : "#BA1A1A";
+                  ? palette.accent
+                  : palette.destructive;
               const icon = income
                 ? "cash-plus"
                 : item.recordKind === "expense"
@@ -118,7 +120,10 @@ export function JournalListScreen() {
               return (
                 <View
                   key={item.recordId}
-                  style={[styles.activityRow, index > 0 ? styles.activityRowBorder : null]}
+                  style={[
+                    styles.activityRow,
+                    index > 0 ? [styles.activityRowBorder, { borderTopColor: palette.divider }] : null,
+                  ]}
                 >
                   <View style={styles.activityLeft}>
                     <View
@@ -126,17 +131,17 @@ export function JournalListScreen() {
                         styles.activityIconWrap,
                         {
                           backgroundColor: income
-                            ? "#C3E9C5"
+                            ? withAlpha(palette.success, palette.name === "dark" ? 0.2 : 0.16)
                             : item.recordKind === "personal_spending"
-                              ? "rgba(250, 210, 160, 0.4)"
-                              : "rgba(255, 218, 214, 0.3)",
+                              ? withAlpha(palette.accent, palette.name === "dark" ? 0.18 : 0.12)
+                              : withAlpha(palette.destructive, palette.name === "dark" ? 0.2 : 0.14),
                         },
                       ]}
                     >
                       <ActivityIcon color={accent} icon={icon} />
                     </View>
                     <View style={styles.activityCopy}>
-                      <Text numberOfLines={2} style={styles.activityItemTitle}>
+                      <Text numberOfLines={2} style={[styles.activityItemTitle, { color: palette.ink }]}>
                         {item.description}
                       </Text>
                       <Text numberOfLines={1} style={[styles.activityItemType, { color: accent }]}>
@@ -146,19 +151,12 @@ export function JournalListScreen() {
                   </View>
                   <View style={styles.activityRight}>
                     <Text
-                      style={[
-                        styles.activityAmount,
-                        income
-                          ? styles.activityAmountIncome
-                          : item.recordKind === "personal_spending"
-                            ? styles.activityAmountPersonal
-                            : styles.activityAmountExpense,
-                      ]}
+                      style={[styles.activityAmount, { color: accent }]}
                     >
                       {income ? "+" : "-"}
                       {formatCurrencyFromCents(item.amountCents)}
                     </Text>
-                    <Text style={styles.activityDate}>
+                    <Text style={[styles.activityDate, { color: palette.inkMuted }]}>
                       {formatDisplayDate(item.occurredOn, resolvedLocale)}
                     </Text>
                   </View>
@@ -168,7 +166,7 @@ export function JournalListScreen() {
           )}
         </View>
 
-        {error ? <Text style={styles.inlineError}>{error}</Text> : null}
+        {error ? <Text style={[styles.inlineError, { color: palette.destructive }]}>{error}</Text> : null}
 
         {snapshot.hasMore ? (
           <Pressable
@@ -176,11 +174,13 @@ export function JournalListScreen() {
             onPress={() => loadMore()}
             style={({ pressed }) => [
               styles.loadMoreButton,
-              pressed ? styles.loadMoreButtonPressed : null,
+              {
+                backgroundColor: pressed ? palette.shellMuted : palette.paperMuted,
+              },
             ]}
             testID="journal-list-load-more-button"
           >
-            <Text style={styles.loadMoreLabel}>
+            <Text style={[styles.loadMoreLabel, { color: palette.ink }]}>
               {isLoadingMore ? homeCopy.loadingMore : homeCopy.loadMore}
             </Text>
           </Pressable>
@@ -195,6 +195,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontVariant: ["tabular-nums"],
     fontWeight: "700",
+  },
+  appBar: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 10,
+    paddingHorizontal: 18,
   },
   activityAmountExpense: {
     color: "#BA1A1A",
@@ -261,34 +266,6 @@ const styles = StyleSheet.create({
   activityRowBorder: {
     borderTopColor: "rgba(0, 32, 69, 0.08)",
     borderTopWidth: 1,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  backButtonLabel: {
-    color: "#002045",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  backButtonPressed: {
-    opacity: 0.82,
-  },
-  brand: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  brandRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
   },
   container: {
     backgroundColor: "#F9F9F7",
@@ -383,10 +360,5 @@ const styles = StyleSheet.create({
     color: "#002045",
     fontSize: 13,
     fontWeight: "700",
-  },
-  topRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
   },
 });

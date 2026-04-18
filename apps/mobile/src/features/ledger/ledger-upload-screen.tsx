@@ -14,6 +14,7 @@ import {
   takeCameraPhoto,
 } from "./ledger-runtime";
 import { useAppShell } from "../app-shell/provider";
+import { getButtonColors, getFeedbackColors } from "../app-shell/theme-utils";
 
 export function LedgerUploadScreen() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export function LedgerUploadScreen() {
   const isWide = isExpanded || isMedium;
   const { copy, palette, resolvedLocale } = useAppShell();
   const uploadCopy = copy.ledger.upload;
+  const errorColors = getFeedbackColors(palette, "error");
+  const primaryButton = getButtonColors(palette, "primary");
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [status, setStatus] = useState<{
@@ -90,14 +93,14 @@ export function LedgerUploadScreen() {
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={[styles.safeArea, { backgroundColor: "#F5F6F8" }]}
+      style={[styles.safeArea, { backgroundColor: palette.shell }]}
       testID="ledger-upload-screen"
     >
       <View
         style={[
           styles.appBar,
           {
-            backgroundColor: "#F5F6F8",
+            backgroundColor: palette.shell,
             borderBottomColor: palette.divider,
           },
         ]}
@@ -122,7 +125,16 @@ export function LedgerUploadScreen() {
         ]}
       >
         <View style={isWide ? styles.wideRow : null}>
-          <View style={[styles.heroBlock, isWide && styles.heroBlockWide]}>
+          <View
+            style={[
+              styles.heroBlock,
+              isWide && styles.heroBlockWide,
+              {
+                backgroundColor: palette.paper,
+                borderColor: palette.border,
+              },
+            ]}
+          >
             <Text style={[styles.eyebrow, { color: palette.inkMuted }]}>
               {uploadCopy.eyebrow}
             </Text>
@@ -180,7 +192,11 @@ export function LedgerUploadScreen() {
                 style={({ pressed }) => [
                   styles.primaryButton,
                   {
-                    backgroundColor: pressed ? palette.heroEnd : palette.ink,
+                    backgroundColor: isBusy
+                      ? primaryButton.disabledBackground
+                      : pressed
+                        ? primaryButton.pressedBackground
+                        : primaryButton.background,
                     opacity: isBusy ? 0.7 : 1,
                     shadowColor: palette.shadow,
                   },
@@ -188,15 +204,15 @@ export function LedgerUploadScreen() {
                 testID="ledger-upload-select-photos-button"
               >
                 <View style={styles.primaryButtonContent}>
-                  <MaterialCommunityIcons
-                    color={palette.inkOnAccent}
+                    <MaterialCommunityIcons
+                    color={isBusy ? primaryButton.disabledText : primaryButton.text}
                     name="image-multiple-outline"
                     size={18}
                   />
                   <Text
                     style={[
                       styles.primaryButtonLabel,
-                      { color: palette.inkOnAccent },
+                      { color: isBusy ? primaryButton.disabledText : primaryButton.text },
                     ]}
                   >
                     {isBusy ? uploadCopy.parsing : uploadCopy.selectPhotos}
@@ -266,7 +282,7 @@ export function LedgerUploadScreen() {
             <Text
               style={[
                 styles.hint,
-                { color: error ? "#BA1A1A" : palette.inkMuted },
+                { color: error ? errorColors.text : palette.inkMuted },
               ]}
             >
               {error ?? statusText}
@@ -337,8 +353,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   heroBlock: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
     borderRadius: 18,
     borderWidth: 1,
     gap: 8,

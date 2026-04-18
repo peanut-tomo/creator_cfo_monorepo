@@ -24,6 +24,7 @@ import {
   themePreferenceOptions,
 } from "../app-shell/copy";
 import { useAppShell } from "../app-shell/provider";
+import { getButtonColors, getFeedbackColors } from "../app-shell/theme-utils";
 import type {
   AiProvider,
   LocalePreference,
@@ -37,6 +38,10 @@ import {
 import Constants from "expo-constants";
 
 WebBrowser.maybeCompleteAuthSession();
+
+function shouldRenderAiParseSection() {
+  return false;
+}
 
 function PreferencePill(props: {
   active: boolean;
@@ -297,6 +302,10 @@ export function ProfileScreen() {
           : copy.meScreen.sessionNone;
   const destructiveLabelColor =
     palette.name === "dark" ? palette.shell : palette.inkOnAccent;
+  const primaryButton = getButtonColors(palette, "primary");
+  const destructiveButton = getButtonColors(palette, "destructive");
+  const successFeedback = getFeedbackColors(palette, "success");
+  const errorFeedback = getFeedbackColors(palette, "error");
 
   const saveAiSettings = async () => {
     if (aiProviderDraft === "openai") {
@@ -380,7 +389,12 @@ export function ProfileScreen() {
       style={[styles.safeArea, { backgroundColor: palette.shell }]}
     >
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.hero}>
+        <View
+          style={[
+            styles.hero,
+            { backgroundColor: palette.paper, borderColor: palette.border },
+          ]}
+        >
           <Text style={[styles.eyebrow, { color: palette.accent }]}>
             {copy.tabs.profile}
           </Text>
@@ -535,7 +549,8 @@ export function ProfileScreen() {
               style={[
                 styles.actionButton,
                 {
-                  backgroundColor: palette.ink,
+                  backgroundColor: primaryButton.background,
+                  borderColor: primaryButton.border,
                 },
               ]}
               testID="profile-save-button"
@@ -543,7 +558,7 @@ export function ProfileScreen() {
               <Text
                 style={[
                   styles.actionButtonLabel,
-                  { color: palette.inkOnAccent },
+                  { color: primaryButton.text },
                 ]}
               >
                 {copy.meScreen.profileSave}
@@ -554,71 +569,230 @@ export function ProfileScreen() {
         </View>
 
         <View style={isExpanded ? styles.wideRight : undefined}>
-        <SectionCard
-          eyebrow={copy.meScreen.apiSectionEyebrow}
-          palette={palette}
-          title={copy.meScreen.apiSectionTitle}
-        >
-          <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
-            {copy.meScreen.apiSectionDescription}
-          </Text>
-
-          <View style={styles.fieldBlock}>
-            <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
-              {copy.meScreen.aiProviderLabel}
+        {/* Temporarily hidden. Keep the implementation intact for future re-enable. */}
+        {shouldRenderAiParseSection() ? (
+          <SectionCard
+            eyebrow={copy.meScreen.apiSectionEyebrow}
+            palette={palette}
+            title={copy.meScreen.apiSectionTitle}
+          >
+            <Text style={[styles.sectionHint, { color: palette.inkMuted }]}>
+              {copy.meScreen.apiSectionDescription}
             </Text>
-            <View style={styles.optionRow}>
-              <PreferencePill
-                active={aiProviderDraft === "openai"}
-                label={copy.meScreen.aiProviderOpenAi}
-                onPress={() => setAiProviderDraft("openai")}
-                palette={palette}
-              />
-              <PreferencePill
-                active={aiProviderDraft === "gemini"}
-                label={copy.meScreen.aiProviderGemini}
-                onPress={() => setAiProviderDraft("gemini")}
-                palette={palette}
-              />
-              <PreferencePill
-                active={aiProviderDraft === "infer"}
-                label={copy.meScreen.aiProviderInfer}
-                onPress={() => setAiProviderDraft("infer")}
-                palette={palette}
-              />
-            </View>
-          </View>
 
-          {aiProviderDraft === "openai" && (
-            <ApiKeyField
-              hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
-              isVisible={isOpenAiKeyVisible}
-              label={copy.meScreen.apiKeyLabel}
-              onChangeText={setApiKeyDraft}
-              onToggleVisibility={() => {
-                setIsOpenAiKeyVisible((current) => !current);
-              }}
-              palette={palette}
-              placeholder={copy.meScreen.apiKeyPlaceholder}
-              testID="profile-openai-key-input"
-              toggleTestID="profile-openai-key-toggle"
-              value={apiKeyDraft}
-              visibleAccessibilityLabel={copy.meScreen.showApiKey}
-            />
-          )}
-
-          {aiProviderDraft === "gemini" && isGeminiOAuth && (
             <View style={styles.fieldBlock}>
-              <View style={styles.oauthStatusRow}>
-                <View style={[styles.oauthDot, { backgroundColor: palette.accent }]} />
-                <Text style={[styles.oauthStatusText, { color: palette.accent }]}>
-                  {copy.meScreen.geminiOAuthConnected}
+              <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+                {copy.meScreen.aiProviderLabel}
+              </Text>
+              <View style={styles.optionRow}>
+                <PreferencePill
+                  active={aiProviderDraft === "openai"}
+                  label={copy.meScreen.aiProviderOpenAi}
+                  onPress={() => setAiProviderDraft("openai")}
+                  palette={palette}
+                />
+                <PreferencePill
+                  active={aiProviderDraft === "gemini"}
+                  label={copy.meScreen.aiProviderGemini}
+                  onPress={() => setAiProviderDraft("gemini")}
+                  palette={palette}
+                />
+                <PreferencePill
+                  active={aiProviderDraft === "infer"}
+                  label={copy.meScreen.aiProviderInfer}
+                  onPress={() => setAiProviderDraft("infer")}
+                  palette={palette}
+                />
+              </View>
+            </View>
+
+            {aiProviderDraft === "openai" && (
+              <ApiKeyField
+                hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
+                isVisible={isOpenAiKeyVisible}
+                label={copy.meScreen.apiKeyLabel}
+                onChangeText={setApiKeyDraft}
+                onToggleVisibility={() => {
+                  setIsOpenAiKeyVisible((current) => !current);
+                }}
+                palette={palette}
+                placeholder={copy.meScreen.apiKeyPlaceholder}
+                testID="profile-openai-key-input"
+                toggleTestID="profile-openai-key-toggle"
+                value={apiKeyDraft}
+                visibleAccessibilityLabel={copy.meScreen.showApiKey}
+              />
+            )}
+
+            {aiProviderDraft === "gemini" && isGeminiOAuth && (
+              <View style={styles.fieldBlock}>
+                <View style={styles.oauthStatusRow}>
+                  <View style={[styles.oauthDot, { backgroundColor: palette.accent }]} />
+                  <Text style={[styles.oauthStatusText, { color: palette.accent }]}>
+                    {copy.meScreen.geminiOAuthConnected}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    void disconnectGoogleOAuth();
+                  }}
+                  style={[
+                    styles.actionButton,
+                    {
+                      backgroundColor: palette.paperMuted,
+                      borderColor: palette.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.secondaryActionLabel, { color: palette.ink }]}>
+                    {copy.meScreen.geminiOAuthDisconnect}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {aiProviderDraft === "gemini" && !isGeminiOAuth && (
+              <View style={styles.fieldBlock}>
+                <ApiKeyField
+                  hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
+                  isVisible={isGeminiKeyVisible}
+                  label={copy.meScreen.apiGeminiKeyLabel}
+                  onChangeText={setGeminiKeyDraft}
+                  onToggleVisibility={() => {
+                    setIsGeminiKeyVisible((current) => !current);
+                  }}
+                  palette={palette}
+                  placeholder={copy.meScreen.apiGeminiKeyPlaceholder}
+                  testID="profile-gemini-key-input"
+                  toggleTestID="profile-gemini-key-toggle"
+                  value={geminiKeyDraft}
+                  visibleAccessibilityLabel={copy.meScreen.showApiKey}
+                />
+                <View style={styles.oauthDivider}>
+                  <View style={[styles.oauthDividerLine, { backgroundColor: palette.border }]} />
+                  <Text style={[styles.oauthDividerText, { color: palette.inkMuted }]}>
+                    {copy.meScreen.geminiOAuthOrLabel}
+                  </Text>
+                  <View style={[styles.oauthDividerLine, { backgroundColor: palette.border }]} />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!googleRequest || isGoogleConnecting}
+                  onPress={() => {
+                    void promptGoogleAsync();
+                  }}
+                  style={[
+                    styles.googleConnectButton,
+                    {
+                      backgroundColor: palette.paperMuted,
+                      borderColor: palette.border,
+                      opacity: !googleRequest || isGoogleConnecting ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.googleConnectLabel, { color: palette.ink }]}>
+                    {isGoogleConnecting ? copy.meScreen.geminiOAuthConnecting : copy.login.googleButton}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.googleConnectHint, { color: palette.inkMuted }]}>
+                  {copy.login.googleHint}
                 </Text>
               </View>
+            )}
+
+            {aiProviderDraft === "infer" && (
+              <>
+                <View style={styles.fieldBlock}>
+                  <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+                    {copy.meScreen.apiInferBaseUrlLabel}
+                  </Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={setInferBaseUrlDraft}
+                    placeholder={copy.meScreen.apiInferBaseUrlPlaceholder}
+                    placeholderTextColor={palette.inkMuted}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: palette.paperMuted,
+                        borderColor: palette.border,
+                        color: palette.ink,
+                      },
+                    ]}
+                    testID="profile-infer-base-url-input"
+                    value={inferBaseUrlDraft}
+                  />
+                </View>
+                <View style={styles.fieldBlock}>
+                  <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
+                    {copy.meScreen.apiInferModelLabel}
+                  </Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={setInferModelDraft}
+                    placeholder={copy.meScreen.apiInferModelPlaceholder}
+                    placeholderTextColor={palette.inkMuted}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: palette.paperMuted,
+                        borderColor: palette.border,
+                        color: palette.ink,
+                      },
+                    ]}
+                    testID="profile-infer-model-input"
+                    value={inferModelDraft}
+                  />
+                </View>
+                <ApiKeyField
+                  hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
+                  isVisible={isInferKeyVisible}
+                  label={copy.meScreen.apiInferKeyLabel}
+                  onChangeText={setInferKeyDraft}
+                  onToggleVisibility={() => {
+                    setIsInferKeyVisible((current) => !current);
+                  }}
+                  palette={palette}
+                  placeholder={copy.meScreen.apiInferKeyPlaceholder}
+                  testID="profile-infer-key-input"
+                  toggleTestID="profile-infer-key-toggle"
+                  value={inferKeyDraft}
+                  visibleAccessibilityLabel={copy.meScreen.showApiKey}
+                />
+              </>
+            )}
+
+            <View style={styles.optionRow}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
-                  void disconnectGoogleOAuth();
+                  void saveAiSettings();
+                }}
+                style={[
+                  styles.actionButton,
+                  {
+                    backgroundColor: primaryButton.background,
+                    borderColor: primaryButton.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.actionButtonLabel,
+                    { color: primaryButton.text },
+                  ]}
+                >
+                  {copy.meScreen.apiSave}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  void clearActiveApiKey();
                 }}
                 style={[
                   styles.actionButton,
@@ -628,170 +802,15 @@ export function ProfileScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.secondaryActionLabel, { color: palette.ink }]}>
-                  {copy.meScreen.geminiOAuthDisconnect}
+                <Text
+                  style={[styles.secondaryActionLabel, { color: palette.ink }]}
+                >
+                  {copy.meScreen.apiClear}
                 </Text>
               </Pressable>
             </View>
-          )}
-
-          {aiProviderDraft === "gemini" && !isGeminiOAuth && (
-            <View style={styles.fieldBlock}>
-              <ApiKeyField
-                hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
-                isVisible={isGeminiKeyVisible}
-                label={copy.meScreen.apiGeminiKeyLabel}
-                onChangeText={setGeminiKeyDraft}
-                onToggleVisibility={() => {
-                  setIsGeminiKeyVisible((current) => !current);
-                }}
-                palette={palette}
-                placeholder={copy.meScreen.apiGeminiKeyPlaceholder}
-                testID="profile-gemini-key-input"
-                toggleTestID="profile-gemini-key-toggle"
-                value={geminiKeyDraft}
-                visibleAccessibilityLabel={copy.meScreen.showApiKey}
-              />
-              <View style={styles.oauthDivider}>
-                <View style={[styles.oauthDividerLine, { backgroundColor: palette.border }]} />
-                <Text style={[styles.oauthDividerText, { color: palette.inkMuted }]}>
-                  {copy.meScreen.geminiOAuthOrLabel}
-                </Text>
-                <View style={[styles.oauthDividerLine, { backgroundColor: palette.border }]} />
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!googleRequest || isGoogleConnecting}
-                onPress={() => {
-                  void promptGoogleAsync();
-                }}
-                style={[
-                  styles.googleConnectButton,
-                  {
-                    backgroundColor: palette.paperMuted,
-                    borderColor: palette.border,
-                    opacity: !googleRequest || isGoogleConnecting ? 0.6 : 1,
-                  },
-                ]}
-              >
-                <Text style={[styles.googleConnectLabel, { color: palette.ink }]}>
-                  {isGoogleConnecting ? copy.meScreen.geminiOAuthConnecting : copy.login.googleButton}
-                </Text>
-              </Pressable>
-              <Text style={[styles.googleConnectHint, { color: palette.inkMuted }]}>
-                {copy.login.googleHint}
-              </Text>
-            </View>
-          )}
-
-          {aiProviderDraft === "infer" && (
-            <>
-              <View style={styles.fieldBlock}>
-                <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
-                  {copy.meScreen.apiInferBaseUrlLabel}
-                </Text>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onChangeText={setInferBaseUrlDraft}
-                  placeholder={copy.meScreen.apiInferBaseUrlPlaceholder}
-                  placeholderTextColor={palette.inkMuted}
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: palette.paperMuted,
-                      borderColor: palette.border,
-                      color: palette.ink,
-                    },
-                  ]}
-                  testID="profile-infer-base-url-input"
-                  value={inferBaseUrlDraft}
-                />
-              </View>
-              <View style={styles.fieldBlock}>
-                <Text style={[styles.fieldLabel, { color: palette.inkMuted }]}>
-                  {copy.meScreen.apiInferModelLabel}
-                </Text>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onChangeText={setInferModelDraft}
-                  placeholder={copy.meScreen.apiInferModelPlaceholder}
-                  placeholderTextColor={palette.inkMuted}
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: palette.paperMuted,
-                      borderColor: palette.border,
-                      color: palette.ink,
-                    },
-                  ]}
-                  testID="profile-infer-model-input"
-                  value={inferModelDraft}
-                />
-              </View>
-              <ApiKeyField
-                hiddenAccessibilityLabel={copy.meScreen.hideApiKey}
-                isVisible={isInferKeyVisible}
-                label={copy.meScreen.apiInferKeyLabel}
-                onChangeText={setInferKeyDraft}
-                onToggleVisibility={() => {
-                  setIsInferKeyVisible((current) => !current);
-                }}
-                palette={palette}
-                placeholder={copy.meScreen.apiInferKeyPlaceholder}
-                testID="profile-infer-key-input"
-                toggleTestID="profile-infer-key-toggle"
-                value={inferKeyDraft}
-                visibleAccessibilityLabel={copy.meScreen.showApiKey}
-              />
-            </>
-          )}
-
-          <View style={styles.optionRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                void saveAiSettings();
-              }}
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: palette.ink,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.actionButtonLabel,
-                  { color: palette.inkOnAccent },
-                ]}
-              >
-                {copy.meScreen.apiSave}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                void clearActiveApiKey();
-              }}
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: palette.paperMuted,
-                  borderColor: palette.border,
-                },
-              ]}
-            >
-              <Text
-                style={[styles.secondaryActionLabel, { color: palette.ink }]}
-              >
-                {copy.meScreen.apiClear}
-              </Text>
-            </Pressable>
-          </View>
-        </SectionCard>
+          </SectionCard>
+        ) : null}
 
         <SectionCard
           eyebrow={copy.meScreen.storageEyebrow}
@@ -809,8 +828,8 @@ export function ProfileScreen() {
                   {
                     color:
                       databaseImportMessage.tone === "error"
-                        ? palette.destructive
-                        : palette.accent,
+                        ? errorFeedback.text
+                        : successFeedback.text,
                   },
                 ]}
               >
@@ -861,7 +880,10 @@ export function ProfileScreen() {
               style={[
                 styles.actionButton,
                 {
-                  backgroundColor: palette.ink,
+                  backgroundColor: isImportingDatabase
+                    ? primaryButton.disabledBackground
+                    : primaryButton.background,
+                  borderColor: primaryButton.border,
                   opacity: isImportingDatabase ? 0.7 : 1,
                 },
               ]}
@@ -869,7 +891,11 @@ export function ProfileScreen() {
               <Text
                 style={[
                   styles.actionButtonLabel,
-                  { color: palette.inkOnAccent },
+                  {
+                    color: isImportingDatabase
+                      ? primaryButton.disabledText
+                      : primaryButton.text,
+                  },
                 ]}
               >
                 {isImportingDatabase
@@ -948,7 +974,10 @@ export function ProfileScreen() {
             }}
             style={[
               styles.logoutButton,
-              { backgroundColor: palette.destructive },
+              {
+                backgroundColor: destructiveButton.background,
+                borderColor: destructiveButton.border,
+              },
             ]}
           >
             <Text
@@ -1003,8 +1032,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   hero: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "rgba(0, 32, 69, 0.08)",
     borderRadius: 18,
     borderWidth: 1,
     gap: 8,
@@ -1041,6 +1068,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     alignItems: "center",
+    borderWidth: 1,
     borderRadius: 14,
     justifyContent: "center",
     marginTop: 8,

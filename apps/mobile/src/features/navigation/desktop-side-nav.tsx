@@ -5,6 +5,7 @@ import { AppIcon, type AppIconName } from "../../components/app-icon";
 import { CfoAvatar } from "../../components/cfo-avatar";
 import { SIDEBAR_WIDTH } from "../../hooks/use-responsive";
 import { useAppShell } from "../app-shell/provider";
+import { getNavigationTheme } from "../app-shell/theme-utils";
 import { buildTabScreenSpecs } from "./tab-config";
 
 const routeMap: Record<string, string> = {
@@ -18,6 +19,7 @@ export function DesktopSideNav() {
   const pathname = usePathname();
   const { copy, palette } = useAppShell();
   const tabs = buildTabScreenSpecs(copy);
+  const navigationTheme = getNavigationTheme(palette);
 
   const activeTab = pathname.startsWith("/ledger")
     ? "ledger"
@@ -32,7 +34,7 @@ export function DesktopSideNav() {
         <Text style={[styles.brandLabel, { color: palette.ink }]}>{copy.common.appName}</Text>
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: navigationTheme.sidebarDivider }]} />
 
       <View style={styles.navItems}>
         {tabs.map((tab) => {
@@ -47,9 +49,9 @@ export function DesktopSideNav() {
                 styles.navItem,
                 {
                   backgroundColor: isActive
-                    ? "rgba(0, 32, 69, 0.06)"
+                    ? navigationTheme.tabIndicatorBackground
                     : pressed
-                      ? "rgba(0, 32, 69, 0.03)"
+                      ? navigationTheme.pressedBackground
                       : "transparent",
                 },
               ]}
@@ -95,7 +97,6 @@ const styles = StyleSheet.create({
     width: SIDEBAR_WIDTH,
   },
   divider: {
-    backgroundColor: "rgba(0, 32, 69, 0.08)",
     height: StyleSheet.hairlineWidth,
     marginHorizontal: 18,
     marginVertical: 12,
