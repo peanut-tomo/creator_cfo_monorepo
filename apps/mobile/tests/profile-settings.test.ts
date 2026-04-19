@@ -236,6 +236,40 @@ describe("planner sourceProfileInfo", () => {
 });
 
 describe("infer provider routing", () => {
+  it("falls back to Infer for planner calls when OpenAI key is missing", async () => {
+    delete process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+    const storageMock = await import("../src/features/app-shell/storage");
+    vi.mocked(storageMock.loadPersistedInferApiKey).mockResolvedValue("infer-key-123");
+    vi.mocked(storageMock.loadPersistedInferBaseUrl).mockResolvedValue("https://infer.example.com/v1");
+    vi.mocked(storageMock.loadPersistedInferModel).mockResolvedValue("claude-haiku-4-5");
+
+    let capturedUrl = "";
+    let capturedBody: Record<string, unknown> | null = null;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(String(init?.body));
+        return new Response(
+          JSON.stringify({ output_text: buildPlannerResponse() }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        );
+      }),
+    );
+
+    const result = await planEvidenceDbUpdates({
+      evidenceId: "ev-1",
+      fileName: "receipt.pdf",
+      mimeType: "application/pdf",
+      rawJson: { total: 50 },
+    });
+
+    expect(capturedUrl).toContain("https://infer.example.com/v1");
+    expect(capturedBody).not.toBeNull();
+    expect(result.summary).toBe("One expense record.");
+  });
+
   it("routes planner call through Infer base URL when ai_provider is infer", async () => {
     const storageMock = await import("../src/features/app-shell/storage");
     vi.mocked(storageMock.loadPersistedAiProvider).mockResolvedValue("infer");

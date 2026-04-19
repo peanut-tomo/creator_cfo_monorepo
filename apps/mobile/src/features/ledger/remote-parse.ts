@@ -36,7 +36,7 @@ export async function planEvidenceDbUpdates(input: {
   profileInfo?: { name: string; email: string; phone: string };
   rawJson: unknown;
 }): Promise<ReceiptPlannerPayload> {
-  const aiProvider = await loadPersistedAiProvider();
+  const aiProvider = await resolveConfiguredAiProvider(await loadPersistedAiProvider());
 
   const exampleOutput = JSON.stringify({
     businessEvents: ["Receipt payment for subscription service"],
@@ -321,13 +321,41 @@ export function buildFallbackModelListForTests(provider: AiProvider, model: stri
   return getFallbackModels(provider, model);
 }
 
+async function resolveConfiguredAiProvider(preferredProvider: AiProvider): Promise<AiProvider> {
+  if (preferredProvider !== "openai") {
+    return preferredProvider;
+  }
+
+  const openAiApiKey = (
+    (await loadPersistedOpenAiApiKey().catch(() => "")) ||
+    (process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? "")
+  ).trim();
+
+  if (openAiApiKey) {
+    return "openai";
+  }
+
+  const [inferApiKey, inferBaseUrl] = await Promise.all([
+    loadPersistedInferApiKey().catch(() => ""),
+    loadPersistedInferBaseUrl().catch(() => ""),
+  ]);
+
+  if (inferApiKey.trim() && inferBaseUrl.trim()) {
+    return "infer";
+  }
+
+  return "openai";
+}
+
 export async function parseFileWithOpenAi(input: {
   fileName: string;
   fileUri: string;
   mimeType: string | null;
 }): Promise<ParseResult> {
+  let aiProvider: AiProvider = "openai";
+
   try {
-    const aiProvider = await loadPersistedAiProvider();
+    aiProvider = await resolveConfiguredAiProvider(await loadPersistedAiProvider());
     const mimeType = input.mimeType ?? inferMimeType(input.fileName);
     const base64 = await readNativeFileAsBase64(input.fileUri);
 
@@ -341,7 +369,6 @@ export async function parseFileWithOpenAi(input: {
     const filePart = createInputFilePart({ base64, fileName: input.fileName, mimeType });
     return await callOpenAiParseApi(settings, filePart, input.fileName, mimeType, aiProvider);
   } catch (error) {
-    const aiProvider = await loadPersistedAiProvider().catch(() => "openai" as AiProvider);
     return {
       rawJson: null,
       rawText: "",
@@ -357,8 +384,10 @@ export async function parseFileWithOpenAiFromBlob(input: {
   blob: Blob;
   mimeType: string | null;
 }): Promise<ParseResult> {
+  let aiProvider: AiProvider = "openai";
+
   try {
-    const aiProvider = await loadPersistedAiProvider();
+    aiProvider = await resolveConfiguredAiProvider(await loadPersistedAiProvider());
     const mimeType = input.mimeType ?? input.blob.type ?? inferMimeType(input.fileName);
     const base64 = await blobToBase64(input.blob);
 
@@ -372,7 +401,6 @@ export async function parseFileWithOpenAiFromBlob(input: {
     const filePart = createInputFilePart({ base64, fileName: input.fileName, mimeType });
     return await callOpenAiParseApi(settings, filePart, input.fileName, mimeType, aiProvider);
   } catch (error) {
-    const aiProvider = await loadPersistedAiProvider().catch(() => "openai" as AiProvider);
     return {
       rawJson: null,
       rawText: "",

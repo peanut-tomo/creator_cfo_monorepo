@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../src/features/app-shell/storage", () => ({
   loadPersistedAiProvider: vi.fn(async () => "openai"),
   loadPersistedGeminiApiKey: vi.fn(async () => ""),
+  loadPersistedInferApiKey: vi.fn(async () => ""),
+  loadPersistedInferBaseUrl: vi.fn(async () => ""),
+  loadPersistedInferModel: vi.fn(async () => ""),
   loadPersistedOpenAiApiKey: vi.fn(async () => ""),
 }));
 
@@ -358,5 +361,45 @@ describe("remote parse client", () => {
 
     expect(result.error).toContain("Missing OpenAI API key");
     expect(result.rawJson).toBeNull();
+  });
+
+  it("falls back to Infer when OpenAI is selected but only Infer is configured", async () => {
+    delete process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+    const storageMock = await import("../src/features/app-shell/storage");
+    vi.mocked(storageMock.loadPersistedInferApiKey).mockResolvedValue("infer-key-123");
+    vi.mocked(storageMock.loadPersistedInferBaseUrl).mockResolvedValue("https://infer.example.com/v1");
+    vi.mocked(storageMock.loadPersistedInferModel).mockResolvedValue("claude-haiku-4-5");
+
+    const parsePayload = createParsePayload({ model: "claude-haiku-4-5" });
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(String(url)).toBe("https://infer.example.com/v1/responses");
+      expect(init?.headers).toMatchObject({
+        Authorization: "Bearer infer-key-123",
+        "Content-Type": "application/json",
+      });
+
+      return new Response(
+        JSON.stringify({
+          output_text: JSON.stringify(parsePayload),
+        }),
+        {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await parseFileWithOpenAiFromBlob({
+      blob: new Blob(["pdf-bytes"], { type: "application/pdf" }),
+      fileName: "receipt.pdf",
+      mimeType: "application/pdf",
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.parserKind).toBe("openai_gpt");
+    expect(result.model).toBe("claude-haiku-4-5");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
